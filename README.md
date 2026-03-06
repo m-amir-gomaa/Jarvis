@@ -18,12 +18,20 @@ Jarvis is designed for high performance on limited hardware (i7-1165G7). To achi
 
 ## ✨ Key Features
 
-- **3nd-Layer Knowledge Architecture**: Optimized RAG system with foundational training in Python, Rust, Nix, and Lua.
-- **Self-Evolution & Identity**: Jarvis is self-aware, knows his version, and autonomously implements missing features via evolution loops.
+- **3nd-Layer Knowledge Architecture**: Optimized- [x] **RAM-Aware Prefetching**: Predictively loads AI models into RAM based on your activity (Stage 2).
+- [x] **Self-Heal Daemon**: Monitors and auto-restarts failed Jarvis services (Stage 3).
+- [x] **Auto-Doc Syncer**: Automatically keeps documentation in sync with code changes (Stage 3).
 - **Specialized Config Modes**: Dedicated `jarvis config nvim` and `jarvis config nixos` workflows for expert system management.
 - **Safety & Personalization**: High-risk operation confirmations and long-term user profile memory.
 - **TUI Dashboard**: High-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring and **precise task labeling**.
 - **Performance Metrics**: Every response now includes a **duration timestamp** (e.g., "Response took 1.45s") for performance tracking.
+
+## Detailed Documentation
+
+For deep dives into specific components, see:
+- 🧩 **[Neovim Plugin](docs/NEOVIM_PLUGIN.md)**: Logic, commands, and UI.
+- ⚙️ **[Coding Agent](docs/CODING_AGENT.md)**: Backend architecture and API.
+- 🗺️ **[Optimization Roadmap](docs/OPTIMIZATION_ROADMAP.md)**: Project history and future stages.
 
 ---
 
@@ -50,10 +58,20 @@ jarvis "clean this pdf for notebooklm"
 jarvis query "How does the indexing pipeline work?"
 ```
 
-### 3. Documentation
-- **User Manual**: Run `jarvis man` in your terminal.
-- **System Architecture**: Consult the [Architecture Diagram & UML](./docs/system_architecture.md) for a technical breakdown.
-- **Specs & Roadmap**: Consult the [Merged Specs](./docs/JARVIS_Specs_and_Roadmap_Final_Merged.md) for deep technical details.
+### 3. API Endpoints
+Jarvis exposes a lightweight HTTP API for programmatic interaction. All endpoints are accessible via `curl` or any HTTP client:
+
+| Endpoint         | Description                                                                 |
+|------------------|-----------------------------------------------------------------------------|
+| **`/chat`**      | Natural language tasking with LLMs (e.g., `curl -X POST http://localhost:8000/chat -d '{"query": "explain Rust lifetimes"}'`) |
+| **`/fix`**       | Code fix suggestions (e.g., `curl -X POST http://localhost:8000/fix -d '{"code": "fn main() { println!(); }"}`) |
+| **`/explain`**   | Detailed explanation of code or concepts (e.g., `curl -X POST http://localhost:8000/explain -d '{"topic": "Rust ownership model"}'`) |
+| **`/index`**     | Index codebases or documents for RAG (e.g., `curl -X POST http://localhost:8000/index -d '{"path": "/home/user/codebase"}`) |
+| **`/cancel`**    | Cancel ongoing tasks or processes                                             |
+| **`/analyze_error`** | Analyze and suggest fixes for errors in code or logs                     |
+| **`/summarize_git`** | Generate a summary of Git history and changes                             |
+| **`/research_manual`** | Manual research mode for deep-dive analysis                             |
+| **`/prefetch`**  | Prefetch data or resources for upcoming tasks                                |
 
 ---
 

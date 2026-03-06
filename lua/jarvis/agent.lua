@@ -14,18 +14,58 @@ local function with_spinner(label, fn)
 end
 
 -- Helper: write response to a new scratch buffer
+local last_request_id = nil
+
 local function open_response_buf(title, content)
   vim.schedule(function()
-    local buf = vim.api.nvim_create_buf(false, true)
+    -- Check if buffer already exists by name
+    local buf_exists = vim.fn.bufexists(title) ~= 0
+    local buf
+    
+    if buf_exists then
+      buf = vim.fn.bufnr(title)
+    else
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_name(buf, title)
+    end
+    
     vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
     vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
-    vim.api.nvim_buf_set_name(buf, title)
+    
     local lines = vim.split(content, "\n", { plain = true })
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    vim.cmd("botright split")
-    vim.api.nvim_win_set_buf(0, buf)
-    vim.api.nvim_win_set_height(0, 15)
+    
+    -- Only split if the buffer isn't already visible in a window
+    local win = vim.fn.bufwinid(buf)
+    if win == -1 then
+      vim.cmd("botright split")
+      vim.api.nvim_win_set_buf(0, buf)
+      vim.api.nvim_win_set_height(0, 15)
+    end
   end)
+end
+
+-- /cancel — cancel the latest long-running task
+function M.cancel()
+  if not last_request_id then
+    vim.notify("Jarvis: no active task to cancel", vim.log.levels.WARN)
+    return
+  end
+  
+  curl.post(server .. "/cancel", {
+    headers = { ["Content-Type"] = "application/json" },
+    body = vim.fn.json_encode({ task_id = last_request_id }),
+    callback = function(res)
+      vim.schedule(function()
+        if res and res.status == 200 then
+          vim.notify("Jarvis: task cancelled ✓", vim.log.levels.INFO)
+          last_request_id = nil
+        else
+          vim.notify("Jarvis: cancel failed (already done?)", vim.log.levels.WARN)
+        end
+      end)
+    end,
+  })
 end
 
 -- Get current visual selection or whole buffer
@@ -50,10 +90,13 @@ function M.chat()
     if not query or query == "" then return end
 
     with_spinner("thinking (RAG chat)", function()
+      local task_id = "chat_" .. os.time()
+      last_request_id = task_id
       curl.post(server .. "/chat", {
         headers = { ["Content-Type"] = "application/json" },
-        body = vim.fn.json_encode({ query = query }),
+        body = vim.fn.json_encode({ query = query, task_id = task_id }),
         callback = function(res)
+          if last_request_id == task_id then last_request_id = nil end
           if res and res.status == 200 then
             local data = vim.fn.json_decode(res.body)
             open_response_buf("Jarvis Chat", data.response or "(no response)")
@@ -90,10 +133,13 @@ function M.fix()
   )
 
   with_spinner("thinking (fix loop 3-90s)", function()
+    local task_id = "fix_" .. os.time()
+    last_request_id = task_id
     curl.post(server .. "/fix", {
       headers = { ["Content-Type"] = "application/json" },
-      body = vim.fn.json_encode({ task = "fix", prompt = prompt, max_retries = 3 }),
+      body = vim.fn.json_encode({ task = "fix", prompt = prompt, max_retries = 3, task_id = task_id }),
       callback = function(res)
+        if last_request_id == task_id then last_request_id = nil end
         if res and res.status == 200 then
           local data = vim.fn.json_decode(res.body)
           open_response_buf("Jarvis Fix", data.output or data.stderr or "(no output)")
@@ -108,13 +154,142 @@ function M.fix()
 end
 
 -- /explain — explain current selection or buffer
+-- Explain the diagnostic error under the cursor
+function M.explain_error()
+  local line = vim.api.nvim_win_get_cursor(0)[1] - 1
+  local diagnostics = vim.diagnostic.get(0, { lnum = line })
+  
+  if #diagnostics == 0 then
+    vim.notify("Jarvis: no diagnostic at cursor", vim.log.levels.INFO)
+    return
+  end
+  
+  -- Get the first error/warning
+  local diag = diagnostics[1]
+  local error_msg = diag.message
+  local context = table.concat(vim.api.nvim_buf_get_lines(0, line - 2, line + 3, false), "\n")
+  
+  with_spinner("analyzing error", function()
+    curl.post(server .. "/analyze_error", {
+      headers = { ["Content-Type"] = "application/json" },
+      body = vim.fn.json_encode({
+        error = error_msg,
+        context = context,
+        language = vim.bo.filetype
+      }),
+      callback = function(res)
+        vim.schedule(function()
+          if res and res.status == 200 then
+            local data = vim.fn.json_decode(res.body)
+            -- Show as virtual text on the current line
+            local ns = vim.api.nvim_create_namespace("jarvis_lens")
+            vim.api.nvim_buf_clear_namespace(0, ns, 0, -1)
+            vim.api.nvim_buf_set_extmark(0, ns, line, 0, {
+              virt_text = { { "󱐋 " .. data.analysis, "Comment" } },
+              virt_text_pos = "eol",
+            })
+            -- Also show in a notification for clarity
+            vim.notify("Jarvis Fix: " .. data.analysis, vim.log.levels.INFO)
+          end
+        end)
+      end,
+    })
+  end)
+end
+
+-- Generate a semantic commit message for staged changes
+function M.generate_commit()
+  local diff = vim.fn.system("git diff --staged")
+  if diff == "" then
+    vim.notify("Jarvis: no staged changes", vim.log.levels.WARN)
+    return
+  end
+  
+  with_spinner("writing commit message", function()
+    curl.post(server .. "/summarize_git", {
+      headers = { ["Content-Type"] = "application/json" },
+      body = vim.fn.json_encode({ diff = diff }),
+      callback = function(res)
+        vim.schedule(function()
+          if res and res.status == 200 then
+            local data = vim.fn.json_decode(res.body)
+            open_response_buf("Jarvis Commit", data.summary)
+          else
+            vim.notify("Jarvis: git summarize failed", vim.log.levels.ERROR)
+          end
+        end)
+      end,
+    })
+  end)
+end
+
+-- Global Web Research via SearXNG
+function M.search(query)
+  if not query or query == "" then
+    vim.ui.input({ prompt = "Jarvis Search: " }, function(input)
+      if input then M.search(input) end
+    end)
+    return
+  end
+  
+  with_spinner("searching the web", function()
+    curl.post(server .. "/research_manual", {
+      headers = { ["Content-Type"] = "application/json" },
+      body = vim.fn.json_encode({ query = query }),
+      callback = function(res)
+        vim.schedule(function()
+          if res and res.status == 200 then
+            local data = vim.fn.json_decode(res.body)
+            if data.file then
+              vim.cmd("edit " .. data.file)
+              vim.notify("Jarvis Research complete: " .. query, vim.log.levels.INFO)
+            else
+              vim.notify("Jarvis: research failed (no file path)", vim.log.levels.ERROR)
+            end
+          else
+            vim.notify("Jarvis: search service error", vim.log.levels.ERROR)
+          end
+        end)
+      end,
+    })
+  end)
+end
+
+-- Prefetch models to RAM based on context
+local prefetch_lock = {}
+function M.prefetch(alias)
+  if prefetch_lock[alias] then return end
+  prefetch_lock[alias] = true
+  
+  curl.post(server .. "/prefetch", {
+    headers = { ["Content-Type"] = "application/json" },
+    body = vim.fn.json_encode({ model_alias = alias }),
+    callback = function() 
+      vim.defer_fn(function() prefetch_lock[alias] = false end, 60000) -- Unlock after 1 min
+    end
+  })
+end
+
+function M.prefetch_for_buffer()
+  local ft = vim.bo.filetype
+  -- Prime 'chat' (14B) for code-heavy files
+  if ft == "python" or ft == "rust" or ft == "nix" or ft == "lua" or ft == "javascript" then
+    M.prefetch("chat")
+  end
+  -- Prime 'complete' (1.7B) for all files when in insert mode
+  -- (Triggered via autocommand)
+end
+
 function M.explain()
   local code = get_selection()
   with_spinner("explaining", function()
+    local task_id = "explain_" .. os.time()
+    last_request_id = task_id
     curl.post(server .. "/explain", {
       headers = { ["Content-Type"] = "application/json" },
-      body = vim.fn.json_encode({ code = code, language = vim.bo.filetype }),
+      body = vim.fn.json_encode({ code = code, language = vim.bo.filetype, task_id = task_id }),
       callback = function(res)
+        if last_request_id == task_id then last_request_id = nil end
         if res and res.status == 200 then
           local data = vim.fn.json_decode(res.body)
           open_response_buf("Jarvis Explain", data.explanation or "(no response)")

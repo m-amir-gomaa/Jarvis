@@ -24,7 +24,9 @@ import subprocess
 import sys
 import tempfile
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+import signal
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, "/THE_VAULT/jarvis")
@@ -36,6 +38,10 @@ BASE_DIR = Path("/THE_VAULT/jarvis")
 INDEX_DB = BASE_DIR / "index" / "codebase.db"
 USER_CONTEXT = BASE_DIR / "config" / "user_context.md"
 PORT = 7002
+
+# Task tracking for cancellation
+active_tasks = {}  # task_id -> { "process": subprocess.Popen, "start_time": float }
+tasks_lock = threading.Lock()
 
 
 # ── RAG: BM25 + Vector Hybrid ─────────────────────────────────────────────────
@@ -296,8 +302,38 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self._handle_explain(data, t0)
         elif self.path == "/index":
             self._handle_index(data)
+        elif self.path == "/cancel":
+            self._handle_cancel(data)
+        elif self.path == "/analyze_error":
+            self._handle_analyze_error(data, t0)
+        elif self.path == "/summarize_git":
+            self._handle_summarize_git(data, t0)
+        elif self.path == "/research_manual":
+            self._handle_research_manual(data)
+        elif self.path == "/prefetch":
+            self._handle_prefetch(data)
         else:
             self._send_json({"error": "unknown endpoint"}, 404)
+
+
+
+    def _handle_cancel(self, data: dict):
+        task_id = data.get("task_id")
+        if not task_id:
+            self._send_json({"error": "missing task_id"}, 400)
+            return
+
+        with tasks_lock:
+            if task_id in active_tasks:
+                proc = active_tasks[task_id].get("process")
+                if proc:
+                    proc.terminate()
+                    emit("coding_agent", "cancelled", {"task_id": task_id}, level="WARN")
+                del active_tasks[task_id]
+                self._send_json({"status": "cancelled", "task_id": task_id})
+            else:
+                self._send_json({"error": "task not found"}, 404)
+
 
     def _handle_complete(self, data: dict, t0: float):
         """FIM autocomplete. MUST pass suffix= to Ollama for proper FIM behaviour."""
@@ -347,6 +383,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         task = data.get("task", "fix")
         prompt = data.get("prompt", "")
         max_retries = data.get("max_retries", 3)
+        task_id = data.get("task_id", f"fix_{int(t0)}")
 
         # Write prompt to temp file and invoke agent_loop as subprocess
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as tf:
@@ -354,7 +391,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             tf_path = tf.name
 
         try:
-            result = subprocess.run(
+            emit("coding_agent", "starting_fix", {"task_id": task_id, "prompt": prompt[:50] + "..."})
+            proc = subprocess.Popen(
                 [
                     "/THE_VAULT/jarvis/.venv/bin/python",
                     "/THE_VAULT/jarvis/pipelines/agent_loop.py",
@@ -363,23 +401,45 @@ class JarvisHandler(BaseHTTPRequestHandler):
                     "--max-retries", str(max_retries),
                     "--thinking",
                 ],
-                capture_output=True, text=True, timeout=1200,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
                 env={**os.environ, "PYTHONPATH": "/THE_VAULT/jarvis"},
             )
-            emit("coding_agent", "fix", {
-                "task": task,
-                "success": result.returncode == 0,
+            
+            with tasks_lock:
+                active_tasks[task_id] = {"process": proc, "start_time": t0}
+
+            # Wait for process with timeout
+            try:
+                stdout, stderr = proc.communicate(timeout=600)
+                success = proc.returncode == 0
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                stdout, stderr = proc.communicate()
+                success = False
+                emit("coding_agent", "fix_timeout", {"task_id": task_id}, level="ERROR")
+
+            emit("coding_agent", "fix_completed", {
+                "task_id": task_id,
+                "success": success,
                 "latency_ms": int((time.time() - t0) * 1000)
             })
             self._send_json({
-                "output": result.stdout,
-                "stderr": result.stderr,
-                "success": result.returncode == 0
+                "output": stdout,
+                "stderr": stderr,
+                "success": success,
+                "task_id": task_id
             })
-        except subprocess.TimeoutExpired:
-            self._send_json({"error": "agent_loop timed out after 600s"}, 504)
+        except Exception as e:
+            self._send_json({"error": str(e)}, 500)
         finally:
-            os.unlink(tf_path)
+            with tasks_lock:
+                if task_id in active_tasks:
+                    del active_tasks[task_id]
+            if os.path.exists(tf_path):
+                os.unlink(tf_path)
+
 
     def _handle_explain(self, data: dict, t0: float):
         """Explain code without RAG — fast path."""
@@ -401,10 +461,90 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+    def _handle_summarize_git(self, data: dict, t0: float):
+        """Generate a semantic commit message from a git diff."""
+        diff = data.get("diff", "")
+        if not diff:
+            self._send_json({"error": "no diff provided"}, 400)
+            return
+
+        system = "You are a senior engineer. Generate a high-quality, semantic commit message following the Conventional Commits spec. Focus on intent. Max 72 chars per line."
+        messages = [{"role": "user", "content": f"Summarize this git diff into a commit message:\n\n{diff[:5000]}"}]
+        try:
+            response = chat(route("summarize"), messages, system=system, thinking=False)
+            self._send_json({"summary": response})
+            emit("coding_agent", "git_summarize")
+        except OllamaError as e:
+            self._send_json({"error": str(e)}, 503)
+
+    def _handle_analyze_error(self, data: dict, t0: float):
+        """Analyze a compiler error and suggest a fix."""
+        error = data.get("error", "")
+        context = data.get("context", "")
+        language = data.get("language", "")
+        
+        system = f"You are a senior {language} engineer. Explain this error concisely and suggest a one-line fix."
+        prompt = f"Error: {error}\n\nContext:\n```{language}\n{context}\n```"
+        messages = [{"role": "user", "content": prompt}]
+        
+        try:
+            response = chat(route("chat"), messages, system=system, thinking=False)
+            self._send_json({"analysis": response})
+            emit("coding_agent", "analyze_error")
+        except OllamaError as e:
+            self._send_json({"error": str(e)}, 503)
+
+    def _handle_research_manual(self, data: dict):
+        """Invoke research_agent.py for a quick web search."""
+        query = data.get("query", "")
+        if not query:
+            self._send_json({"error": "no query provided"}, 400)
+            return
+
+        try:
+            # Run research_agent.py with 3 sources for speed
+            result = subprocess.run(
+                [
+                    "/THE_VAULT/jarvis/.venv/bin/python",
+                    "/home/qwerty/NixOSenv/Jarvis/pipelines/research_agent.py",
+                    "--query", query,
+                    "--sources", "3"
+                ],
+                capture_output=True, text=True, timeout=300,
+                env={**os.environ, "PYTHONPATH": "/home/qwerty/NixOSenv/Jarvis"},
+            )
+            
+            # Extract path from stderr or stdout where research_agent logs it
+            # The research_agent.py prints "Saved to: /path/to/file.md"
+            import re
+            match = re.search(r"Saved to: (/[^ \n]+)", result.stdout)
+            file_path = match.group(1) if match else None
+
+            emit("coding_agent", "research_manual", {"query": query, "file": file_path})
+            self._send_json({"status": "research_completed", "query": query, "file": file_path})
+
+        except Exception as e:
+            self._send_json({"error": str(e)}, 500)
+
+    def _handle_prefetch(self, data: dict):
+        """Prefetch a model into memory."""
+        alias = data.get("model_alias", "chat")
+        model = route(alias)
+        try:
+            # Load model by sending a minimal prompt with keep_alive
+            # This is non-blocking in the sense that we don't wait for a long response
+            chat(model, [{"role": "user", "content": "hi"}], system="You are a prefetcher. Repl with 'OK' only.", thinking=False)
+            emit("coding_agent", "prefetch", {"model": model})
+            self._send_json({"status": "prefetched", "model": model})
+        except Exception as e:
+            self._send_json({"error": str(e)}, 500)
+
 def main():
-    print(f"[Coding Agent] Starting on http://localhost:{PORT}")
+
+
+    print(f"[Coding Agent] Starting multi-threaded on http://localhost:{PORT}")
     emit("coding_agent", "started", {"port": PORT})
-    server = HTTPServer(("localhost", PORT), JarvisHandler)
+    server = ThreadingHTTPServer(("localhost", PORT), JarvisHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
