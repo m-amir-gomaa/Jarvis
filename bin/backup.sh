@@ -14,9 +14,8 @@ set -e
 # Configuration
 CODE_DIR="/home/qwerty/NixOSenv/Jarvis"
 VAULT_DIR="/THE_VAULT/jarvis"
-BACKUP_ROOT="/home/qwerty/Backups/Jarvis"
-SYNC_DEST="$(dirname "$VAULT_DIR")/JarvisData"
-HDD_DEST="/THE_VAULT/JarvisRedundant"
+SSD_BACKUP_ROOT="/home/qwerty/Backups/Jarvis"
+HDD_BACKUP_ROOT="/THE_VAULT/JarvisBackups"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
 MODE="sync"
@@ -41,10 +40,10 @@ echo "  Timestamp: $TIMESTAMP"
 echo "────────────────────────────────────────────"
 
 if [ "$MODE" == "sync" ]; then
-    for DEST in "$SYNC_DEST" "$HDD_DEST"; do
-        echo "[*] Syncing to: $DEST"
-        BACKUP_CODE="$DEST/code"
-        BACKUP_DATA="$DEST/data"
+    for DEST_ROOT in "$SSD_BACKUP_ROOT" "$HDD_BACKUP_ROOT"; do
+        echo "[*] Syncing to: $DEST_ROOT"
+        BACKUP_CODE="$DEST_ROOT/JarvisData/code"
+        BACKUP_DATA="$DEST_ROOT/JarvisData/data"
 
         mkdir -p "$BACKUP_CODE" "$BACKUP_DATA"
 
@@ -61,14 +60,16 @@ if [ "$MODE" == "sync" ]; then
     done
 
     echo "────────────────────────────────────────────"
-    echo "  Backup complete → $SYNC_DEST & $HDD_DEST"
+    echo "  Backup complete → SSD & HDD"
     echo "────────────────────────────────────────────"
 
 else
     # Archive Mode
     ARCHIVE_NAME="jarvis_backup_$TIMESTAMP.tar.gz"
-    DEST_PATH="$BACKUP_ROOT/$ARCHIVE_NAME"
-    mkdir -p "$BACKUP_ROOT" "$HDD_DEST"
+    SSD_PATH="$SSD_BACKUP_ROOT/$ARCHIVE_NAME"
+    HDD_PATH="$HDD_BACKUP_ROOT/$ARCHIVE_NAME"
+    
+    mkdir -p "$SSD_BACKUP_ROOT" "$HDD_BACKUP_ROOT"
 
     STAGING_DIR=$(mktemp -d)
     trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -81,17 +82,17 @@ else
         rsync -a "${EXCLUDES[@]}" "$VAULT_DIR/" "$STAGING_DIR/vault/"
     fi
 
-    echo "[*] Compressing archive..."
-    tar -czf "$DEST_PATH" -C "$STAGING_DIR" .
+    echo "[*] Compressing archive to SSD..."
+    tar -czf "$SSD_PATH" -C "$STAGING_DIR" .
 
     echo "[*] Copying redundant archive to HDD..."
-    cp "$DEST_PATH" "$HDD_DEST/"
+    cp "$SSD_PATH" "$HDD_PATH"
 
-    SIZE=$(du -h "$DEST_PATH" | cut -f1)
+    SIZE=$(du -h "$SSD_PATH" | cut -f1)
 
-    echo "[+] Done! Jarvis archived successfully (Primary + Redundant)."
-    echo "    File (Primary): $DEST_PATH"
-    echo "    File (Redundant): $HDD_DEST/$ARCHIVE_NAME"
+    echo "[+] Done! Jarvis archived successfully (SSD + HDD)."
+    echo "    File (SSD): $SSD_PATH"
+    echo "    File (HDD): $HDD_PATH"
     echo "    Size: $SIZE"
     echo ""
     echo "To restore Jarvis:"
