@@ -437,6 +437,8 @@ Subcommands:
   resume           Resume Ollama (SIGCONT)
   thumbs-up        Rate last command positively
   thumbs-down      Rate last command negatively
+  knowledge summary Show high-level view of trained languages
+  training         Check language competency and material coverage
   help             Show this help
   --version        Show version
 
@@ -554,7 +556,6 @@ def main():
         km = KnowledgeManager()
         if len(sys.argv) > 2 and sys.argv[2] == "list":
             print("[Jarvis] 3-Layer Knowledge Base Entries:")
-            with km.db_path.open() as f: pass # Ensure DB exists
             import sqlite3
             with sqlite3.connect(km.db_path) as conn:
                 conn.row_factory = sqlite3.Row
@@ -564,8 +565,50 @@ def main():
                 for r in rows:
                     cat = r['category'] or "None"
                     print(f"  {r['layer']:<8} {cat:<20} {r['count']}")
+        elif len(sys.argv) > 2 and sys.argv[2] == "summary":
+            print("[Jarvis] Knowledge Summary (Trained Materials):")
+            import sqlite3
+            with sqlite3.connect(km.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                # Group by base category (e.g., 'python' for 'python_core', 'python_docs')
+                rows = conn.execute("""
+                    SELECT 
+                        CASE 
+                            WHEN category LIKE '%_core' THEN REPLACE(category, '_core', '')
+                            WHEN category LIKE '%_docs' THEN REPLACE(category, '_docs', '')
+                            WHEN category LIKE '%_theory' THEN REPLACE(category, '_theory', '')
+                            ELSE category 
+                        END AS lang,
+                        GROUP_CONCAT(DISTINCT layer) as layers
+                    FROM chunks 
+                    GROUP BY lang
+                """).fetchall()
+                print(f"  {'Language/Tool':<20} {'Layers Trained'}")
+                print("  " + "-" * 35)
+                for r in rows:
+                    print(f"  {r['lang']:<20} {r['layers']}")
         else:
-            print("Usage: jarvis knowledge list")
+            print("Usage: jarvis knowledge [list|summary]")
+        return
+
+    if command == "training":
+        from lib.knowledge_manager import KnowledgeManager
+        km = KnowledgeManager()
+        print("[Jarvis] Language Competency (Training Status):")
+        import sqlite3
+        with sqlite3.connect(km.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            langs = ["python", "rust", "nix", "javascript"]
+            print(f"  {'Language':<12} {'Layer 1':<10} {'Layer 2':<10} {'Layer 3':<10}")
+            print("  " + "-" * 45)
+            for lang in langs:
+                status = []
+                for layer in [1, 2, 3]:
+                    cat_map = {1: "_core", 2: "_docs", 3: "_theory"}
+                    suffix = cat_map[layer]
+                    count = conn.execute("SELECT COUNT(*) FROM chunks WHERE layer = ? AND category = ?", (layer, lang + suffix)).fetchone()[0]
+                    status.append("✓" if count > 0 else "✗")
+                print(f"  {lang:<12} {status[0]:<10} {status[1]:<10} {status[2]:<10}")
         return
 
     if command == "inbox":

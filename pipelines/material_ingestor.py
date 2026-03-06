@@ -76,8 +76,10 @@ def process_material(file_path):
         return
 
     # 2. Language Detection
-    category = detect_language(file_path)
-    print(f"[Ingestor] Detected category: {category}")
+    base_lang = detect_language(file_path)
+    # Standardized Category for Material Ingestor (Layer 3)
+    category = f"{base_lang}_theory"
+    print(f"[Ingestor] Detected language: {base_lang} -> Category: {category}")
 
     # 3. Indexing
     # We use doc_learner.py to index into Layer 3 (Theory) by default for books/docs
