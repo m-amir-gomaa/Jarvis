@@ -62,6 +62,9 @@ Intents:
 - health_check: check system status
 - pause: pause AI inference
 - resume: resume AI inference
+- identity: answer questions about Jarvis's name, capabilities, version, or role (e.g., "who are you?", "what can you do?")
+- self_improve: attempt to improve Jarvis's own code or documentation (e.g., "improve your help command", "optimize your logic")
+- user_profile: store or retrieve user preferences, personal information, or plans (e.g., "remember that I like X", "what are my plans?")
 - unknown: none of the above
 
 Response format (JSON only, no other text):
@@ -323,9 +326,53 @@ def route_intent(intent: str, args: dict, user_input: str):
         cmd_resume()
         return True
 
+    elif intent == "identity":
+        query = args.get("query", user_input)
+        return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "query_knowledge.py"), query, "--category", "identity"])
+
+    elif intent == "self_improve":
+        query = args.get("query", user_input)
+        print(f"[Jarvis] Entering self-improvement loop for: {query}")
+        return run_pipeline([
+            VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+            "--task", "self_improvement", "--user-prompt", query, "--role", "coding", "--thinking"
+        ], timeout=900)
+
+    elif intent == "user_profile":
+        query = args.get("query", user_input)
+        # Check if this is a "remember" (store) or a "query" (discuss)
+        store_keywords = ["remember", "store", "save", "my preference is", "i like", "i want", "planning to"]
+        is_store = any(k in user_input.lower() for k in store_keywords)
+        
+        if is_store:
+            print(f"[Jarvis] Storing user preference/info: {query}")
+            from lib.knowledge_manager import KnowledgeManager
+            km = KnowledgeManager()
+            km.add_entry(layer=1, content=user_input, category="user_profile", source_title="User Preference", source_url="direct_input")
+            print("Jarvis: I will remember that.")
+            return True
+        else:
+            print(f"[Jarvis] Discussing user profile/plans: {query}")
+            return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "query_knowledge.py"), query, "--category", "user_profile"])
+
     else:
-        # Unknown intent — suggest 3 alternatives via Ollama
-        print(f"Jarvis: I didn't understand '{user_input}'. Thinking of alternatives...")
+        # Unknown intent — first check identity knowledge base for capabilities
+        print(f"Jarvis: I didn't understand '{user_input}'. Searching my capabilities...")
+        try:
+            # Try a RAG query on 'identity' category first
+            # We broaden the search terms for better coverage
+            search_query = user_input
+            if any(w in user_input.lower() for w in ["what", "can", "do", "capability", "function"]):
+                search_query = "capabilities"
+            
+            from pipelines.query_knowledge import query_knowledge
+            if query_knowledge(search_query, category="identity"):
+                return True
+        except Exception as e:
+            print(f"Debug: RAG fallback failed: {e}")
+            pass
+
+        print(f"Jarvis: Still unsure. Thinking of alternatives...")
         try:
             from lib.ollama_client import chat
             from lib.model_router import route
@@ -381,6 +428,23 @@ def main():
 
     user_input = " ".join(sys.argv[1:])
 
+    # 1. Direct Address Handling: Strip "Jarvis," or "Jarvis " prefix
+    name_pattern = re.compile(r'^jarvis[,:\s]+', re.IGNORECASE)
+    if name_pattern.match(user_input):
+        user_input = name_pattern.sub('', user_input).strip()
+        print(f"[Jarvis] Hello! Processing your request: '{user_input}'")
+
+    # 2. Safety Confirmation for High-Risk Intents
+    HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "identity", "self_improve"]
+    
+    # We need to peek at the intent if it's natural language, or check command
+    command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
+    
+    def confirm_action(reason: str):
+        print(f"\n[Jarvis] WARNING: This operation involves {reason}.")
+        choice = input("Confirm execution? [y/N]: ").lower().strip()
+        return choice == 'y'
+
     # Direct commands bypassing NLP intent classifier
     command = sys.argv[1]
     
@@ -427,6 +491,7 @@ def main():
     
     # --- New Explicit Commands ---
     if command == "learn":
+        if not confirm_action("modifying knowledge indexes"): return
         # e.g., jarvis learn URL/FILE [--layer 1] [--category docs]
         cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "doc_learner.py")] + sys.argv[2:]
         env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
@@ -436,6 +501,7 @@ def main():
         return
     
     if command == "index":
+        if not confirm_action("modifying codebase indices"): return
         cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "tools" / "index_workspace.py")] + sys.argv[2:]
         env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
         print(f"[Jarvis] Indexing Codebase for Coding Agent...")
@@ -521,6 +587,18 @@ def main():
     intent = result.get("intent", "unknown")
     args = result.get("args", {})
     print(f"[Jarvis] Intent: {intent}")
+
+    # Risk Assessment
+    if intent in HIGH_RISK_INTENTS:
+        risk_map = {
+            "generate_nix": "modifying NixOS configuration (roles)",
+            "ingest": "modifying knowledge indexes",
+            "identity": "modifying system identity knowledge",
+            "self_improve": "modifying the Jarvis codebase directly"
+        }
+        if not confirm_action(risk_map.get(intent, "modifying system components")):
+            print("Jarvis: Operation cancelled by user.")
+            return
 
     success = route_intent(intent, args, user_input)
     log_history(user_input, intent, "ok" if success else "failed")

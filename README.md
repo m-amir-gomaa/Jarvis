@@ -19,7 +19,10 @@ Jarvis is designed for high performance on limited hardware (i7-1165G7). To achi
 ## ✨ Key Features
 
 - **Hierarchical Knowledge**: A 3-layer RAG system that prioritizes local documentation and theory over generic web noise.
-- **Agentic Loops**: Self-correcting pipelines for NixOS configuration and Python development—if it breaks, Jarvis diagnoses and fixes it.
+- **Identity & Self-Awareness**: Jarvis knows his name, version, and purpose, and can discuss his own capabilities directly in chat.
+- **Safety Confirmations**: High-risk operations (modifying indices or configurations) require explicit user approval (y/N).
+- **Personalization**: Jarvis can store and recall user preferences, project plans, and personal info in a dedicated `user_profile` memory layer.
+- **Agentic Loops**: Self-correcting pipelines for NixOS configuration and Python development—including the ability for Jarvis to autonomously improve his own codebase.
 - **Episodic Memory**: A unified `events.db` that tracks your daily activity, allowing Jarvis to stay contextually aware of your work week.
 - **Research Agent**: Automated technical research using a self-hosted **SearXNG** engine, summarizing findings directly into Markdown.
 - **TUI Dashboard**: A high-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring of service health and inference metrics.
