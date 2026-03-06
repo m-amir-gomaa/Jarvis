@@ -17,62 +17,43 @@ It features a hierarchical 3-Layer Knowledge Architecture that prioritizes local
 .B status
 Displays the health of all Jarvis background services and Ollama models.
 .br
-\fBMechanism:\fR Executes \fCsystemctl --user is-active\fR on the systemd units defined in \fCjarvis.nix\fR (e.g., \fCjarvis-ingest\fR, \fCjarvis-coding-agent\fR) and polls the Ollama REST API (\fChttp://localhost:11434/api/tags\fR) to verify which models are loaded in memory.
+\fBMechanism:\fR Executes \fCsystemctl --user is-active\fR on the systemd units (e.g., \fCjarvis-health-monitor\fR, \fCjarvis-coding-agent\fR) and polls the Ollama REST API to verify loaded models. Note: \fCjarvis-ingest\fR is now deprecated in favor of explicit commands.
 .TP
 .B start / stop
 Starts or stops all background daemon services.
 .br
-\fBMechanism:\fR Wraps \fCsystemctl --user start/stop\fR for the Jarvis targets, transitioning the local orchestrator loops out of or into an inactive state without affecting the global NixOS configuration.
+\fBMechanism:\fR Wraps \fCsystemctl --user start/stop\fR for Jarvis targets.
 .TP
 .B pause / resume
 Temporarily suspends or continues AI inference.
 .br
-\fBMechanism:\fR Identifies the active Ollama inference process (e.g., \fCollama runner\fR) and sends a \fBSIGSTOP\fR (pause) or \fBSIGCONT\fR (resume) POSIX signal. This instantly frees up CPU threads for other compile tasks without losing the context window loaded in RAM.
+\fBMechanism:\fR Sends \fBSIGSTOP\fR or \fBSIGCONT\fR to the Ollama process, freezing memory state while freeing CPU.
 .TP
 .B inbox [process \fIID\fR]
-Manages the queue of recommended documents and books.
+Manages the researcher's queue. If \fBprocess\fR is called with an \fIID\fR, Jarvis retrieves the document and performs an isolated ingestion.
 .br
-\fBMechanism:\fR Queries the \fCinbox\fR table within the SQLite \fCknowledge.db\fR. If \fBprocess\fR is invoked, Jarvis triggers the internal \fCMinerU\fR PDF-to-Markdown extractor. The unstructured PDF is mapped into clean text, mathematically formulated chunks, and stored chronologically in the embedding pipeline.
+\fBMechanism:\fR Queries SQLite \fCknowledge.db\fR. Ingestion creates a unique category (\fCpdf_doc_<ID>\fR) in Layer 3 to prevent domain mixing.
 .TP
 .B learn \fIURL/FILE\fR [--layer \fI1-3\fR] [--category \fINAME\fR]
-Ingests official documentation into the local knowledge base.
+Explicitly ingests a local file (PDF, MD, DOCX) or a URL into the knowledge base.
 .br
-\fBMechanism:\fR
-.br
-1. Analyzes the source: If it's a URL, fetches raw HTML and uses BeautifulSoup to strip boilerplate. If a local file, reads directly.
-.br
-2. Converts raw text to Markdown.
-.br
-3. Splices the Markdown into overlapping semantic chunks (via \fCtools/chunker.py\fR).
-.br
-4. Generates vector embeddings for each chunk using the \fCnomic-embed-text\fR model.
-.br
-5. Inserts the chunks and embeddings into the \fCknowledge.db\fR SQLite database, tagging them with the specified \fB--layer\fR (e.g., Layer 1 for core syntax) and \fB--category\fR (e.g., 'rust', 'nix').
+\fBMechanism:\fR Local PDFs are processed via \fBMinerU\fR (magic-pdf) for high-fidelity markdown extraction before being chunked and embedded into the 3-Layer knowledge store.
 .TP
 .B knowledge [list]
-Inspects the entries currently stored in the 3-Layer Knowledge Base.
-.br
-\fBMechanism:\fR Performs a \fCSELECT\fR query on \fCknowledge.db\fR grouped by Layer and Category, returning a formatted table of all ingested namespaces and their respective chunk counts to verify RAG depth.
+Inspects knowledge base entries grouped by layer and category.
 .TP
-.B index [\fIDIR\fR | list]
-Indexes the codebase at the specified directory for local Episodic Memory context.
+.B index [\fIDIR\fR] --category \fINAME\fR
+Indexes a local codebase for the **Coding Agent**.
 .br
-\fBMechanism:\fR Scans the target directory recursively (respecting \fC.gitignore\fR), tokenizes the source code into BM25 / TF-IDF sparse lexical vectors (via \fCrank_bm25\fR), and caches the index tree to \fCfile_index.json\fR. This allows the Coding Agent to perform sub-10ms keyword lookups of the user's workspace before generating code.
+\fBMechanism:\fR Scans the directory, performs BM25 lexical indexing, and stores the result in Layer 2 (Domain) under the specified category. This allows targeted codebase retrieval.
 .TP
 .B dashboard
-Opens the Rust-based TUI monitor (\fCjarvis-monitor\fR).
-.br
-\fBMechanism:\fR Launches the compiled Rust Ratatui binary located at \fBjarvis-monitor/target/release/jarvis-monitor\fR. The dashboard establishes a live read-only connection to \fClogs/events.db\fR to stream recent agent events and polls \fBsysinfo\fR to graph CPU/Memory usage allocated to local LLMs.
+Opens the recompiled Rust TUI (\fCjarvis-monitor\fR) with optimized contrast for Wayland terminals.
 .TP
 .B thumbs-up / thumbs-down
-Provides feedback on the last executed natural language command.
-.br
-\fBMechanism:\fR Updates the \fCrating\fR column of the most recent entry in \fClogs/events.db\fR. This feedback loop is queried nightly by the Optimizer pipeline to iteratively refine the system prompts.
-.TP
-.B man
-Displays this manual page.
-.br
-\fBMechanism:\fR Executes \fCman jarvis\fR using the system pager.
+Provides feedback for the daily optimizer.
+.SH DETERMINISTIC EXECUTION
+To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
 .SH NATURAL LANGUAGE ROUTING MECHANISM
 When a free-text prompt is provided:
 .IP 1.

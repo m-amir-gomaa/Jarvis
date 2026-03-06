@@ -455,7 +455,7 @@ def main():
             # When processing an inbox item, treat it as a 'learn' layer 3 explicit command with category=inbox_<id> to ensure domain separation
             print(f"[Jarvis] Processing NLP material from inbox ID {item_id}...")
             # Here we just fetch the path from sqlite, then run doc_learner
-            query = f"SELECT path FROM inbox WHERE id = {item_id}"
+            query = f"SELECT url FROM inbox WHERE id = {item_id}"
             path_b = subprocess.check_output(["sqlite3", "/THE_VAULT/jarvis/data/knowledge.db", query]).decode().strip()
             if path_b:
                 print(f"  Found file: {path_b}")
