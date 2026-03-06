@@ -27,20 +27,24 @@ def query_knowledge(query: str, category: str = None):
     context = "\n\n".join([f"--- Source: {r['source_title']} ({r['source_url']}) ---\n{r['content']}" for r in results[:5]])
     
     # 3. Generation
-    prompt = f"""You are Jarvis, a helpful AI assistant. Answer the user's question based ONLY on the provided context from the knowledge base.
-If the answer is not in the context, say you don't know based on the current knowledge base.
-
-Context:
-{context}
-
-User Question: {query}
-
-Answer:"""
+    # 3. Generation
+    system_prompt = """You ARE Jarvis, a high-performance local AI orchestrator for NixOS. 
+Answer the user's question directly and in the first person. 
+Use the provided context to inform your identity, capabilities, and technical knowledge. 
+If the answer is not in the context, say you don't know based on current knowledge. 
+DO NOT analyze the context as a set of files or code; internalize it as your own reality."""
+    
+    prompt = f"Context:\n{context}\n\nUser Question: {query}\n\nAnswer as Jarvis:"
 
     print("[RAG] Thinking...")
     try:
-        response = chat(route("classify"), [{"role": "user", "content": prompt}], thinking=False)
-        print(f"\nJarvis: {response}\n")
+        # Using stream=True for "all output always in terminal" real-time feel
+        response_gen = chat(route("classify"), [{"role": "user", "content": prompt}], system=system_prompt, thinking=False, stream=True)
+        
+        print("\nJarvis: ", end="", flush=True)
+        for chunk in response_gen:
+            print(chunk, end="", flush=True)
+        print("\n")
         
         # Print sources
         print("Sources:")

@@ -479,7 +479,7 @@ def main():
             return
         
         # 2. Safety Confirmation for High-Risk Intents
-        HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "identity", "self_improve", "ingest_materials"]
+        HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "self_improve", "ingest_materials"]
         
         # We need to peek at the intent if it's natural language, or check command
         command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
@@ -726,8 +726,7 @@ def main():
         log_history(user_input, intent, "ok" if success else "failed")
     finally:
         duration = time.time() - start_time
-        if duration > 0.1:
-            print(f"\n[Jarvis] Stats: Response took {duration:.2f}s")
+        print(f"\n[Jarvis] Stats: Response took {duration:.2f}s")
 
 
 if __name__ == "__main__":

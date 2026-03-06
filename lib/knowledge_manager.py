@@ -53,22 +53,19 @@ class KnowledgeManager:
             self._migrate_schema(conn)
 
     def _migrate_schema(self, conn: sqlite3.Connection):
-        # 1. Check if 'knowledge' table exists and rename it to 'chunks' if 'chunks' is empty
+        # 1. Check if 'knowledge' table exists and merge it into 'chunks'
         res = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge'").fetchone()
         if res:
-            print("[KnowledgeManager] Migrating legacy 'knowledge' table to 'chunks'...")
-            # Check if chunks has data
-            chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
-            if chunk_count == 0:
-                # Copy data from knowledge to chunks
-                # We need to handle the 'category' column which might not be in 'knowledge'
-                conn.execute("""
-                    INSERT INTO chunks (id, layer, source_url, source_title, content, embedding, metadata, last_updated)
-                    SELECT id, layer, source_url, source_title, content, embedding, metadata, last_updated FROM knowledge
-                """)
-                conn.execute("DROP TABLE knowledge")
-            else:
-                print("[KnowledgeManager] Both tables exist, skipping simple rename migration.")
+            print("[KnowledgeManager] Merging legacy 'knowledge' table into 'chunks'...")
+            # Copy data, avoiding ID collisions if possible or just fresh IDs
+            conn.execute("""
+                INSERT INTO chunks (layer, category, source_url, source_title, content, embedding, metadata, last_updated)
+                SELECT layer, 'legacy', source_url, source_title, content, embedding, metadata, last_updated 
+                FROM knowledge k
+                WHERE NOT EXISTS (SELECT 1 FROM chunks c WHERE c.content = k.content)
+            """)
+            conn.execute("DROP TABLE knowledge")
+            print("[KnowledgeManager] Migration complete.")
 
         # 2. Check if 'inbox' has 'type' column
         cursor = conn.execute("PRAGMA table_info(inbox)")
@@ -106,6 +103,15 @@ class KnowledgeManager:
                     (content, json.dumps(metadata or {}), source_url)
                 )
 
+    def set_identity(self, identity_text: str):
+        with sqlite3.connect(self.db_path) as conn:
+            # Delete old identity chunks to avoid duplicates
+            conn.execute("DELETE FROM chunks WHERE category = 'identity'")
+            conn.execute(
+                "INSERT INTO chunks (layer, category, source_title, source_url, content) VALUES (?, ?, ?, ?, ?)",
+                (1, "identity", "System Identity", "internal://identity", identity_text)
+            )
+
     def add_to_inbox(self, title: str, url: str, reason: str, item_type: str = 'recommended_reading'):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -120,16 +126,28 @@ class KnowledgeManager:
             return [dict(r) for r in rows]
 
     def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None) -> List[Dict]:
-        # Simple BM25-like search for now, will integrate with embeddings later
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
+            # 1. Try keyword search
             sql = "SELECT * FROM chunks WHERE content LIKE ?"
-            params = [f"%{query_text}%"]
+            params: List[Any] = [f"%{query_text}%"]
             if layer:
                 sql += " AND layer = ?"
                 params.append(layer)
             if category:
                 sql += " AND category = ?"
                 params.append(category)
+            
             rows = conn.execute(sql, params).fetchall()
+            
+            # 2. Fallback: If no results and category is provided, return top entries for that category
+            if not rows and category:
+                sql = "SELECT * FROM chunks WHERE category = ?"
+                params = [category]
+                if layer:
+                    sql += " AND layer = ?"
+                    params.append(layer)
+                sql += " LIMIT 5"
+                rows = conn.execute(sql, params).fetchall()
+                
             return [dict(r) for r in rows]
