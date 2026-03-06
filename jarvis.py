@@ -65,6 +65,7 @@ Intents:
 - identity: answer questions about Jarvis's name, capabilities, version, or role (e.g., "who are you?", "what can you do?")
 - self_improve: attempt to improve Jarvis's own code or documentation (e.g., "improve your help command", "optimize your logic")
 - user_profile: store or retrieve user preferences, personal information, or plans (e.g., "remember that I like X", "what are my plans?")
+- ingest_materials: research coding materials, convert PDFs/docs, and index them (e.g., "research and index rust books")
 - unknown: none of the above
 
 Response format (JSON only, no other text):
@@ -355,6 +356,14 @@ def route_intent(intent: str, args: dict, user_input: str):
             print(f"[Jarvis] Discussing user profile/plans: {query}")
             return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "query_knowledge.py"), query, "--category", "user_profile"])
 
+    elif intent == "ingest_materials":
+        query = args.get("query", user_input)
+        print(f"[Jarvis] Launching Material Ingestor for: {query}")
+        return run_pipeline([
+            VENV_PY, str(BASE_DIR / "pipelines" / "material_ingestor.py"),
+            "--query", query
+        ], timeout=1800)
+
     else:
         # Unknown intent — first check identity knowledge base for capabilities
         print(f"Jarvis: I didn't understand '{user_input}'. Searching my capabilities...")
@@ -435,7 +444,7 @@ def main():
         print(f"[Jarvis] Hello! Processing your request: '{user_input}'")
 
     # 2. Safety Confirmation for High-Risk Intents
-    HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "identity", "self_improve"]
+    HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "identity", "self_improve", "ingest_materials"]
     
     # We need to peek at the intent if it's natural language, or check command
     command = sys.argv[1].lower() if len(sys.argv) > 1 else ""

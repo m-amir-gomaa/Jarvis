@@ -27,6 +27,7 @@ Jarvis can be interacted with directly via subcommands:
 - `jarvis inbox`: Manage pending documents to be processed.
 - `jarvis 'Improve <feature>'`: Trigger a self-improvement loop for his own codebase.
 - `jarvis 'Remember that I prefer <preference>'`: Update and discuss personal preferences, planning, or info.
+- `jarvis 'Research and index <topic> materials'`: Launch a sophisticated pipeline to research coding docs/books, convert them (PDF/Docs to MD), and index them by language.
 
 ## User Profile and Preferences
 Jarvis can store and manage user-specific information, preferences, and long-term plans. This data is categorized under `user_profile` in the knowledge base. Jarvis can discuss these preferences in chat and use them to tailor his assistance (e.g., preferred coding styles, system paths, or project goals).
