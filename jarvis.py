@@ -378,41 +378,103 @@ def main():
 
     user_input = " ".join(sys.argv[1:])
 
-    # Direct subcommands (no Ollama needed)
-    if user_input in ("--version", "-v"):
+    # Direct commands bypassing NLP intent classifier
+    command = sys.argv[1]
+    
+    if command in ("--version", "-v"):
         print(f"jarvis v{VERSION}")
         return
-    if user_input == "help":
+    if command == "help":
         cmd_help()
         return
-    if user_input == "status":
+    if command == "status":
         cmd_status()
         log_history(user_input, "health_check", "ok")
         return
-    if user_input == "--short":
+    if command == "--short":
         print(cmd_short_status())
         return
-    if user_input == "start":
+    if command == "start":
         cmd_start()
         log_history(user_input, "start_services", "ok")
         return
-    if user_input == "stop":
+    if command == "stop":
         cmd_stop()
         log_history(user_input, "stop_services", "ok")
         return
-    if user_input == "pause":
+    if command == "pause":
         cmd_pause()
         log_history(user_input, "pause", "ok")
         return
-    if user_input == "resume":
+    if command == "resume":
         cmd_resume()
         log_history(user_input, "resume", "ok")
         return
-    if user_input == "thumbs-up":
+    if command == "thumbs-up":
         cmd_feedback("positive")
         return
-    if user_input == "thumbs-down":
+    if command == "thumbs-down":
         cmd_feedback("negative")
+        return
+    if command == "dashboard":
+        subprocess.Popen([str(BASE_DIR / "bin" / "jarvis-monitor")])
+        print("Jarvis: Opening dashboard...")
+        return
+    
+    # --- New Explicit Commands ---
+    if command == "learn":
+        # e.g., jarvis learn URL/FILE [--layer 1] [--category docs]
+        cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "doc_learner.py")] + sys.argv[2:]
+        env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+        print(f"[Jarvis] Learning into Knowledge Layer...")
+        res = subprocess.run(cmd, env=env)
+        log_history(user_input, "learn_explicit", "ok" if res.returncode == 0 else "failed")
+        return
+    
+    if command == "index":
+        cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "tools" / "index_workspace.py")] + sys.argv[2:]
+        env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+        print(f"[Jarvis] Indexing Codebase for Coding Agent...")
+        res = subprocess.run(cmd, env=env)
+        log_history(user_input, "index_explicit", "ok" if res.returncode == 0 else "failed")
+        return
+        
+    if command == "knowledge":
+        # Simplified listing using sqlite3
+        if len(sys.argv) > 2 and sys.argv[2] == "list":
+            print("[Jarvis] 3-Layer Knowledge Base Entries:")
+            os.system(f"sqlite3 /THE_VAULT/jarvis/data/knowledge.db 'SELECT layer, category, COUNT(*) as chunks FROM chunks GROUP BY layer, category ORDER BY layer;'")
+        else:
+            print("Usage: jarvis knowledge list")
+        return
+        
+    if command == "inbox":
+        # Extract process <ID>
+        if len(sys.argv) >= 4 and sys.argv[2] == "process":
+            item_id = sys.argv[3]
+            # When processing an inbox item, treat it as a 'learn' layer 3 explicit command with category=inbox_<id> to ensure domain separation
+            print(f"[Jarvis] Processing NLP material from inbox ID {item_id}...")
+            # Here we just fetch the path from sqlite, then run doc_learner
+            query = f"SELECT path FROM inbox WHERE id = {item_id}"
+            path_b = subprocess.check_output(["sqlite3", "/THE_VAULT/jarvis/data/knowledge.db", query]).decode().strip()
+            if path_b:
+                print(f"  Found file: {path_b}")
+                domain_category = f"pdf_doc_{item_id}"
+                print(f"  Isolating into new domain index: category='{domain_category}'")
+                cmd = [
+                    str(BASE_DIR / ".venv" / "bin" / "python"), 
+                    str(BASE_DIR / "pipelines" / "doc_learner.py"), 
+                    path_b, "--layer", "3", "--category", domain_category
+                ]
+                env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+                subprocess.run(cmd, env=env)
+                # Mark done
+                os.system(f"sqlite3 /THE_VAULT/jarvis/data/knowledge.db \"UPDATE inbox SET status='completed' WHERE id={item_id}\"")
+            else:
+                print(f"Jarvis: Inbox ID {item_id} not found.")
+        else:
+            print("[Jarvis] Pending Inbox Items:")
+            os.system("sqlite3 /THE_VAULT/jarvis/data/knowledge.db \"SELECT id, type, title FROM inbox WHERE status='pending'\"")
         return
 
     # Natural language routing

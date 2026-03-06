@@ -1,0 +1,110 @@
+.TH JARVIS 1 "March 2026" "0.1.0" "Jarvis User Manual"
+.SH NAME
+jarvis \- Local AI Assistant for Coding, Research, and Knowledge Management
+.SH SYNOPSIS
+.B jarvis
+[\fIOPTIONS\fR] [\fICOMMAND\fR]
+.br
+.B jarvis
+'\fINATURAL LANGUAGE PROMPT\fR'
+.SH DESCRIPTION
+.B jarvis
+is a powerful local AI agent designed for NixOS. It orchestrates multiple LLMs (Qwen3, Mistral, Qwen2.5-Coder) via Ollama to perform complex coding tasks, technical research, and automated knowledge ingestion.
+.br
+It features a hierarchical 3-Layer Knowledge Architecture that prioritizes local documentation over web searches to achieve high accuracy and sub-2.5 minute latencies on local CPU hardware.
+.SH COMMANDS AND INTERNAL MECHANISMS
+.TP
+.B status
+Displays the health of all Jarvis background services and Ollama models.
+.br
+\fBMechanism:\fR Executes \fCsystemctl --user is-active\fR on the systemd units defined in \fCjarvis.nix\fR (e.g., \fCjarvis-ingest\fR, \fCjarvis-coding-agent\fR) and polls the Ollama REST API (\fChttp://localhost:11434/api/tags\fR) to verify which models are loaded in memory.
+.TP
+.B start / stop
+Starts or stops all background daemon services.
+.br
+\fBMechanism:\fR Wraps \fCsystemctl --user start/stop\fR for the Jarvis targets, transitioning the local orchestrator loops out of or into an inactive state without affecting the global NixOS configuration.
+.TP
+.B pause / resume
+Temporarily suspends or continues AI inference.
+.br
+\fBMechanism:\fR Identifies the active Ollama inference process (e.g., \fCollama runner\fR) and sends a \fBSIGSTOP\fR (pause) or \fBSIGCONT\fR (resume) POSIX signal. This instantly frees up CPU threads for other compile tasks without losing the context window loaded in RAM.
+.TP
+.B inbox [process \fIID\fR]
+Manages the queue of recommended documents and books.
+.br
+\fBMechanism:\fR Queries the \fCinbox\fR table within the SQLite \fCknowledge.db\fR. If \fBprocess\fR is invoked, Jarvis triggers the internal \fCMinerU\fR PDF-to-Markdown extractor. The unstructured PDF is mapped into clean text, mathematically formulated chunks, and stored chronologically in the embedding pipeline.
+.TP
+.B learn \fIURL/FILE\fR [--layer \fI1-3\fR] [--category \fINAME\fR]
+Ingests official documentation into the local knowledge base.
+.br
+\fBMechanism:\fR
+.br
+1. Analyzes the source: If it's a URL, fetches raw HTML and uses BeautifulSoup to strip boilerplate. If a local file, reads directly.
+.br
+2. Converts raw text to Markdown.
+.br
+3. Splices the Markdown into overlapping semantic chunks (via \fCtools/chunker.py\fR).
+.br
+4. Generates vector embeddings for each chunk using the \fCnomic-embed-text\fR model.
+.br
+5. Inserts the chunks and embeddings into the \fCknowledge.db\fR SQLite database, tagging them with the specified \fB--layer\fR (e.g., Layer 1 for core syntax) and \fB--category\fR (e.g., 'rust', 'nix').
+.TP
+.B knowledge [list]
+Inspects the entries currently stored in the 3-Layer Knowledge Base.
+.br
+\fBMechanism:\fR Performs a \fCSELECT\fR query on \fCknowledge.db\fR grouped by Layer and Category, returning a formatted table of all ingested namespaces and their respective chunk counts to verify RAG depth.
+.TP
+.B index [\fIDIR\fR | list]
+Indexes the codebase at the specified directory for local Episodic Memory context.
+.br
+\fBMechanism:\fR Scans the target directory recursively (respecting \fC.gitignore\fR), tokenizes the source code into BM25 / TF-IDF sparse lexical vectors (via \fCrank_bm25\fR), and caches the index tree to \fCfile_index.json\fR. This allows the Coding Agent to perform sub-10ms keyword lookups of the user's workspace before generating code.
+.TP
+.B dashboard
+Opens the Rust-based TUI monitor (\fCjarvis-monitor\fR).
+.br
+\fBMechanism:\fR Launches the compiled Rust Ratatui binary located at \fBjarvis-monitor/target/release/jarvis-monitor\fR. The dashboard establishes a live read-only connection to \fClogs/events.db\fR to stream recent agent events and polls \fBsysinfo\fR to graph CPU/Memory usage allocated to local LLMs.
+.TP
+.B thumbs-up / thumbs-down
+Provides feedback on the last executed natural language command.
+.br
+\fBMechanism:\fR Updates the \fCrating\fR column of the most recent entry in \fClogs/events.db\fR. This feedback loop is queried nightly by the Optimizer pipeline to iteratively refine the system prompts.
+.TP
+.B man
+Displays this manual page.
+.br
+\fBMechanism:\fR Executes \fCman jarvis\fR using the system pager.
+.SH NATURAL LANGUAGE ROUTING MECHANISM
+When a free-text prompt is provided:
+.IP 1.
+The \fBjarvis.py\fR entrypoint parses the arguments and passes the string to the \fCclassify_intent\fR function.
+.IP 2.
+A lightweight, fast LLM (e.g., Qwen 1.5B) or regex heuristics classify the prompt into an intent (\fBlearn\fR, \fBcode\fR, \fBresearch\fR, \fBchat\fR).
+.IP 3.
+The \fBroute_intent\fR function dispatches the prompt and its extracted entities to the corresponding specialized pipeline (e.g., \fCcoding_agent.py\fR, \fCresearch_agent.py\fR).
+.SH HIERARCHICAL KNOWLEDGE PIPELINE (RAG)
+Jarvis fetches context using a 3-Layer local structure before hitting the LLM:
+.IP \(bu 2
+\fBLayer 1 (Language)\fR: Core syntax and standard library docs.
+.IP \(bu 2
+\fBLayer 2 (Domain)\fR: Framework-specific guides and community docs.
+.IP \(bu 2
+\fBLayer 3 (Theory)\fR: Deep conceptual books and problem-class theory.
+.br
+\fBMechanism:\fR
+When a task dictates domain knowledge (e.g., 'rewrite in Rust'), the \fBKnowledgeManager\fR searches \fCknowledge.db\fR using cosine similarity against the prompt's embedding. High-scoring chunks from the relevant layers are retrieved, formatted, and forcefully injected into the LLM system prompt under a \fI[LOCAL KNOWLEDGE]\fR XML block to prevent hallucinations.
+.SH FILES
+.TP
+.I /THE_VAULT/jarvis/
+Base directory for all Jarvis data and logic.
+.TP
+.I /THE_VAULT/jarvis/data/knowledge.db
+SQLite database for the 3-Layer Knowledge Base and Embeddings.
+.TP
+.I /THE_VAULT/jarvis/logs/events.db
+Daily activity log and episodic memory.
+.SH SEE ALSO
+.BR ollama (1),
+.BR searxng (1),
+.BR nix (1)
+.SH AUTHOR
+Created by Antigravity AI for the Jarvis Project.
