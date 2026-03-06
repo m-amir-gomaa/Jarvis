@@ -1,4 +1,4 @@
-# 🤖 Jarvis: Local AI Orchestrator for NixOS
+# 🤖 Jarvis: Local AI Orchestrator for NixOS or any Linux distro with the Nix package manager 
 
 [![NixOS](https://img.shields.io/badge/NixOS-25.11-blue.svg?logo=nixos&logoColor=white)](https://nixos.org)
 [![Licence](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
