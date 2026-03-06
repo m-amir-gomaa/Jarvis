@@ -54,19 +54,11 @@ Intents:
 - optimize_prompt: improve a prompt for a task
 - validate_nixos: check NixOS configuration for errors
 - git_summary: summarize recent git commits
-- query_knowledge: ask a question about the knowledge base
-- query_events: ask what happened today/this week
-- open_dashboard: open the TUI dashboard
-- start_services: start all background services
-- stop_services: stop all background services
-- health_check: check system status
-- pause: pause AI inference
-- resume: resume AI inference
+- query_knowledge: ask a QUESTION about existing knowledge (e.g., "what is X?", "how does Y work?"). IMPORTANT: Do NOT use this for adding new features or commands.
+- unknown: use this for anything not recognized OR for requests to ADD NEW commands, features, or capabilities that Jarvis doesn't yet have.
 - identity: answer questions about Jarvis's name, capabilities, version, or role (e.g., "who are you?", "what can you do?")
-- self_improve: attempt to improve Jarvis's own code or documentation (e.g., "improve your help command", "optimize your logic")
-- user_profile: store or retrieve user preferences, personal information, or plans (e.g., "remember that I like X", "what are my plans?")
-- ingest_materials: research coding materials, convert PDFs/docs, and index them (e.g., "research and index rust books")
-- unknown: none of the above
+- self_improve: attempt to improve Jarvis's own existing code or documentation.
+- ingest_materials: research, convert, and index coding documents/books.
 
 Response format (JSON only, no other text):
 {"intent": "<intent>", "args": {"file": "<file if mentioned>", "query": "<query if applicable>"}}
@@ -375,25 +367,56 @@ def route_intent(intent: str, args: dict, user_input: str):
                 search_query = "capabilities"
             
             from pipelines.query_knowledge import query_knowledge
-            if query_knowledge(search_query, category="identity"):
-                return True
+            # Only return True if it's a specific question that RAG can answer definitively.
+            # If it's a command/request for a feature, we let it fall through to evolution.
+            is_question = any(w in user_input.lower() for w in ["what", "how", "who", "where", "can you"])
+            if is_question:
+                if query_knowledge(search_query, category="identity"):
+                    return True
+            else:
+                # If it's not a clear question, we still run RAG but don't return True,
+                # allowing it to proceed to the Evolution check.
+                query_knowledge(search_query, category="identity")
         except Exception as e:
             print(f"Debug: RAG fallback failed: {e}")
             pass
 
-        print(f"Jarvis: Still unsure. Thinking of alternatives...")
+        print(f"Jarvis: Still unsure. Checking if I can implement this as a new capability...")
         try:
             from lib.ollama_client import chat
             from lib.model_router import route
+            
+            # 1. Ask if this is a plausible feature
+            evolution_prompt = (
+                f"User request: '{user_input}'\n"
+                f"Jarvis current capabilities: research, coding, documentation, knowledge management, system control.\n"
+                f"Is this request a missing software or system capability that Jarvis could potentially implement by modifying his own Python code or system config?\n"
+                f"Answer with 'YES: <brief feature spec>' or 'NO'."
+            )
+            evolution_res = chat(route("classify"), [{"role": "user", "content": evolution_prompt}], thinking=False).strip()
+            
+            if evolution_res.startswith("YES:"):
+                feature_spec = evolution_res[4:].strip()
+                print(f"Jarvis: I've formulated a plan to add this as a new capability: \"{feature_spec}\"")
+                print(f"[Jarvis] Launching autonomous self-evolution loop...")
+                return run_pipeline([
+                    VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+                    "--task", "self_improvement", 
+                    "--user-prompt", f"Implement new capability into jarvis.py and related pipelines: {feature_spec}", 
+                    "--role", "coding", "--thinking"
+                ], timeout=1200)
+            
+            # 2. Fallback to suggestions if not a feature
             suggest_prompt = (
                 f"The user typed: '{user_input}'\n"
                 f"Available Jarvis commands: clean, research, ingest, write nix module, "
-                f"optimize prompt, validate nixos, status, start, stop, pause, resume, dashboard.\n"
+                f"optimize prompt, validate nixos, status, start, stop, pause, resume, dashboard, ingest_materials, user_profile, identity.\n"
                 f"Suggest 3 similar commands the user might have meant. Be concise."
             )
             response = chat(route("classify"), [{"role": "user", "content": suggest_prompt}], thinking=False)
             print(f"  Did you mean?\n{response}")
-        except Exception:
+        except Exception as e:
+            print(f"Debug: Evolution/Suggestion logic failed: {e}")
             print("  Try: jarvis help")
         return False
 
@@ -462,6 +485,14 @@ def main():
         return
     if command == "help":
         cmd_help()
+        return
+    if command == "man":
+        man_path = BASE_DIR / "docs" / "jarvis.1"
+        if man_path.exists():
+            print(f"[Jarvis] Opening manual: {man_path}")
+            subprocess.run(["man", "-l", str(man_path)])
+        else:
+            print(f"Jarvis: Manual not found at {man_path}")
         return
     if command == "status":
         cmd_status()

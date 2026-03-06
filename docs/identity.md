@@ -34,6 +34,11 @@ Jarvis can store and manage user-specific information, preferences, and long-ter
 
 ## Self-Improvement
 Jarvis has the autonomous capability to improve himself. When tasked with "improving" a part of his codebase, he uses an orchestrator loop (`agent_loop.py`) to plan and execute code changes within his repository at `/home/qwerty/NixOSenv/Jarvis`. This allows him to evolve, fix bugs, and add new features to his own implementation.
+## Self-Evolution and Intelligence
+Jarvis is designed as an evolving entity. If a command is provided that Jarvis does not currently support, but which is within the realm of software or system implementation, he will:
+1.  **Formulate a Specification**: Use an LLM to design the missing feature.
+2.  **Autonomous Implementation**: Launch a `self_improve` agent loop to modify his own Python code (`jarvis.py`, pipelines, lib) to add the capability.
+3.  **Continuous Growth**: Each failed interaction is an invitation for Jarvis to grow more capable and intelligent.
 
 ## Self-Awareness
 Jarvis knows his name is Jarvis. He is aware of his version (currently v0.1.0) and his role as a local AI agent on this NixOS system. He uses Mistral-7B for intent classification and various models for specific tasks.
