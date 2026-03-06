@@ -13,6 +13,7 @@ set -e
 
 # Configuration
 CODE_DIR="/home/qwerty/NixOSenv/Jarvis"
+SSD_INDEX_DIR="/home/qwerty/NixOSenv/Jarvis/index"
 VAULT_DIR="/THE_VAULT/jarvis"
 SSD_BACKUP_ROOT="/home/qwerty/Backups/Jarvis"
 HDD_BACKUP_ROOT="/THE_VAULT/JarvisBackups"
@@ -35,7 +36,7 @@ EXCLUDES=(
 )
 
 echo "────────────────────────────────────────────"
-echo "  Jarvis Centralized ${MODE^}"
+echo "  Jarvis Centralized ${MODE^} (Tiered Storage)"
 echo "  Timestamp: $TIMESTAMP"
 echo "────────────────────────────────────────────"
 
@@ -44,14 +45,20 @@ if [ "$MODE" == "sync" ]; then
         echo "[*] Syncing to: $DEST_ROOT"
         BACKUP_CODE="$DEST_ROOT/JarvisData/code"
         BACKUP_DATA="$DEST_ROOT/JarvisData/data"
+        BACKUP_INDEX="$DEST_ROOT/JarvisData/index"
 
-        mkdir -p "$BACKUP_CODE" "$BACKUP_DATA"
+        mkdir -p "$BACKUP_CODE" "$BACKUP_DATA" "$BACKUP_INDEX"
 
-        echo "    - Syncing codebase..."
+        echo "    - Syncing codebase (SSD)..."
         rsync -ah --delete "${EXCLUDES[@]}" "$CODE_DIR/" "$BACKUP_CODE/"
 
+        echo "    - Syncing hot indices (SSD)..."
+        if [ -d "$SSD_INDEX_DIR" ]; then
+          rsync -ah --delete "${EXCLUDES[@]}" "$SSD_INDEX_DIR/" "$BACKUP_INDEX/"
+        fi
+
         if [ -d "$VAULT_DIR" ]; then
-            echo "    - Syncing vault data..."
+            echo "    - Syncing vault data (HDD)..."
             rsync -ah --delete "${EXCLUDES[@]}" "$VAULT_DIR/" "$BACKUP_DATA/"
         else
             echo "    - Warning: $VAULT_DIR not found. Skipping vault backup."
@@ -75,14 +82,22 @@ else
     trap 'rm -rf "$STAGING_DIR"' EXIT
 
     echo "[*] Staging files..."
-    mkdir -p "$STAGING_DIR/code" "$STAGING_DIR/vault"
+    mkdir -p "$STAGING_DIR/code" "$STAGING_DIR/vault" "$STAGING_DIR/index"
 
+    echo "    - Staging codebase (SSD)..."
     rsync -a "${EXCLUDES[@]}" "$CODE_DIR/" "$STAGING_DIR/code/"
+    
+    echo "    - Staging hot indices (SSD)..."
+    if [ -d "$SSD_INDEX_DIR" ]; then
+        rsync -a "${EXCLUDES[@]}" "$SSD_INDEX_DIR/" "$STAGING_DIR/index/"
+    fi
+
+    echo "    - Staging vault data (HDD)..."
     if [ -d "$VAULT_DIR" ]; then
         rsync -a "${EXCLUDES[@]}" "$VAULT_DIR/" "$STAGING_DIR/vault/"
     fi
 
-    echo "[*] Compressing archive to SSD..."
+    echo "[*] Compressing archive..."
     tar -czf "$SSD_PATH" -C "$STAGING_DIR" .
 
     echo "[*] Copying redundant archive to HDD..."
@@ -95,12 +110,15 @@ else
     echo "    File (HDD): $HDD_PATH"
     echo "    Size: $SIZE"
     echo ""
-    echo "To restore Jarvis:"
+    echo "To restore Jarvis (Tiered Storage):"
     echo ""
-    echo "1. Restore Codebase:"
+    echo "1. Restore Codebase (SSD):"
     echo "   tar -xzf $ARCHIVE_NAME -C $CODE_DIR --strip-components=1 code"
     echo ""
-    echo "2. Restore Vault Data:"
+    echo "2. Restore Hot Indices (SSD):"
+    echo "   tar -xzf $ARCHIVE_NAME -C $SSD_INDEX_DIR --strip-components=1 index"
+    echo ""
+    echo "3. Restore Vault Data (HDD):"
     echo "   tar -xzf $ARCHIVE_NAME -C $VAULT_DIR --strip-components=1 vault"
     echo "────────────────────────────────────────────"
 fi
