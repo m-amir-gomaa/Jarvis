@@ -38,6 +38,7 @@ HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
 FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
+REPO_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
 
 def run_pipeline(cmd: list, timeout: int = 300):
     env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
@@ -234,7 +235,7 @@ def cmd_backup(archive=False):
     mode_str = "Archiving" if archive else "Backing up"
     print(f"[Jarvis] {mode_str} code and vault data...")
     
-    script_path = BASE_DIR / "bin" / "backup.sh"
+    script_path = REPO_DIR / "bin" / "backup.sh"
     cmd = ["bash", str(script_path)]
     if archive:
         cmd.append("--archive")
