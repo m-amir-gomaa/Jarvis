@@ -454,9 +454,45 @@ Natural Language Examples:
 """)
 
 
+def sync_assets():
+    """Ensure man page and completion scripts are in sync with the codebase."""
+    try:
+        import shutil
+        import hashlib
+
+        # 1. Sync Man Page
+        src_man = BASE_DIR / "docs" / "jarvis.1"
+        target_man = Path.home() / ".local" / "share" / "man" / "man1" / "jarvis.1"
+        
+        def needs_sync(src, dst):
+            if not dst.exists(): return True
+            with open(src, "rb") as fsrc, open(dst, "rb") as fdst:
+                return hashlib.md5(fsrc.read()).hexdigest() != hashlib.md5(fdst.read()).hexdigest()
+
+        if src_man.exists():
+            target_man.parent.mkdir(parents=True, exist_ok=True)
+            if needs_sync(src_man, target_man):
+                shutil.copy2(src_man, target_man)
+                # No print to keep it silent unless it's a major update
+        
+        # 2. Sync Completion Script (Zsh)
+        src_comp = BASE_DIR / "completions" / "_jarvis"
+        target_comp = Path.home() / ".zsh" / "plugins" / "jarvis-completions" / "_jarvis"
+        
+        if src_comp.exists():
+            target_comp.parent.mkdir(parents=True, exist_ok=True)
+            if needs_sync(src_comp, target_comp):
+                shutil.copy2(src_comp, target_comp)
+                
+    except Exception as e:
+        # Silent failure to avoid interrupting the main flow
+        pass
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    sync_assets()
     start_time = time.time()
     try:
         if len(sys.argv) < 2:

@@ -1,0 +1,94 @@
+#compdef jarvis
+
+_jarvis() {
+    local ret=1
+    local context state state_descr line
+    typeset -A opt_args
+
+    local -a subcmds
+    subcmds=(
+        'start:Start all background services'
+        'stop:Stop all background services'
+        'status:Show service health and model status'
+        'pause:Suspend AI inference'
+        'resume:Continue AI inference'
+        'inbox:View recommended readings'
+        'learn:Ingest documentation from a URL or file'
+        'index:Index the current directory for RAG'
+        'knowledge:Inspect the 3-Layer knowledge entries'
+        'man:Show the formal jarvis manual'
+        'dashboard:Open the Rust-based TUI monitor'
+        'thumbs-up:Give positive feedback'
+        'thumbs-down:Give negative feedback'
+    )
+
+    _arguments -C \
+        '1: :->cmds' \
+        '*::arg:->args' && ret=0
+
+    case $state in
+        cmds)
+            _describe -t commands 'jarvis commands' subcmds && ret=0
+            ;;
+        args)
+            case $line[1] in
+                inbox)
+                    local -a inbox_cmds
+                    inbox_cmds=('process:Download and ingest a specific item')
+                    
+                    _arguments -C \
+                        '1: :->inboxcmds' \
+                        '*::arg:->inboxargs' && ret=0
+                        
+                    case $state in
+                        inboxcmds)
+                            _describe -t commands 'inbox commands' inbox_cmds && ret=0
+                            ;;
+                        inboxargs)
+                            if [[ $line[1] == "process" ]]; then
+                                local -a items
+                                items=("${(@f)$(sqlite3 /THE_VAULT/jarvis/data/knowledge.db "SELECT id || ':' || title FROM inbox WHERE status = 'pending'" 2>/dev/null)}")
+                                _describe -t items 'pending items' items && ret=0
+                            fi
+                            ;;
+                    esac
+                    ;;
+                learn)
+                    _arguments \
+                        '--layer[Target knowledge layer (1-3)]' \
+                        '--category[Knowledge category (e.g. os, nix, rust)]' \
+                        '*:file:_files' && ret=0
+                    ;;
+                index)
+                    local -a index_cmds
+                    index_cmds=('list:View currently indexed files')
+                    
+                    _arguments -C \
+                        '1: :->indexcmds' \
+                        '*::arg:->indexargs' && ret=0
+                        
+                    if [[ $state == "indexcmds" ]]; then
+                        _describe -t commands 'index commands' index_cmds && ret=0
+                    elif [[ $state == "indexargs" ]]; then
+                        _files -/ && ret=0
+                    fi
+                    ;;
+                knowledge)
+                    local -a knowledge_cmds
+                    knowledge_cmds=('list:View existing knowledge entries')
+                    
+                    _arguments -C \
+                        '1: :->knowcmds' && ret=0
+                        
+                    if [[ $state == "knowcmds" ]]; then
+                        _describe -t commands 'knowledge commands' knowledge_cmds && ret=0
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+
+    return ret
+}
+
+_jarvis "$@"
