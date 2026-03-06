@@ -1,62 +1,96 @@
 #!/usr/bin/env bash
 
-# Jarvis Portable Backup Script
+# Jarvis Centralized Backup & Archival Script
 # ─────────────────────────────────────────────────────────────────────────────
-# Backs up Jarvis code + runtime data into JarvisData/ next to the runtime dir.
+# Handles both rsync-based syncing (default) and .tar.gz archiving (--archive).
 #
-# Runtime dir : /THE_VAULT/jarvis
-# Backup dir  : /THE_VAULT/JarvisData   (parent of runtime dir)
-#
-# Layout:
-#   /THE_VAULT/JarvisData/
-#     code/   ← rsync of repo (~/NixOSenv/Jarvis), no .git or build artefacts
-#     data/   ← rsync of runtime vault (/THE_VAULT/jarvis), no .venv or target/
+# Usage:
+#   bash bin/backup.sh           # Sync to /THE_VAULT/JarvisData
+#   bash bin/backup.sh --archive # Create .tar.gz in ~/Backups/Jarvis
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Jarvis runtime root
-RUNTIME_DIR="/THE_VAULT/jarvis"
-# Backup lives in the parent of the runtime dir
-BACKUP_DIR="$(dirname "$RUNTIME_DIR")/JarvisData"
-BACKUP_CODE="$BACKUP_DIR/code"
-BACKUP_DATA="$BACKUP_DIR/data"
+set -e
 
-# Jarvis source repo (code lives here, not on the vault)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JARVIS_REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Configuration
+CODE_DIR="/home/qwerty/NixOSenv/Jarvis"
+VAULT_DIR="/THE_VAULT/jarvis"
+BACKUP_ROOT="/home/qwerty/Backups/Jarvis"
+SYNC_DEST="$(dirname "$VAULT_DIR")/JarvisData"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
-echo "────────────────────────────────────────────"
-echo "  Jarvis Portable Backup"
-echo "  Code  : $JARVIS_REPO  →  $BACKUP_CODE"
-echo "  Data  : $RUNTIME_DIR  →  $BACKUP_DATA"
-echo "────────────────────────────────────────────"
-
-# Create backup directories
-mkdir -p "$BACKUP_CODE"
-mkdir -p "$BACKUP_DATA"
-
-# 1. Back up Source Code (The Repo)
-echo "[1/2] Syncing source code..."
-rsync -ah --delete \
-    --exclude=".git" \
-    --exclude="node_modules" \
-    --exclude="__pycache__" \
-    --exclude="*.pyc" \
-    --exclude="target/" \
-    "$JARVIS_REPO/" "$BACKUP_CODE/"
-
-# 2. Back up Runtime Data (The Vault)
-if [ -d "$RUNTIME_DIR" ]; then
-    echo "[2/2] Syncing runtime data..."
-    rsync -ah --delete \
-        --exclude=".venv" \
-        --exclude="target/" \
-        --exclude="__pycache__" \
-        --exclude="*.pyc" \
-        "$RUNTIME_DIR/" "$BACKUP_DATA/"
-else
-    echo "[2/2] Warning: $RUNTIME_DIR not found. Skipping vault backup."
+MODE="sync"
+if [[ "$1" == "--archive" || "$1" == "-a" ]]; then
+    MODE="archive"
 fi
 
+# Common Exclusions
+EXCLUDES=(
+    "--exclude=.git"
+    "--exclude=.venv"
+    "--exclude=target"
+    "--exclude=node_modules"
+    "--exclude=__pycache__"
+    "--exclude=*.pyc"
+    "--exclude=tmp"
+)
+
 echo "────────────────────────────────────────────"
-echo "  Backup complete → $BACKUP_DIR"
+echo "  Jarvis Centralized ${MODE^}"
+echo "  Timestamp: $TIMESTAMP"
 echo "────────────────────────────────────────────"
+
+if [ "$MODE" == "sync" ]; then
+    BACKUP_CODE="$SYNC_DEST/code"
+    BACKUP_DATA="$SYNC_DEST/data"
+
+    mkdir -p "$BACKUP_CODE" "$BACKUP_DATA"
+
+    echo "[1/2] Syncing codebase..."
+    rsync -ah --delete "${EXCLUDES[@]}" "$CODE_DIR/" "$BACKUP_CODE/"
+
+    if [ -d "$VAULT_DIR" ]; then
+        echo "[2/2] Syncing vault data..."
+        rsync -ah --delete "${EXCLUDES[@]}" "$VAULT_DIR/" "$BACKUP_DATA/"
+    else
+        echo "[2/2] Warning: $VAULT_DIR not found. Skipping vault backup."
+    fi
+
+    echo "────────────────────────────────────────────"
+    echo "  Backup complete → $SYNC_DEST"
+    echo "────────────────────────────────────────────"
+
+else
+    # Archive Mode
+    ARCHIVE_NAME="jarvis_backup_$TIMESTAMP.tar.gz"
+    DEST_PATH="$BACKUP_ROOT/$ARCHIVE_NAME"
+    mkdir -p "$BACKUP_ROOT"
+
+    STAGING_DIR=$(mktemp -d)
+    trap 'rm -rf "$STAGING_DIR"' EXIT
+
+    echo "[*] Staging files..."
+    mkdir -p "$STAGING_DIR/code" "$STAGING_DIR/vault"
+
+    rsync -a "${EXCLUDES[@]}" "$CODE_DIR/" "$STAGING_DIR/code/"
+    if [ -d "$VAULT_DIR" ]; then
+        rsync -a "${EXCLUDES[@]}" "$VAULT_DIR/" "$STAGING_DIR/vault/"
+    fi
+
+    echo "[*] Compressing archive..."
+    tar -czf "$DEST_PATH" -C "$STAGING_DIR" .
+
+    SIZE=$(du -h "$DEST_PATH" | cut -f1)
+
+    echo "[+] Done! Jarvis archived successfully."
+    echo "    File: $DEST_PATH"
+    echo "    Size: $SIZE"
+    echo ""
+    echo "To restore Jarvis:"
+    echo ""
+    echo "1. Restore Codebase:"
+    echo "   tar -xzf $ARCHIVE_NAME -C $CODE_DIR --strip-components=1 code"
+    echo ""
+    echo "2. Restore Vault Data:"
+    echo "   tar -xzf $ARCHIVE_NAME -C $VAULT_DIR --strip-components=1 vault"
+    echo "────────────────────────────────────────────"
+fi

@@ -66,6 +66,8 @@ Intents:
 - identity: answer questions about Jarvis's name, capabilities, version, or role (e.g., "who are you?", "what can you do?")
 - self_improve: attempt to improve Jarvis's own existing code or documentation.
 - ingest_materials: research, convert, and index coding documents/books.
+- backup: sync codebase and vault data to /THE_VAULT/JarvisData.
+- archive: create a timestamped .tar.gz of codebase and vault data.
 
 Response format (JSON only, no other text):
 {"intent": "<intent>", "args": {"file": "<file if mentioned>", "query": "<query if applicable>"}}
@@ -226,6 +228,21 @@ def cmd_feedback(rating: str):
     print(f"Jarvis: Feedback '{rating}' recorded.")
 
 
+# ── Backup / Archival ─────────────────────────────────────────────────────────
+
+def cmd_backup(archive=False):
+    mode_str = "Archiving" if archive else "Backing up"
+    print(f"[Jarvis] {mode_str} code and vault data...")
+    
+    script_path = BASE_DIR / "bin" / "backup.sh"
+    cmd = ["bash", str(script_path)]
+    if archive:
+        cmd.append("--archive")
+    
+    result = subprocess.run(cmd)
+    return result.returncode == 0
+
+
 # ── History Logging ───────────────────────────────────────────────────────────
 
 def log_history(user_input: str, intent: str, status: str):
@@ -356,6 +373,12 @@ def route_intent(intent: str, args: dict, user_input: str):
             "--query", query
         ], timeout=1800)
 
+    elif intent == "backup":
+        return cmd_backup(archive=False)
+
+    elif intent == "archive":
+        return cmd_backup(archive=True)
+
     else:
         # Unknown intent — first check identity knowledge base for capabilities
         print(f"Jarvis: I didn't understand '{user_input}'. Searching my capabilities...")
@@ -440,6 +463,8 @@ Subcommands:
   knowledge summary Show high-level view of trained languages
   training         Check language competency and material coverage
   config nvim|nixos Specialized configuration editing mode
+  backup           Sync code and vault data to /THE_VAULT/JarvisData
+  archive          Create timestamped .tar.gz in ~/Backups/Jarvis
   help             Show this help
   --version        Show version
 
@@ -575,6 +600,16 @@ def main():
             monitor_bin = str(BASE_DIR / "bin" / "jarvis-monitor")
             print("Jarvis: Opening dashboard...")
             os.execv(monitor_bin, [monitor_bin])
+            return
+
+        if command == "backup":
+            cmd_backup(archive=False)
+            log_history(user_input, "backup", "ok")
+            return
+
+        if command == "archive":
+            cmd_backup(archive=True)
+            log_history(user_input, "archive", "ok")
             return
         
         # --- New Explicit Commands ---

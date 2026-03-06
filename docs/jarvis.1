@@ -81,18 +81,28 @@ Manages user-specific preferences and long-term planning data.
 .br
 \fBMechanism:\fR Stores input in the \fCuser_profile\fR category of the knowledge base.
 .TP
+.B backup
+Syncs the Jarvis codebase and vault data to \fC/THE_VAULT/JarvisData\fR using \fCrsync\fR.
+.br
+\fBMechanism:\fR Executes \fCbin/backup.sh\fR in sync mode, maintaining a mirrored copy of the system without build artifacts or git history.
+.TP
+.B archive
+Creates a timestamped \fC.tar.gz\fR archive of the codebase and vault data in \fC~/Backups/Jarvis\fR.
+.br
+\fBMechanism:\fR Executes \fCbin/backup.sh --archive\fR. This performs a clean stage-and-compress operation with precise exclusion rules. Provides a guided restoration command upon completion.
+.TP
 .B ingest_materials "\fITOPIC\fR"
 Researches coding materials, converts multi-format documents, and indexes them by programming language.
 .br
 \fBMechanism:\fR Orchestrates \fCresearch_agent.py\fR, \fCdoc_converter.py\fR (MinerU), and \fCdoc_learner.py\fR. Monitoring wait loop at \fC~/Downloads/JarvisMaterials\fR.
 .SH DETERMINISTIC EXECUTION
-To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
+To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR, \fBbackup\fR, \fBarchive\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
 .SH NATURAL LANGUAGE ROUTING MECHANISM
 When a free-text prompt is provided:
 .IP 1.
 The \fBjarvis.py\fR entrypoint parses the arguments and passes the string to the \fCclassify_intent\fR function.
 .IP 2.
-A fast intent classification model (Qwen 7B) or identity-layer RAG fallback classifies the prompt into an intent (\fBlearn\fR, \fBcode\fR, \fBresearch\fR, \fBidentity\fR, \fBself_improve\fR, \fBuser_profile\fR, \fBingest_materials\fR).
+A fast intent classification model (Qwen 7B) or identity-layer RAG fallback classifies the prompt into an intent (\fBlearn\fR, \fBcode\fR, \fBresearch\fR, \fBidentity\fR, \fBself_improve\fR, \fBuser_profile\fR, \fBingest_materials\fR, \fBbackup\fR, \fBarchive\fR).
 .IP 3.
 The \fBroute_intent\fR function dispatches the prompt, performing safety checks for high-risk operations (modifying indexes or identity) which require explicit user confirmation (y/N).
 .IP 4.
