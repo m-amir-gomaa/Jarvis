@@ -88,6 +88,8 @@ class AgentLoop:
             # Map expert to model_router task
             task_type = 'fix' if expert == 'coding' else ('chat' if expert == 'research' else 'chat')
             
+            emit('agent_loop', 'step_started', {'task': self.task_name, 'step': i+1, 'expert': expert, 'reason': step['reason']})
+            
             response = chat_managed(
                 model_alias=route(task_type),
                 messages=[*context_history, {"role": "user", "content": task_desc}],
@@ -97,7 +99,7 @@ class AgentLoop:
             
             context_history.append({"role": "user", "content": task_desc})
             context_history.append({"role": "assistant", "content": response})
-            emit('agent_loop', 'step_completed', {'step': i+1, 'expert': expert})
+            emit('agent_loop', 'step_completed', {'task': self.task_name, 'step': i+1, 'expert': expert})
 
         self.messages = context_history
         self._save_history()

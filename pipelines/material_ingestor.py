@@ -7,6 +7,7 @@ import argparse
 import subprocess
 from pathlib import Path
 from datetime import datetime
+from lib.event_bus import emit
 
 # /home/qwerty/NixOSenv/Jarvis/pipelines/material_ingestor.py
 
@@ -50,6 +51,7 @@ def detect_language(file_path):
 def process_material(file_path):
     """Smart conversion: detect PDF -> convert to MD."""
     file_path = Path(file_path)
+    emit('material_ingestor', 'processing_started', {'file': file_path.name})
     print(f"\n--- Processing: {file_path.name} ---")
     
     if not confirm(f"Convert and index '{file_path.name}'?"):
@@ -98,9 +100,11 @@ def main():
     args = parser.parse_args()
 
     # Step 1: Extensive Research
+    emit('material_ingestor', 'research_started', {'topic': args.query})
     print(f"[Ingestor] Starting research on: \"indexing strategies for {args.query} documentation and books\"")
     research_cmd = [VENV_PY, str(BASE_DIR / "pipelines" / "research_agent.py"), "--query", f"indexing layers for {args.query} coding documentation and books", "--deep"]
     research_output = run_command(research_cmd)
+    emit('material_ingestor', 'research_completed', {'topic': args.query})
     
     # Step 2: List Results and Confirm
     if not confirm("Research results listed above. Proceed to index found documentation and wait for books?"):

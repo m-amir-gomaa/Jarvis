@@ -1,6 +1,7 @@
 // src/data.rs — DB polling and system metrics
 
 use std::process::Command;
+use serde_json;
 use rusqlite::{Connection, Result as SqlResult};
 use crate::app::{AppUpdate, JarvisEvent, RamUsage, ServiceStatus};
 
@@ -64,7 +65,44 @@ fn get_ram_usage() -> RamUsage {
 }
 
 fn get_active_task(events: &[JarvisEvent]) -> Option<String> {
-    events.first().map(|e| format!("[{}] {}", e.source, e.event))
+    events.first().map(|e| {
+        let details: serde_json::Value = serde_json::from_str(&e.details).unwrap_or_default();
+        match e.source.as_str() {
+            "agent_loop" | "self_improve" => {
+                if let Some(task) = details.get("task").and_then(|v| v.as_str()) {
+                    format!("Agent: {}", task)
+                } else if let Some(step) = details.get("step").and_then(|v| v.as_u64()) {
+                   format!("Agent Phase: Step {}", step)
+                } else {
+                    format!("[Agent] {}", e.event)
+                }
+            },
+            "ingest" | "material_ingestor" | "doc_learner" => {
+                if let Some(file) = details.get("file").and_then(|v| v.as_str()) {
+                    format!("Ingesting: {}", file)
+                } else if let Some(topic) = details.get("topic").and_then(|v| v.as_str()) {
+                    format!("Researching: {}", topic)
+                } else {
+                    format!("[Ingest] {}", e.event)
+                }
+            },
+            "coding_agent" | "fix" => {
+                if let Some(file) = details.get("file").and_then(|v| v.as_str()) {
+                    format!("Coding: {}", file)
+                } else {
+                    format!("[Coding] {}", e.event)
+                }
+            },
+            "research" | "query_knowledge" => {
+                if let Some(query) = details.get("query").and_then(|v| v.as_str()) {
+                    format!("Query: {}", query)
+                } else {
+                    format!("[Search] {}", e.event)
+                }
+            },
+            _ => format!("[{}] {}", e.source, e.event)
+        }
+    })
 }
 
 pub async fn poll_data() -> Option<AppUpdate> {

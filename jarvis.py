@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, "/THE_VAULT/jarvis")
+from lib.event_bus import emit
 
 BASE_DIR = Path("/THE_VAULT/jarvis")
 HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
@@ -461,6 +462,7 @@ def main():
         sys.exit(0)
 
     user_input = " ".join(sys.argv[1:])
+    emit("cli", "command_received", {"command": user_input})
 
     # 1. Direct Address Handling: Strip "Jarvis," or "Jarvis " prefix
     name_pattern = re.compile(r'^jarvis[,:\s]+', re.IGNORECASE)

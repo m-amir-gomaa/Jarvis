@@ -22,7 +22,7 @@ Jarvis is designed for high performance on limited hardware (i7-1165G7). To achi
 - **Self-Evolution & Identity**: Jarvis is self-aware, knows his version, and autonomously implements missing features via evolution loops.
 - **Specialized Config Modes**: Dedicated `jarvis config nvim` and `jarvis config nixos` workflows for expert system management.
 - **Safety & Personalization**: High-risk operation confirmations and long-term user profile memory.
-- **TUI Dashboard**: High-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring.
+- **TUI Dashboard**: High-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring with **precise task labeling** (e.g., "Ingesting: paper.pdf", "Agent: fix_bug").
 
 ---
 

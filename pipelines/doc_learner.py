@@ -81,6 +81,7 @@ class DocLearner:
             return False
             
         print(f"[Learner] Ingesting local file: {path.name} into Layer {layer}...")
+        emit("doc_learner", "ingestion_started", {"file": path.name, "layer": layer, "category": category})
         
         content = ""
         # 1. Convert/Read
