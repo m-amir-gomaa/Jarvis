@@ -34,14 +34,13 @@ from lib.ollama_client import chat, chat_managed, generate, embed, is_healthy, O
 from lib.model_router import route
 from lib.event_bus import emit
 
-# Base directory configuration (Tiered Storage Aware)
-SSD_ROOT = Path(os.getenv("JARVIS_SSD_ROOT", "/home/qwerty/NixOSenv/Jarvis"))
-VAULT_DIR = Path(os.getenv("JARVIS_HDD_VAULT", "/THE_VAULT/jarvis"))
-BASE_DIR = VAULT_DIR # For backward compatibility
+# Base directory configuration (Unified SSD Architecture)
+JARVIS_ROOT = Path(os.getenv("JARVIS_ROOT", "/home/qwerty/NixOSenv/Jarvis"))
+BASE_DIR = JARVIS_ROOT # For backward compatibility
 
-# Hot data on SSD, Bulk data on HDD
-INDEX_DB = SSD_ROOT / "index" / "codebase.db"
-USER_CONTEXT = VAULT_DIR / "config" / "user_context.md"
+# Active data on SSD
+INDEX_DB = JARVIS_ROOT / "index" / "codebase.db"
+USER_CONTEXT = JARVIS_ROOT / "config" / "user_context.md"
 
 PORT = 7002
 

@@ -11,8 +11,29 @@ This file exists so that any AI session — even after quota exhaustion — can 
 - **Tools**: Antigravity AI only. No other AI tools are used for this project.
 - **Goal**: Build a fully local, self-improving AI engineering assistant called "Jarvis" — running entirely on this machine using Ollama, no cloud, no API costs.
 
+### 1. Sync Mode (Snapshot)
+Maintains a mirrored copy of the entire Jarvis project (code, indices, and runtime) on the backup drive.
+
+- **Command:** `jarvis backup`
+- **SSD Output:** `~/Backups/Jarvis/JarvisData/`
+- **HDD Output:** `/THE_VAULT/JarvisBackups/JarvisData/`
+
+### 2. Archive Mode (Compressed)
+Creates a timestamped `.tar.gz` archive of the complete system.
+
+- **Command:** `jarvis archive`
+- **SSD Output:** `~/Backups/Jarvis/jarvis_backup_YYYYMMDD_HHMMSS.tar.gz`
+- **HDD Output:** `/THE_VAULT/JarvisBackups/jarvis_backup_YYYYMMDD_HHMMSS.tar.gz`
+
 ---
 
+## Restoration Guide
+
+If you need to restore from an archive, use the following command:
+
+```bash
+tar -xzf [FILE] -C ~/NixOSenv/Jarvis
+```
 ## 2. The Two Files You Must Read
 
 Before doing ANYTHING, read both of these files completely:
@@ -29,26 +50,23 @@ Before doing ANYTHING, read both of these files completely:
 ## 3. Filesystem Layout — Where Everything Lives
 
 ```
-~/NixOSenv/               ← Git repo (SSD). ALL system configuration goes here.
+~/NixOSenv/               ← Git repo (SSD). ALL core components live here.
 ├── configuration.nix      ← System packages, services.ollama, networking
 ├── modules/
 │   └── jarvis.nix         ← System AI optimizations (ZRAM, THP, HugePages)
-├── Jarvis/                ← PROJECT SOURCE (SSD)
-│   ├── index/             ← HOT METADATA: codebase.db (SSD)
+├── Jarvis/                ← PROJECT SOURCE & RUNTIME (SSD)
+│   ├── .venv/             ← Python virtual environment
+│   ├── index/             ← SQLite RAG indices (codebase.db, etc.)
+│   ├── config/            ← models.toml, user_context.md
+│   ├── lib/               ← Core logic
+│   ├── services/          ← daemons (coding_agent, self_healer)
 │   └── docs/
 │       ├── BOOTSTRAP.md   ← This file
 │       └── JARVIS_Specs_and_Roadmap_Final_Merged.md ← Master spec
 └── flake.nix              
  
-/THE_VAULT/jarvis/         ← Bulk data, state (HDD). NOT in git.
-├── .venv/                 ← Python virtualenv
-├── lib/                   ← Core logic
-├── pipelines/             ← Agents and long-running loops
-├── services/              ← Daemons (coding_agent, self_healer)
-├── config/                ← models.toml, user_context.md
-├── inbox/                 ← Drop PDFs/markdown here
-├── logs/                  ← events.db, metrics.db
-└── research/              ← web research summaries
+/THE_VAULT/JarvisBackups/   ← REDUNDANT BACKUP STORAGE (HDD).
+└── jarvis_backup_*.tar.gz  ← Monthly compressed archives
 ```
 
 ---

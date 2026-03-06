@@ -2,16 +2,13 @@
 
 .PHONY: setup test test-all status lint clean
 
-VENV = /THE_VAULT/jarvis/.venv
+VENV = /home/qwerty/NixOSenv/Jarvis/.venv
 PY = $(VENV)/bin/python
 
 setup:
 	python -m venv $(VENV)
 	$(VENV)/bin/pip install requests numpy watchdog aiohttp rank_bm25 filelock
 	$(VENV)/bin/pip install 'mineru[pipeline]'
-
-migrate:
-	bash /home/qwerty/NixOSenv/Jarvis/scripts/index_migrator.sh
 
 test-mvp1:
 	$(PY) lib/ollama_client.py

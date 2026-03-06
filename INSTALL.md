@@ -13,18 +13,16 @@ This is the canonical setup used in development. The repository lives inside `~/
 **Structure:**
 ```
 ~/NixOSenv/
-  Jarvis/             ← source code, Nix modules, Lua config (SSD)
-    index/            ← HOT METADATA: codebase.db (SSD - high speed)
+  Jarvis/             ← source code, indices, and .venv (SSD - Core)
   modules/jarvis.nix  ← systemd service definitions
-/THE_VAULT/jarvis/    ← bulk runtime vault (HDD): .venv, data, logs
-/THE_VAULT/JarvisData/ ← unified backup bundle
+/THE_VAULT/JarvisBackups/ ← redundant backup storage (HDD)
 ```
 
 **Prerequisites:**
 - NixOS with Flakes enabled
 - Home Manager configured
-- SSD partition for `~/NixOSenv` (Core)
-- Large HDD partition mounted at `/THE_VAULT` (Bulk)
+- SSD partition for `~/NixOSenv` (Recommended for performance)
+- Large HDD partition for backups (`/THE_VAULT`)
 
 **Steps:**
 1. **Clone inside `NixOSenv` (SSD):**
@@ -42,21 +40,13 @@ This is the canonical setup used in development. The repository lives inside `~/
    sudo nixos-rebuild switch --flake ~/NixOSenv#nixos
    ```
 
-4. **Set up the runtime vault (HDD):**
+4. **Initialize the environment (SSD):**
    ```bash
-   sudo mkdir -p /THE_VAULT/jarvis
-   sudo chown $USER /THE_VAULT/jarvis
-   cd /THE_VAULT/jarvis && python -m venv .venv
-   source .venv/bin/activate && pip install requests numpy watchdog aiohttp rank_bm25 filelock 'mineru[pipeline]'
+   cd ~/NixOSenv/Jarvis
+   make setup
    ```
 
-5. **Migrate Metadata (for existing users):**
-   If you have an existing `codebase.db` on your HDD, run the migrator:
-   ```bash
-   bash ~/NixOSenv/Jarvis/scripts/index_migrator.sh
-   ```
-
-6. **Pull the required Ollama models:**
+5. **Pull the required Ollama models:**
    ```bash
    ollama pull qwen2.5-coder:14b
    ollama pull qwen3:1.7b
