@@ -9,16 +9,18 @@ The Jarvis system consists of two main components: the **Codebase** (logic) and 
 Jarvis now provides a centralized way to manage backups via `bin/backup.sh` or directly through the `jarvis` CLI.
 
 ### 1. Sync Mode (Snapshot)
-Maintains a mirrored copy of the codebase and vault data. Ideal for frequent, incremental backups to a secondary drive.
+Maintains mirrored copies of the codebase and vault data on both the SSD and the redundant HDD.
 
-- **Command:** `jarvis backup` (or `bash bin/backup.sh`)
-- **Output:** `/THE_VAULT/JarvisData/`
+- **Command:** `jarvis backup`
+- **Primary Output:** `/THE_VAULT/JarvisData/`
+- **Redundant Output:** `/THE_VAULT/JarvisRedundant/`
 
 ### 2. Archive Mode (Compressed)
-Creates a timestamped `.tar.gz` archive. Ideal for long-term storage or moving Jarvis to a new machine.
+Creates a timestamped `.tar.gz` archive in `~/Backups/Jarvis` and automatically copies a redundant version to the HDD.
 
-- **Command:** `jarvis archive` (or `bash bin/backup.sh --archive`)
-- **Output:** `~/Backups/Jarvis/jarvis_backup_YYYYMMDD_HHMMSS.tar.gz`
+- **Command:** `jarvis archive`
+- **Primary Output:** `~/Backups/Jarvis/jarvis_backup_YYYYMMDD_HHMMSS.tar.gz`
+- **Redundant Output:** `/THE_VAULT/JarvisRedundant/jarvis_backup_YYYYMMDD_HHMMSS.tar.gz`
 
 ---
 

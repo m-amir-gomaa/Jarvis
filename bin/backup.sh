@@ -16,6 +16,7 @@ CODE_DIR="/home/qwerty/NixOSenv/Jarvis"
 VAULT_DIR="/THE_VAULT/jarvis"
 BACKUP_ROOT="/home/qwerty/Backups/Jarvis"
 SYNC_DEST="$(dirname "$VAULT_DIR")/JarvisData"
+HDD_DEST="/THE_VAULT/JarvisRedundant"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
 MODE="sync"
@@ -40,30 +41,34 @@ echo "  Timestamp: $TIMESTAMP"
 echo "────────────────────────────────────────────"
 
 if [ "$MODE" == "sync" ]; then
-    BACKUP_CODE="$SYNC_DEST/code"
-    BACKUP_DATA="$SYNC_DEST/data"
+    for DEST in "$SYNC_DEST" "$HDD_DEST"; do
+        echo "[*] Syncing to: $DEST"
+        BACKUP_CODE="$DEST/code"
+        BACKUP_DATA="$DEST/data"
 
-    mkdir -p "$BACKUP_CODE" "$BACKUP_DATA"
+        mkdir -p "$BACKUP_CODE" "$BACKUP_DATA"
 
-    echo "[1/2] Syncing codebase..."
-    rsync -ah --delete "${EXCLUDES[@]}" "$CODE_DIR/" "$BACKUP_CODE/"
+        echo "    - Syncing codebase..."
+        rsync -ah --delete "${EXCLUDES[@]}" "$CODE_DIR/" "$BACKUP_CODE/"
 
-    if [ -d "$VAULT_DIR" ]; then
-        echo "[2/2] Syncing vault data..."
-        rsync -ah --delete "${EXCLUDES[@]}" "$VAULT_DIR/" "$BACKUP_DATA/"
-    else
-        echo "[2/2] Warning: $VAULT_DIR not found. Skipping vault backup."
-    fi
+        if [ -d "$VAULT_DIR" ]; then
+            echo "    - Syncing vault data..."
+            rsync -ah --delete "${EXCLUDES[@]}" "$VAULT_DIR/" "$BACKUP_DATA/"
+        else
+            echo "    - Warning: $VAULT_DIR not found. Skipping vault backup."
+        fi
+        echo ""
+    done
 
     echo "────────────────────────────────────────────"
-    echo "  Backup complete → $SYNC_DEST"
+    echo "  Backup complete → $SYNC_DEST & $HDD_DEST"
     echo "────────────────────────────────────────────"
 
 else
     # Archive Mode
     ARCHIVE_NAME="jarvis_backup_$TIMESTAMP.tar.gz"
     DEST_PATH="$BACKUP_ROOT/$ARCHIVE_NAME"
-    mkdir -p "$BACKUP_ROOT"
+    mkdir -p "$BACKUP_ROOT" "$HDD_DEST"
 
     STAGING_DIR=$(mktemp -d)
     trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -79,10 +84,14 @@ else
     echo "[*] Compressing archive..."
     tar -czf "$DEST_PATH" -C "$STAGING_DIR" .
 
+    echo "[*] Copying redundant archive to HDD..."
+    cp "$DEST_PATH" "$HDD_DEST/"
+
     SIZE=$(du -h "$DEST_PATH" | cut -f1)
 
-    echo "[+] Done! Jarvis archived successfully."
-    echo "    File: $DEST_PATH"
+    echo "[+] Done! Jarvis archived successfully (Primary + Redundant)."
+    echo "    File (Primary): $DEST_PATH"
+    echo "    File (Redundant): $HDD_DEST/$ARCHIVE_NAME"
     echo "    Size: $SIZE"
     echo ""
     echo "To restore Jarvis:"
