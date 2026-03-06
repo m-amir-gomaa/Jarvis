@@ -19,12 +19,20 @@ class AgentLoop:
         
         # Expert Identity Loading
         if role:
-            role_path = f"/THE_VAULT/jarvis/prompts/{role}/best.txt"
-            if os.path.exists(role_path):
-                with open(role_path, "r") as f:
-                    self.system_prompt = f.read().strip()
-            else:
-                print(f"Warning: Role prompt for '{role}' not found at {role_path}")
+            # Check for multiple possible prompt locations
+            role_paths = [
+                f"/THE_VAULT/jarvis/prompts/{role}/best.txt",
+                f"/home/qwerty/NixOSenv/Jarvis/prompts/{role}/best.txt"
+            ]
+            found = False
+            for p in role_paths:
+                if os.path.exists(p):
+                    with open(p, "r") as f:
+                        self.system_prompt = f.read().strip()
+                        found = True
+                        break
+            if not found:
+                print(f"Warning: Role prompt for '{role}' not found.")
                 self.system_prompt = "You are Jarvis, a helpful AI assistant."
         else:
             self.system_prompt = system_prompt or "You are Jarvis, a helpful AI assistant."

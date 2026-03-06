@@ -15,7 +15,7 @@ graph TD
         MI["Material Ingestor"]
         RA["Research Agent"]
         DL["Doc Learner"]
-        AL["Agent Loop (Self-Improvement)"]
+        AL["Agent Loop (Self-Evolution & Specialized Config)"]
     end
 
     subgraph "Logic & Tools"
@@ -40,6 +40,7 @@ graph TD
     CLI --> MI
     CLI --> AL
     CLI --> RA
+    CLI -- "config nvim|nixos" --> AL
     
     MI --> RA
     MI --> CONV
@@ -67,8 +68,8 @@ graph TD
 |-----------|----------------|
 | **jarvis.py** | Main entry point, intent classification, safety confirmation, and command routing. |
 | **Material Ingestor** | Orchestrates research and automated ingestion of coding materials (books/docs). |
-| **Doc Learner** | Handles the ingestion of URLs and local files into the knowledge base. |
-| **Agent Loop** | A self-correcting orchestrator for complex tasks and autonomous self-improvement. |
+| **Doc Learner** | Handles the ingestion of URLs and local files into the knowledge base (3-Layer Architecture). |
+| **Agent Loop** | A self-correcting orchestrator for complex tasks, autonomous self-improvement, and specialized config editing (nvim/nixos). |
 | **Doc Converter** | Uses Pandoc and MinerU (magic-pdf) for high-fidelity Markdown extraction. |
 | **Knowledge Manager** | Manages the multi-layered SQLite knowledge base for RAG. |
 | **Model Router** | Maps specific AI tasks (summarize, reason, clean) to the best-fit local LLM. |

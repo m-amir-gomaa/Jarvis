@@ -36,6 +36,12 @@ BASE_DIR = Path("/THE_VAULT/jarvis")
 HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
 FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
+VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
+
+def run_pipeline(cmd: list, timeout: int = 300):
+    env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+    result = subprocess.run(cmd, env=env, timeout=timeout)
+    return result.returncode == 0
 
 SERVICES = [
     "jarvis-health-monitor",
@@ -236,13 +242,6 @@ def log_history(user_input: str, intent: str, status: str):
 # ── Pipeline Routing ──────────────────────────────────────────────────────────
 
 def route_intent(intent: str, args: dict, user_input: str):
-    VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
-    env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
-
-    def run_pipeline(cmd: list, timeout: int = 300):
-        result = subprocess.run(cmd, env=env, timeout=timeout)
-        return result.returncode == 0
-
     if intent == "clean_document":
         file_path = args.get("file", "")
         if not file_path:
@@ -439,6 +438,7 @@ Subcommands:
   thumbs-down      Rate last command negatively
   knowledge summary Show high-level view of trained languages
   training         Check language competency and material coverage
+  config nvim|nixos Specialized configuration editing mode
   help             Show this help
   --version        Show version
 
@@ -573,12 +573,14 @@ def main():
                 # Group by base category (e.g., 'python' for 'python_core', 'python_docs')
                 rows = conn.execute("""
                     SELECT 
-                        CASE 
-                            WHEN category LIKE '%_core' THEN REPLACE(category, '_core', '')
-                            WHEN category LIKE '%_docs' THEN REPLACE(category, '_docs', '')
-                            WHEN category LIKE '%_theory' THEN REPLACE(category, '_theory', '')
-                            ELSE category 
-                        END AS lang,
+                        COALESCE(
+                            CASE 
+                                WHEN category LIKE '%_core' THEN REPLACE(category, '_core', '')
+                                WHEN category LIKE '%_docs' THEN REPLACE(category, '_docs', '')
+                                WHEN category LIKE '%_theory' THEN REPLACE(category, '_theory', '')
+                                ELSE category 
+                            END, 'unknown'
+                        ) AS lang,
                         GROUP_CONCAT(DISTINCT layer) as layers
                     FROM chunks 
                     GROUP BY lang
@@ -586,7 +588,8 @@ def main():
                 print(f"  {'Language/Tool':<20} {'Layers Trained'}")
                 print("  " + "-" * 35)
                 for r in rows:
-                    print(f"  {r['lang']:<20} {r['layers']}")
+                    lang = r['lang'] or "unknown"
+                    print(f"  {lang:<20} {r['layers']}")
         else:
             print("Usage: jarvis knowledge [list|summary]")
         return
@@ -598,7 +601,7 @@ def main():
         import sqlite3
         with sqlite3.connect(km.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            langs = ["python", "rust", "nix", "javascript"]
+            langs = ["python", "rust", "nix", "lua", "javascript"]
             print(f"  {'Language':<12} {'Layer 1':<10} {'Layer 2':<10} {'Layer 3':<10}")
             print("  " + "-" * 45)
             for lang in langs:
@@ -609,6 +612,32 @@ def main():
                     count = conn.execute("SELECT COUNT(*) FROM chunks WHERE layer = ? AND category = ?", (layer, lang + suffix)).fetchone()[0]
                     status.append("✓" if count > 0 else "✗")
                 print(f"  {lang:<12} {status[0]:<10} {status[1]:<10} {status[2]:<10}")
+        return
+
+    if command == "config":
+        if len(sys.argv) < 3:
+            print("Usage: jarvis config nvim|nixos <task>")
+            return
+        target = sys.argv[2]
+        task = " ".join(sys.argv[3:])
+        if not task:
+            print(f"Jarvis: Please specify a task for {target} configuration.")
+            return
+
+        if target == "nvim":
+            print(f"[Jarvis] Entering Specialized Neovim Config Mode...")
+            return run_pipeline([
+                VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+                "--task", "nvim_config", "--user-prompt", task, "--role", "coding", "--thinking"
+            ], timeout=1200)
+        elif target == "nixos":
+            print(f"[Jarvis] Entering Specialized NixOS Config Mode...")
+            return run_pipeline([
+                VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+                "--task", "nixos_config", "--user-prompt", task, "--role", "coding", "--thinking"
+            ], timeout=1200)
+        else:
+            print(f"Jarvis: Unknown config target '{target}'. Use 'nvim' or 'nixos'.")
         return
 
     if command == "inbox":

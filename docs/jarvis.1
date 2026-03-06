@@ -39,8 +39,16 @@ Explicitly ingests a local file (PDF, MD, DOCX) or a URL into the knowledge base
 .br
 \fBMechanism:\fR Local PDFs are processed via \fBMinerU\fR (magic-pdf) for high-fidelity markdown extraction before being chunked and embedded into the 3-Layer knowledge store (\fBchunks\fR table).
 .TP
-.B knowledge [list]
-Inspects knowledge base entries grouped by layer and category.
+.B knowledge [list|summary]
+Inspects knowledge base entries. \fBlist\fR shows all chunks; \fBsummary\fR provides a high-level view of trained languages and tools.
+.TP
+.B training
+Displays a status grid of language competency (✓/✗) across the 3-Layer knowledge architecture.
+.TP
+.B config nvim|nixos "\fITASK\fR"
+Enters a specialized configuration editing mode for Neovim (Lua) or NixOS (Nix modules). 
+.br
+\fBMechanism:\fR Launches the \fBagent_loop.py\fR with context-specific roles (\fCnvim_config\fR or \fCnixos_config\fR) and deep reference to the respective indexed codebases.
 .TP
 .B index [\fIDIR\fR] --category \fINAME\fR
 Indexes a local codebase for the **Coding Agent**.
