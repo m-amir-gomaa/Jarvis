@@ -457,265 +457,277 @@ Natural Language Examples:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    if len(sys.argv) < 2:
-        cmd_help()
-        sys.exit(0)
+    start_time = time.time()
+    try:
+        if len(sys.argv) < 2:
+            cmd_help()
+            sys.exit(0)
 
-    user_input = " ".join(sys.argv[1:])
-    emit("cli", "command_received", {"command": user_input})
+        user_input = " ".join(sys.argv[1:])
+        emit("cli", "command_received", {"command": user_input})
 
-    # 1. Direct Address Handling: Strip "Jarvis," or "Jarvis " prefix
-    name_pattern = re.compile(r'^jarvis[,:\s]+', re.IGNORECASE)
-    if name_pattern.match(user_input):
-        user_input = name_pattern.sub('', user_input).strip()
-        print(f"[Jarvis] Hello! Processing your request: '{user_input}'")
+        # 1. Direct Address Handling: Strip "Jarvis," or "Jarvis " prefix
+        name_pattern = re.compile(r'^jarvis[,:\s]+', re.IGNORECASE)
+        if name_pattern.match(user_input):
+            user_input = name_pattern.sub('', user_input).strip()
+            print(f"[Jarvis] Hello! Processing your request: '{user_input}'")
 
-    # 2. Safety Confirmation for High-Risk Intents
-    HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "identity", "self_improve", "ingest_materials"]
-    
-    # We need to peek at the intent if it's natural language, or check command
-    command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
-    
-    def confirm_action(reason: str):
-        print(f"\n[Jarvis] WARNING: This operation involves {reason}.")
-        choice = input("Confirm execution? [y/N]: ").lower().strip()
-        return choice == 'y'
+        command = sys.argv[1]
 
-    # Direct commands bypassing NLP intent classifier
-    command = sys.argv[1]
-    
-    if command in ("--version", "-v"):
-        print(f"jarvis v{VERSION}")
-        return
-    if command == "help":
-        cmd_help()
-        return
-    if command == "man":
-        man_path = BASE_DIR / "docs" / "jarvis.1"
-        if man_path.exists():
-            print(f"[Jarvis] Opening manual: {man_path}")
-            subprocess.run(["man", "-l", str(man_path)])
-        else:
-            print(f"Jarvis: Manual not found at {man_path}")
-        return
-    if command == "status":
-        cmd_status()
-        log_history(user_input, "health_check", "ok")
-        return
-    if command == "--short":
-        print(cmd_short_status())
-        return
-    if command == "start":
-        cmd_start()
-        log_history(user_input, "start_services", "ok")
-        return
-    if command == "stop":
-        cmd_stop()
-        log_history(user_input, "stop_services", "ok")
-        return
-    if command == "pause":
-        cmd_pause()
-        log_history(user_input, "pause", "ok")
-        return
-    if command == "resume":
-        cmd_resume()
-        log_history(user_input, "resume", "ok")
-        return
-    if command == "thumbs-up":
-        cmd_feedback("positive")
-        return
-    if command == "thumbs-down":
-        cmd_feedback("negative")
-        return
-    if command == "dashboard":
-        monitor_bin = str(BASE_DIR / "bin" / "jarvis-monitor")
-        print("Jarvis: Opening dashboard...")
-        os.execv(monitor_bin, [monitor_bin])
-        return
-    
-    # --- New Explicit Commands ---
-    if command == "learn":
-        if not confirm_action("modifying knowledge indexes"): return
-        # e.g., jarvis learn URL/FILE [--layer 1] [--category docs]
-        cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "doc_learner.py")] + sys.argv[2:]
-        env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
-        print(f"[Jarvis] Learning into Knowledge Layer...")
-        res = subprocess.run(cmd, env=env)
-        log_history(user_input, "learn_explicit", "ok" if res.returncode == 0 else "failed")
-        return
-    
-    if command == "index":
-        if not confirm_action("modifying codebase indices"): return
-        cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "tools" / "index_workspace.py")] + sys.argv[2:]
-        env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
-        print(f"[Jarvis] Indexing Codebase for Coding Agent...")
-        res = subprocess.run(cmd, env=env)
-        log_history(user_input, "index_explicit", "ok" if res.returncode == 0 else "failed")
-        return
+        if command == "--version":
+            print(f"Jarvis version {VERSION}")
+            return
         
-    if command == "knowledge":
-        from lib.knowledge_manager import KnowledgeManager
-        km = KnowledgeManager()
-        if len(sys.argv) > 2 and sys.argv[2] == "list":
-            print("[Jarvis] 3-Layer Knowledge Base Entries:")
-            import sqlite3
-            with sqlite3.connect(km.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                rows = conn.execute("SELECT layer, category, COUNT(*) as count FROM chunks GROUP BY layer, category ORDER BY layer").fetchall()
-                print(f"  {'Layer':<8} {'Category':<20} {'Chunks'}")
-                print("  " + "-" * 40)
-                for r in rows:
-                    cat = r['category'] or "None"
-                    print(f"  {r['layer']:<8} {cat:<20} {r['count']}")
-        elif len(sys.argv) > 2 and sys.argv[2] == "summary":
-            print("[Jarvis] Knowledge Summary (Trained Materials):")
-            import sqlite3
-            with sqlite3.connect(km.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                # Group by base category (e.g., 'python' for 'python_core', 'python_docs')
-                rows = conn.execute("""
-                    SELECT 
-                        COALESCE(
-                            CASE 
-                                WHEN category LIKE '%_core' THEN REPLACE(category, '_core', '')
-                                WHEN category LIKE '%_docs' THEN REPLACE(category, '_docs', '')
-                                WHEN category LIKE '%_theory' THEN REPLACE(category, '_theory', '')
-                                ELSE category 
-                            END, 'unknown'
-                        ) AS lang,
-                        GROUP_CONCAT(DISTINCT layer) as layers
-                    FROM chunks 
-                    GROUP BY lang
-                """).fetchall()
-                print(f"  {'Language/Tool':<20} {'Layers Trained'}")
-                print("  " + "-" * 35)
-                for r in rows:
-                    lang = r['lang'] or "unknown"
-                    print(f"  {lang:<20} {r['layers']}")
-        else:
-            print("Usage: jarvis knowledge [list|summary]")
-        return
+        # 2. Safety Confirmation for High-Risk Intents
+        HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "identity", "self_improve", "ingest_materials"]
+        
+        # We need to peek at the intent if it's natural language, or check command
+        command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
+        
+        def confirm_action(reason: str):
+            print(f"\n[Jarvis] WARNING: This operation involves {reason}.")
+            choice = input("Confirm execution? [y/N]: ").lower().strip()
+            return choice == 'y'
 
-    if command == "training":
-        from lib.knowledge_manager import KnowledgeManager
-        km = KnowledgeManager()
-        print("[Jarvis] Language Competency (Training Status):")
-        import sqlite3
-        with sqlite3.connect(km.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            langs = ["python", "rust", "nix", "lua", "javascript"]
-            print(f"  {'Language':<12} {'Layer 1':<10} {'Layer 2':<10} {'Layer 3':<10}")
-            print("  " + "-" * 45)
-            for lang in langs:
-                status = []
-                for layer in [1, 2, 3]:
-                    cat_map = {1: "_core", 2: "_docs", 3: "_theory"}
-                    suffix = cat_map[layer]
-                    count = conn.execute("SELECT COUNT(*) FROM chunks WHERE layer = ? AND category = ?", (layer, lang + suffix)).fetchone()[0]
-                    status.append("✓" if count > 0 else "✗")
-                print(f"  {lang:<12} {status[0]:<10} {status[1]:<10} {status[2]:<10}")
-        return
-
-    if command == "config":
-        if len(sys.argv) < 3:
-            print("Usage: jarvis config nvim|nixos <task>")
+        # Direct commands bypassing NLP intent classifier
+        command = sys.argv[1]
+        
+        if command in ("--version", "-v"):
+            print(f"jarvis v{VERSION}")
             return
-        target = sys.argv[2]
-        task = " ".join(sys.argv[3:])
-        if not task:
-            print(f"Jarvis: Please specify a task for {target} configuration.")
+        if command == "help":
+            cmd_help()
             return
-
-        if target == "nvim":
-            print(f"[Jarvis] Entering Specialized Neovim Config Mode...")
-            return run_pipeline([
-                VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
-                "--task", "nvim_config", "--user-prompt", task, "--role", "coding", "--thinking"
-            ], timeout=1200)
-        elif target == "nixos":
-            print(f"[Jarvis] Entering Specialized NixOS Config Mode...")
-            return run_pipeline([
-                VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
-                "--task", "nixos_config", "--user-prompt", task, "--role", "coding", "--thinking"
-            ], timeout=1200)
-        else:
-            print(f"Jarvis: Unknown config target '{target}'. Use 'nvim' or 'nixos'.")
-        return
-
-    if command == "inbox":
-        from lib.knowledge_manager import KnowledgeManager
-        km = KnowledgeManager()
-        # Extract process <ID>
-        if len(sys.argv) >= 4 and sys.argv[2] == "process":
-            item_id = sys.argv[3]
-            print(f"[Jarvis] Processing NLP material from inbox ID {item_id}...")
+        if command == "man":
+            man_path = BASE_DIR / "docs" / "jarvis.1"
+            if man_path.exists():
+                print(f"[Jarvis] Opening manual: {man_path}")
+                subprocess.run(["man", "-l", str(man_path)])
+            else:
+                print(f"Jarvis: Manual not found at {man_path}")
+            return
+        if command == "status":
+            cmd_status()
+            log_history(user_input, "health_check", "ok")
+            return
+        if command == "--short":
+            print(cmd_short_status())
+            return
+        if command == "start":
+            cmd_start()
+            log_history(user_input, "start_services", "ok")
+            return
+        if command == "stop":
+            cmd_stop()
+            log_history(user_input, "stop_services", "ok")
+            return
+        if command == "pause":
+            cmd_pause()
+            log_history(user_input, "pause", "ok")
+            return
+        if command == "resume":
+            cmd_resume()
+            log_history(user_input, "resume", "ok")
+            return
+        if command == "thumbs-up":
+            cmd_feedback("positive")
+            return
+        if command == "thumbs-down":
+            cmd_feedback("negative")
+            return
+        if command == "dashboard":
+            monitor_bin = str(BASE_DIR / "bin" / "jarvis-monitor")
+            print("Jarvis: Opening dashboard...")
+            os.execv(monitor_bin, [monitor_bin])
+            return
+        
+        # --- New Explicit Commands ---
+        if command == "learn":
+            if not confirm_action("modifying knowledge indexes"): return
+            # e.g., jarvis learn URL/FILE [--layer 1] [--category docs]
+            cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "doc_learner.py")] + sys.argv[2:]
+            env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+            print(f"[Jarvis] Learning into Knowledge Layer...")
+            res = subprocess.run(cmd, env=env)
+            log_history(user_input, "learn_explicit", "ok" if res.returncode == 0 else "failed")
+            return
+        
+        if command == "index":
+            if not confirm_action("modifying codebase indices"): return
+            cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "tools" / "index_workspace.py")] + sys.argv[2:]
+            env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+            print(f"[Jarvis] Indexing Codebase for Coding Agent...")
+            res = subprocess.run(cmd, env=env)
+            log_history(user_input, "index_explicit", "ok" if res.returncode == 0 else "failed")
+            return
             
-            with sqlite3.connect(km.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                row = conn.execute("SELECT url FROM inbox WHERE id = ?", (item_id,)).fetchone()
-            
-            if row and row['url']:
-                path_b = row['url']
-                print(f"  Found file: {path_b}")
-                domain_category = f"pdf_doc_{item_id}"
-                print(f"  Isolating into new domain index: category='{domain_category}'")
-                cmd = [
-                    str(BASE_DIR / ".venv" / "bin" / "python"), 
-                    str(BASE_DIR / "pipelines" / "doc_learner.py"), 
-                    path_b, "--layer", "3", "--category", domain_category
-                ]
-                env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
-                subprocess.run(cmd, env=env)
-                # Mark done
+        if command == "knowledge":
+            from lib.knowledge_manager import KnowledgeManager
+            km = KnowledgeManager()
+            if len(sys.argv) > 2 and sys.argv[2] == "list":
+                print("[Jarvis] 3-Layer Knowledge Base Entries:")
+                import sqlite3
                 with sqlite3.connect(km.db_path) as conn:
-                    conn.execute("UPDATE inbox SET status='completed' WHERE id=?", (item_id,))
+                    conn.row_factory = sqlite3.Row
+                    rows = conn.execute("SELECT layer, category, COUNT(*) as count FROM chunks GROUP BY layer, category ORDER BY layer").fetchall()
+                    print(f"  {'Layer':<8} {'Category':<20} {'Chunks'}")
+                    print("  " + "-" * 40)
+                    for r in rows:
+                        cat = r['category'] or "None"
+                        print(f"  {r['layer']:<8} {cat:<20} {r['count']}")
+            elif len(sys.argv) > 2 and sys.argv[2] == "summary":
+                print("[Jarvis] Knowledge Summary (Trained Materials):")
+                import sqlite3
+                with sqlite3.connect(km.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    # Group by base category (e.g., 'python' for 'python_core', 'python_docs')
+                    rows = conn.execute("""
+                        SELECT 
+                            COALESCE(
+                                CASE 
+                                    WHEN category LIKE '%_core' THEN REPLACE(category, '_core', '')
+                                    WHEN category LIKE '%_docs' THEN REPLACE(category, '_docs', '')
+                                    WHEN category LIKE '%_theory' THEN REPLACE(category, '_theory', '')
+                                    ELSE category 
+                                END, 'unknown'
+                            ) AS lang,
+                            GROUP_CONCAT(DISTINCT layer) as layers
+                        FROM chunks 
+                        GROUP BY lang
+                    """).fetchall()
+                    print(f"  {'Language/Tool':<20} {'Layers Trained'}")
+                    print("  " + "-" * 35)
+                    for r in rows:
+                        lang = r['lang'] or "unknown"
+                        print(f"  {lang:<20} {r['layers']}")
             else:
-                print(f"Jarvis: Inbox ID {item_id} not found or has no URL.")
-        else:
-            print("[Jarvis] Pending Inbox Items:")
-            items = km.get_inbox()
-            if not items:
-                print("  No pending items.")
-            else:
-                print(f"  {'ID':<4} {'Type':<20} {'Title'}")
-                print("  " + "-" * 50)
-                for item in items:
-                    itype = item.get('type') or "None"
-                    print(f"  {item['id']:<4} {itype:<20} {item['title']}")
-        return
-
-    if command == "query":
-        query = " ".join(sys.argv[2:])
-        if not query:
-            print("Usage: jarvis query <question>")
-            return
-        cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "query_knowledge.py"), query]
-        env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
-        res = subprocess.run(cmd, env=env)
-        log_history(user_input, "query_explicit", "ok" if res.returncode == 0 else "failed")
-        return
-
-    # Natural language routing
-    print(f"[Jarvis] Classifying: '{user_input}'...")
-    result = classify_intent(user_input)
-    intent = result.get("intent", "unknown")
-    args = result.get("args", {})
-    print(f"[Jarvis] Intent: {intent}")
-
-    # Risk Assessment
-    if intent in HIGH_RISK_INTENTS:
-        risk_map = {
-            "generate_nix": "modifying NixOS configuration (roles)",
-            "ingest": "modifying knowledge indexes",
-            "identity": "modifying system identity knowledge",
-            "self_improve": "modifying the Jarvis codebase directly"
-        }
-        if not confirm_action(risk_map.get(intent, "modifying system components")):
-            print("Jarvis: Operation cancelled by user.")
+                print("Usage: jarvis knowledge [list|summary]")
             return
 
-    success = route_intent(intent, args, user_input)
-    log_history(user_input, intent, "ok" if success else "failed")
+        if command == "training":
+            from lib.knowledge_manager import KnowledgeManager
+            km = KnowledgeManager()
+            print("[Jarvis] Language Competency (Training Status):")
+            import sqlite3
+            with sqlite3.connect(km.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                langs = ["python", "rust", "nix", "lua", "javascript"]
+                print(f"  {'Language':<12} {'Layer 1':<10} {'Layer 2':<10} {'Layer 3':<10}")
+                print("  " + "-" * 45)
+                for lang in langs:
+                    status = []
+                    for layer in [1, 2, 3]:
+                        cat_map = {1: "_core", 2: "_docs", 3: "_theory"}
+                        suffix = cat_map[layer]
+                        count = conn.execute("SELECT COUNT(*) FROM chunks WHERE layer = ? AND category = ?", (layer, lang + suffix)).fetchone()[0]
+                        status.append("✓" if count > 0 else "✗")
+                    print(f"  {lang:<12} {status[0]:<10} {status[1]:<10} {status[2]:<10}")
+            return
+
+        if command == "config":
+            if len(sys.argv) < 3:
+                print("Usage: jarvis config nvim|nixos <task>")
+                return
+            target = sys.argv[2]
+            task = " ".join(sys.argv[3:])
+            if not task:
+                print(f"Jarvis: Please specify a task for {target} configuration.")
+                return
+
+            if target == "nvim":
+                print(f"[Jarvis] Entering Specialized Neovim Config Mode...")
+                return run_pipeline([
+                    VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+                    "--task", "nvim_config", "--user-prompt", task, "--role", "coding", "--thinking"
+                ], timeout=1200)
+            elif target == "nixos":
+                print(f"[Jarvis] Entering Specialized NixOS Config Mode...")
+                return run_pipeline([
+                    VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+                    "--task", "nixos_config", "--user-prompt", task, "--role", "coding", "--thinking"
+                ], timeout=1200)
+            else:
+                print(f"Jarvis: Unknown config target '{target}'. Use 'nvim' or 'nixos'.")
+            return
+
+        if command == "inbox":
+            from lib.knowledge_manager import KnowledgeManager
+            km = KnowledgeManager()
+            # Extract process <ID>
+            if len(sys.argv) >= 4 and sys.argv[2] == "process":
+                item_id = sys.argv[3]
+                print(f"[Jarvis] Processing NLP material from inbox ID {item_id}...")
+                
+                with sqlite3.connect(km.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    row = conn.execute("SELECT url FROM inbox WHERE id = ?", (item_id,)).fetchone()
+                
+                if row and row['url']:
+                    path_b = row['url']
+                    print(f"  Found file: {path_b}")
+                    domain_category = f"pdf_doc_{item_id}"
+                    print(f"  Isolating into new domain index: category='{domain_category}'")
+                    cmd = [
+                        str(BASE_DIR / ".venv" / "bin" / "python"), 
+                        str(BASE_DIR / "pipelines" / "doc_learner.py"), 
+                        path_b, "--layer", "3", "--category", domain_category
+                    ]
+                    env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+                    subprocess.run(cmd, env=env)
+                    # Mark done
+                    with sqlite3.connect(km.db_path) as conn:
+                        conn.execute("UPDATE inbox SET status='completed' WHERE id=?", (item_id,))
+                else:
+                    print(f"Jarvis: Inbox ID {item_id} not found or has no URL.")
+            else:
+                print("[Jarvis] Pending Inbox Items:")
+                items = km.get_inbox()
+                if not items:
+                    print("  No pending items.")
+                else:
+                    print(f"  {'ID':<4} {'Type':<20} {'Title'}")
+                    print("  " + "-" * 50)
+                    for item in items:
+                        itype = item.get('type') or "None"
+                        print(f"  {item['id']:<4} {itype:<20} {item['title']}")
+            return
+
+        if command == "query":
+            query = " ".join(sys.argv[2:])
+            if not query:
+                print("Usage: jarvis query <question>")
+                return
+            cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "query_knowledge.py"), query]
+            env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+            res = subprocess.run(cmd, env=env)
+            log_history(user_input, "query_explicit", "ok" if res.returncode == 0 else "failed")
+            return
+
+        # Natural language routing
+        print(f"[Jarvis] Classifying: '{user_input}'...")
+        result = classify_intent(user_input)
+        intent = result.get("intent", "unknown")
+        args = result.get("args", {})
+        print(f"[Jarvis] Intent: {intent}")
+
+        # Risk Assessment
+        if intent in HIGH_RISK_INTENTS:
+            risk_map = {
+                "generate_nix": "modifying NixOS configuration (roles)",
+                "ingest": "modifying knowledge indexes",
+                "identity": "modifying system identity knowledge",
+                "self_improve": "modifying the Jarvis codebase directly"
+            }
+            if not confirm_action(risk_map.get(intent, "modifying system components")):
+                print("Jarvis: Operation cancelled by user.")
+                return
+
+        success = route_intent(intent, args, user_input)
+        log_history(user_input, intent, "ok" if success else "failed")
+    finally:
+        duration = time.time() - start_time
+        if duration > 0.1:
+            print(f"\n[Jarvis] Stats: Response took {duration:.2f}s")
 
 
 if __name__ == "__main__":
