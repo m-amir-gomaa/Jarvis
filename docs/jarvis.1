@@ -1,6 +1,6 @@
 .TH JARVIS 1 "March 2026" "0.1.0" "Jarvis User Manual"
 .SH NAME
-jarvis \- Local AI Assistant for Coding, Research, and Knowledge Management
+jarvis \- Local AI Assistant with RAG and Duration Tracking
 .SH SYNOPSIS
 .B jarvis
 [\fIOPTIONS\fR] [\fICOMMAND\fR]
@@ -9,7 +9,7 @@ jarvis \- Local AI Assistant for Coding, Research, and Knowledge Management
 '\fINATURAL LANGUAGE PROMPT\fR'
 .SH DESCRIPTION
 .B jarvis
-is a powerful local AI agent designed for NixOS. It orchestrates multiple LLMs (Qwen3, Mistral, Qwen2.5-Coder) via Ollama to perform complex coding tasks, technical research, and automated knowledge ingestion.
+is a powerful local AI agent designed for NixOS. It orchestrates multiple LLMs (Qwen3, Mistral, Qwen2.5-Coder) via Ollama to perform complex coding tasks, technical research, and automated knowledge ingestion. Every response is timestamped with its execution duration.
 .br
 It features a hierarchical 3-Layer Knowledge Architecture that prioritizes local documentation over web searches to achieve high accuracy and sub-2.5 minute latencies on local CPU hardware.
 .SH COMMANDS AND INTERNAL MECHANISMS
