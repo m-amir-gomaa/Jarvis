@@ -54,6 +54,7 @@ jarvis query "How does the indexing pipeline work?"
 
 ### 3. Documentation
 - **User Manual**: Run `jarvis man` in your terminal.
+- **System Architecture**: Consult the [Architecture Diagram & UML](./docs/system_architecture.md) for a technical breakdown.
 - **Specs & Roadmap**: Consult the [Merged Specs](./docs/JARVIS_Specs_and_Roadmap_Final_Merged.md) for deep technical details.
 
 ---

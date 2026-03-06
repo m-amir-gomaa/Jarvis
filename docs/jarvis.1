@@ -57,6 +57,26 @@ Opens the recompiled Rust TUI (\fCjarvis-monitor\fR) with optimized contrast for
 .TP
 .B thumbs-up / thumbs-down
 Provides feedback for the daily optimizer.
+.TP
+.B identity "\fIMESSAGE\fR"
+Queries Jarvis about his own name, version, and capabilities.
+.br
+\fBMechanism:\fR Performs a RAG query on the \fCidentity\fR category in Layer 1.
+.TP
+.B self_improve "\fITASK\fR"
+Initiates an autonomous loop for Jarvis to improve his own codebase or documentation.
+.br
+\fBMechanism:\fR Launches the \fBagent_loop.py\fR orchestrator with the \fCcoding\fR role.
+.TP
+.B user_profile "\fIPREFERENCE/PLAN\fR"
+Manages user-specific preferences and long-term planning data.
+.br
+\fBMechanism:\fR Stores input in the \fCuser_profile\fR category of the knowledge base.
+.TP
+.B ingest_materials "\fITOPIC\fR"
+Researches coding materials, converts multi-format documents, and indexes them by programming language.
+.br
+\fBMechanism:\fR Orchestrates \fCresearch_agent.py\fR, \fCdoc_converter.py\fR (MinerU), and \fCdoc_learner.py\fR. Monitoring wait loop at \fC~/Downloads/JarvisMaterials\fR.
 .SH DETERMINISTIC EXECUTION
 To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
 .SH NATURAL LANGUAGE ROUTING MECHANISM
@@ -64,9 +84,11 @@ When a free-text prompt is provided:
 .IP 1.
 The \fBjarvis.py\fR entrypoint parses the arguments and passes the string to the \fCclassify_intent\fR function.
 .IP 2.
-A lightweight, fast LLM (e.g., Qwen 1.5B) or regex heuristics classify the prompt into an intent (\fBlearn\fR, \fBcode\fR, \fBresearch\fR, \fBchat\fR).
+A fast intent classification model (Qwen 7B) or identity-layer RAG fallback classifies the prompt into an intent (\fBlearn\fR, \fBcode\fR, \fBresearch\fR, \fBidentity\fR, \fBself_improve\fR, \fBuser_profile\fR, \fBingest_materials\fR).
 .IP 3.
-The \fBroute_intent\fR function dispatches the prompt and its extracted entities to the corresponding specialized pipeline (e.g., \fCcoding_agent.py\fR, \fCresearch_agent.py\fR).
+The \fBroute_intent\fR function dispatches the prompt, performing safety checks for high-risk operations (modifying indexes or identity) which require explicit user confirmation (y/N).
+.IP 4.
+The prompt is passed to the specialized pipeline (e.g., \fCcoding_agent.py\fR, \fCmaterial_ingestor.py\fR).
 .SH HIERARCHICAL KNOWLEDGE PIPELINE (RAG)
 Jarvis fetches context using a 3-Layer local structure before hitting the LLM:
 .IP \(bu 2
