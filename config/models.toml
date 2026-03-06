@@ -1,0 +1,17 @@
+# /THE_VAULT/jarvis/config/models.toml
+
+[models]
+chat = "qwen3:8b"
+fast = "qwen3:1.7b"
+coder = "qwen2.5-coder:7b-instruct"
+reason = "qwen3:14b-q4_K_M"
+complete = "qwen3:1.7b"
+embed = "nomic-embed-text:latest"
+
+[model_digests]
+# Run: ollama show <model> --modelfile | grep FROM
+# Copy SHA after pulling
+chat = ""
+fast = ""
+complete = "sha256:8f68893c685c"  # Example or fill later
+embed = "sha256:0a109f422b47" 
