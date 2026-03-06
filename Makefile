@@ -40,5 +40,8 @@ lint:
 	@echo "Lint passed"
 
 clean:
-	find /THE_VAULT/jarvis/logs/ -name "*.lock" -delete
-	find /THE_VAULT/jarvis/inbox/ -name "*.tmp" -delete
+	find $(REPO_DIR)/logs/ -name "*.lock" -delete
+	find $(REPO_DIR)/inbox/ -name "*.tmp" -delete
+
+clean-logs:
+	bash bin/clean_logs.sh

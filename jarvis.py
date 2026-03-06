@@ -30,15 +30,15 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
+sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
 from lib.event_bus import emit
 
-BASE_DIR = Path("/THE_VAULT/jarvis")
+REPO_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
+BASE_DIR = REPO_DIR
 HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
 FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
-REPO_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
 
 def run_pipeline(cmd: list, timeout: int = 300):
     env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
@@ -49,6 +49,7 @@ SERVICES = [
     "jarvis-health-monitor",
     "jarvis-git-monitor",
     "jarvis-coding-agent",
+    "jarvis-self-healer",
 ]
 
 INTENT_PROMPT = """You are an intent classifier for a command-line AI assistant.
@@ -153,6 +154,20 @@ def cmd_status():
     for line in result.stdout.splitlines():
         if "Swap" in line:
             print(f"  {line.strip()}")
+
+def cmd_uptime():
+    print("[Jarvis] Service Uptime:")
+    print(f"  {'Service':<30} {'Started At'}")
+    print("  " + "-" * 55)
+    for svc in SERVICES:
+        res = subprocess.run(
+            ["systemctl", "--user", "show", "-p", "ActiveEnterTimestamp", "--value", f"{svc}.service"],
+            capture_output=True, text=True, timeout=5
+        )
+        ts = res.stdout.strip()
+        if not ts or "0000" in ts:
+            ts = "Inactive"
+        print(f"  {svc:<30} {ts}")
 
 
 def cmd_short_status() -> str:
@@ -466,6 +481,7 @@ Subcommands:
   config nvim|nixos Specialized configuration editing mode
   backup           Sync code and vault data to /THE_VAULT/JarvisData
   archive          Create timestamped .tar.gz in ~/Backups/Jarvis
+  uptime           Show how long services have been running
   help             Show this help
   --version        Show version
 
@@ -601,6 +617,11 @@ def main():
             monitor_bin = str(BASE_DIR / "bin" / "jarvis-monitor")
             print("Jarvis: Opening dashboard...")
             os.execv(monitor_bin, [monitor_bin])
+            return
+
+        if command == "uptime":
+            cmd_uptime()
+            log_history(user_input, "uptime", "ok")
             return
 
         if command == "backup":

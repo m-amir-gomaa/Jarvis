@@ -19,7 +19,7 @@ echo ""
 
 # 2. Storage Status
 echo "--- Storage (SSD/HDD) ---"
-df -h / /THE_VAULT | grep -v "Filesystem" | awk '{printf "%-15s | Size: %-6s | Used: %-6s | Avail: %-6s | Use%%: %-4s\n", $6, $2, $3, $4, $5}'
+df -h / /THE_VAULT 2>/dev/null | grep -v "Filesystem" | awk '{printf "%-15s | Size: %-6s | Used: %-6s | Avail: %-6s | Use%%: %-4s\n", $6, $2, $3, $4, $5}'
 echo ""
 
 # 3. Backup Status
