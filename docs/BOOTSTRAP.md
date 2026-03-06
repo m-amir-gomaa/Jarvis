@@ -29,34 +29,26 @@ Before doing ANYTHING, read both of these files completely:
 ## 3. Filesystem Layout — Where Everything Lives
 
 ```
-~/NixOSenv/               ← Git repo. ALL system configuration goes here.
-├── configuration.nix      ← System packages, services.ollama, networking (Ollama CPU fixed)
-├── home.nix               ← Dev tools via home-manager (rust-analyzer, pyright, nil...)
+~/NixOSenv/               ← Git repo (SSD). ALL system configuration goes here.
+├── configuration.nix      ← System packages, services.ollama, networking
 ├── modules/
-│   └── jarvis.nix         ← System AI optimizations (Nice=15, Swappiness=10, 4GB Swap)
-├── Jarvis/                ← PROJECT SOURCE (now inside system repo)
+│   └── jarvis.nix         ← System AI optimizations (ZRAM, THP, HugePages)
+├── Jarvis/                ← PROJECT SOURCE (SSD)
+│   ├── index/             ← HOT METADATA: codebase.db (SSD)
 │   └── docs/
 │       ├── BOOTSTRAP.md   ← This file
 │       └── JARVIS_Specs_and_Roadmap_Final_Merged.md ← Master spec
-└── flake.nix              ← Already exists
-
-/THE_VAULT/jarvis/         ← Runtime data, state, AI indexes. NOT in git.
-├── .venv/                 ← Python virtualenv (create with: python -m venv .venv)
-├── lib/                   ← ollama_client.py, event_bus.py, model_router.py, env_manager.py
-├── tools/                 ← chunker.py, cleaner.py
-├── pipelines/             ← ingest.py, optimizer.py, agent_loop.py, research_agent.py, nixos_validator.py
-├── services/              ← git_summarizer.py, coding_agent.py, health_monitor.py, daily_digest.py, context_updater.py
-├── config/
-│   ├── models.toml        ← model aliases and digest pins
-│   ├── user_context.md    ← 200-300 word identity file injected into every /chat
-│   └── .env               ← OLLAMA_BASE_URL, ANYTHINGLLM_API_KEY, GITEA_WEBHOOK_SECRET (never commit)
-├── inbox/                 ← Drop PDFs/markdown here → auto-processed by ingest daemon
-├── logs/                  ← events.db, metrics.db, ingestion.jsonl, ollama.lock
-├── prompts/               ← Prompt best.txt files and optimizer runs
-├── index/                 ← nixosenv.db, codebase.db, documents.db (SQLite RAG indexes)
-├── research/              ← MVP 8 web research summaries
-├── review/                ← Escalation files from MVP 7, NixOS validator reports from MVP 10
-└── Makefile               ← MVP 16: make test-all to validate the whole system
+└── flake.nix              
+ 
+/THE_VAULT/jarvis/         ← Bulk data, state (HDD). NOT in git.
+├── .venv/                 ← Python virtualenv
+├── lib/                   ← Core logic
+├── pipelines/             ← Agents and long-running loops
+├── services/              ← Daemons (coding_agent, self_healer)
+├── config/                ← models.toml, user_context.md
+├── inbox/                 ← Drop PDFs/markdown here
+├── logs/                  ← events.db, metrics.db
+└── research/              ← web research summaries
 ```
 
 ---
@@ -101,24 +93,24 @@ Before doing ANYTHING, read both of these files completely:
 - [x] Systemd user services for all daemons (in `modules/jarvis.nix`)
 - [x] MVP 12: `services/coding_agent.py` + Neovim plugin (`lua/jarvis/`)
 - [x] MVP 13 (Complete): `services/daily_digest.py` + `services/context_updater.py`
-
-### ✅ DONE: Phase 6 — Rust Dashboard & Polish
-- [x] MVP 14: Rust Ratatui TUI dashboard (`jarvis-monitor`)
-- [x] MVP BIG: Natural language CLI router (`jarvis` unified CLI)
-- [x] Final system integration test (`make test-all`)
-
+ 
+### ✅ DONE: Phase 6 — Optimization & Benchmarking
+- [x] Stage 1-3: Git Assistant, Global Search, Self-Healing
+- [x] Stage 4: Tiered Storage (SSD Metadata), Kernel Tuning, Benchmarking
+- [x] Full system documentation audit
+ 
 ---
-
+ 
 ## 5. How to Use the Master Spec
-
+ 
 1. Open `JARVIS_Specs_and_Roadmap_Final_Merged.md`
 2. Find the MVP you are about to implement (e.g., `# MVP 1 — Ollama Gateway`)
 3. Read the spec table, public interface, and acceptance criteria
 4. Copy the **AGENT PROMPT** at the end of that MVP section
-5. In a new Claude Code session: paste the agent prompt + any relevant context → it will implement the file
-6. Run `make test-mvpN` to verify the acceptance criteria pass
-7. Check this BOOTSTRAP.md and update the phase checklist above (mark `[x]` for done)
-
+5. Run `jarvis fix` or use the Neovim command to implement
+6. Run `make test-all` to verify the acceptance criteria pass
+7. Check this BOOTSTRAP.md and update the phase checklist above
+ 
 ---
 
 ## 6. Key Technical Decisions (Never Reverse These)

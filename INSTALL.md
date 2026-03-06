@@ -13,40 +13,36 @@ This is the canonical setup used in development. The repository lives inside `~/
 **Structure:**
 ```
 ~/NixOSenv/
-  Jarvis/             ← this repo (source code, Nix modules, Lua config)
+  Jarvis/             ← source code, Nix modules, Lua config (SSD)
+    index/            ← HOT METADATA: codebase.db (SSD - high speed)
   modules/jarvis.nix  ← systemd service definitions
-  home.nix            ← declarative Zsh, aliases, dotfiles via Home Manager
-  flake.nix           ← system entrypoint
-/THE_VAULT/jarvis/    ← runtime vault (HDD): .venv, data, indexes, logs
-/THE_VAULT/JarvisData/ ← portable backup bundle (created by bin/backup.sh)
+/THE_VAULT/jarvis/    ← bulk runtime vault (HDD): .venv, data, logs
+/THE_VAULT/JarvisData/ ← unified backup bundle
 ```
 
 **Prerequisites:**
 - NixOS with Flakes enabled
-- Home Manager configured (wired into `flake.nix`)
-- An external HDD or large partition mounted at `/THE_VAULT`
-- SSH key configured for `git@github.com:m-amir-gomaa/Jarvis.git`
+- Home Manager configured
+- SSD partition for `~/NixOSenv` (Core)
+- Large HDD partition mounted at `/THE_VAULT` (Bulk)
 
 **Steps:**
-1. **Clone inside `NixOSenv`:**
+1. **Clone inside `NixOSenv` (SSD):**
    ```bash
    git clone git@github.com:m-amir-gomaa/Jarvis.git ~/NixOSenv/Jarvis
    ```
 
 2. **Import the Jarvis module in `configuration.nix`:**
    ```nix
-   imports = [
-     ./modules/jarvis.nix
-   ];
+   imports = [ ./modules/jarvis.nix ];
    ```
 
 3. **Rebuild:**
    ```bash
    sudo nixos-rebuild switch --flake ~/NixOSenv#nixos
-   # or use the 'nr' alias if it's defined in your home.nix
    ```
 
-4. **Set up the runtime vault:**
+4. **Set up the runtime vault (HDD):**
    ```bash
    sudo mkdir -p /THE_VAULT/jarvis
    sudo chown $USER /THE_VAULT/jarvis
@@ -54,10 +50,16 @@ This is the canonical setup used in development. The repository lives inside `~/
    source .venv/bin/activate && pip install requests numpy watchdog aiohttp rank_bm25 filelock 'mineru[pipeline]'
    ```
 
-5. **Pull the required Ollama models:**
+5. **Migrate Metadata (for existing users):**
+   If you have an existing `codebase.db` on your HDD, run the migrator:
    ```bash
-   ollama pull qwen2.5-coder:7b-instruct
-   ollama pull qwen3:8b
+   bash ~/NixOSenv/Jarvis/scripts/index_migrator.sh
+   ```
+
+6. **Pull the required Ollama models:**
+   ```bash
+   ollama pull qwen2.5-coder:14b
+   ollama pull qwen3:1.7b
    ollama pull nomic-embed-text:latest
    ```
 
@@ -140,7 +142,8 @@ bash bin/backup.sh
 ```
 
 This syncs:
-1. **Code** → `/THE_VAULT/JarvisData/code/` (repo without `.git` / build artefacts)
-2. **Runtime data** → `/THE_VAULT/JarvisData/data/` (vault without `.venv` / `target/`)
+1. **Code** → `JarvisData/code/` (SSD source)
+2. **Hot Indices** → `JarvisData/index/` (SSD metadata)
+3. **Vault Data** → `JarvisData/data/` (HDD bulk)
 
 For a full list of data locations that need manual USB/Syncthing sync (databases, model weights, indexes), see **[docs/BACKUP_GUIDE.md](docs/BACKUP_GUIDE.md)**.

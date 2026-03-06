@@ -9,14 +9,14 @@ The Jarvis system consists of two main components: the **Codebase** (logic) and 
 Jarvis now provides a centralized way to manage backups via `bin/backup.sh` or directly through the `jarvis` CLI.
 
 ### 1. Sync Mode (Snapshot)
-Maintains mirrored copies of the codebase and vault data on both the SSD (Home) and the redundant HDD.
+Maintains mirrored copies of the codebase (SSD), hot indices (SSD), and vault data (HDD) on both backup drives.
 
 - **Command:** `jarvis backup`
-- **SSD Output:** `~/Backups/Jarvis/JarvisData/`
-- **HDD Output:** `/THE_VAULT/JarvisBackups/JarvisData/`
+- **SSD Output:** `~/Backups/Jarvis/JarvisData/` (code, index, data)
+- **HDD Output:** `/THE_VAULT/JarvisBackups/JarvisData/` (code, index, data)
 
 ### 2. Archive Mode (Compressed)
-Creates a timestamped `.tar.gz` archive on the SSD and automatically copies a redundant version to the HDD.
+Creates a timestamped `.tar.gz` archive containing the full staggered system (SSD + HDD).
 
 - **Command:** `jarvis archive`
 - **SSD Output:** `~/Backups/Jarvis/jarvis_backup_YYYYMMDD_HHMMSS.tar.gz`
@@ -26,14 +26,19 @@ Creates a timestamped `.tar.gz` archive on the SSD and automatically copies a re
 
 ## Restoration Guide
 
-If you need to restore from an archive, use the following commands (replace `[FILE]` with your archive name):
+If you need to restore from an archive, use the following commands:
 
-1. **Restore Codebase:**
+1. **Restore Codebase (SSD):**
    ```bash
    tar -xzf [FILE] -C ~/NixOSenv/Jarvis --strip-components=1 code
    ```
 
-2. **Restore Vault Data:**
+2. **Restore Hot Indices (SSD):**
+   ```bash
+   tar -xzf [FILE] -C ~/NixOSenv/Jarvis/index --strip-components=1 index
+   ```
+
+3. **Restore Vault Data (HDD):**
    ```bash
    tar -xzf [FILE] -C /THE_VAULT/jarvis --strip-components=1 vault
    ```
