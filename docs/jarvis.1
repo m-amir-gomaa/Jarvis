@@ -32,12 +32,12 @@ Temporarily suspends or continues AI inference.
 .B inbox [process \fIID\fR]
 Manages the researcher's queue. If \fBprocess\fR is called with an \fIID\fR, Jarvis retrieves the document and performs an isolated ingestion.
 .br
-\fBMechanism:\fR Queries SQLite \fCknowledge.db\fR. Ingestion creates a unique category (\fCpdf_doc_<ID>\fR) in Layer 3 to prevent domain mixing.
+\fBMechanism:\fR Interfaces via \fBKnowledgeManager\fR with SQLite \fCknowledge.db\fR. Ingestion creates a unique category (\fCpdf_doc_<ID>\fR) in Layer 3 to prevent domain mixing.
 .TP
 .B learn \fIURL/FILE\fR [--layer \fI1-3\fR] [--category \fINAME\fR]
 Explicitly ingests a local file (PDF, MD, DOCX) or a URL into the knowledge base.
 .br
-\fBMechanism:\fR Local PDFs are processed via \fBMinerU\fR (magic-pdf) for high-fidelity markdown extraction before being chunked and embedded into the 3-Layer knowledge store.
+\fBMechanism:\fR Local PDFs are processed via \fBMinerU\fR (magic-pdf) for high-fidelity markdown extraction before being chunked and embedded into the 3-Layer knowledge store (\fBchunks\fR table).
 .TP
 .B knowledge [list]
 Inspects knowledge base entries grouped by layer and category.
@@ -45,7 +45,12 @@ Inspects knowledge base entries grouped by layer and category.
 .B index [\fIDIR\fR] --category \fINAME\fR
 Indexes a local codebase for the **Coding Agent**.
 .br
-\fBMechanism:\fR Scans the directory, performs BM25 lexical indexing, and stores the result in Layer 2 (Domain) under the specified category. This allows targeted codebase retrieval.
+\fBMechanism:\fR Scans the directory and stores file contents in the \fBchunks\fR table (Layer 2) under the specified category.
+.TP
+.B query "\fIQUESTION\fR" [--category \fINAME\fR]
+Performs a Retrieval-Augmented Generation (RAG) query against the knowledge base.
+.br
+\fBMechanism:\fR Executes the \fBquery_knowledge\fR pipeline. It retrieves relevant context from the \fBchunks\fR table using lexical search and generates an answer using the local LLM.
 .TP
 .B dashboard
 Opens the recompiled Rust TUI (\fCjarvis-monitor\fR) with optimized contrast for Wayland terminals.

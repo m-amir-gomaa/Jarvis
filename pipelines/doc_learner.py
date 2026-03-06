@@ -13,7 +13,7 @@ class DocLearner:
     def __init__(self):
         self.km = KnowledgeManager()
 
-    def scrape_official_docs(self, url: str, layer: int, metadata: Optional[Dict] = None):
+    def scrape_official_docs(self, url: str, layer: int, category: Optional[str] = None, metadata: Optional[Dict] = None):
         """Basic scraper for official documentation sites."""
         print(f"[Learner] Crawling {url} for Layer {layer}...")
         try:
@@ -35,7 +35,7 @@ class DocLearner:
                 self.km.update_entry(url, content, metadata=metadata)
             else:
                 print(f"[Learner] Adding new entry: {title}")
-                self.km.add_entry(layer=layer, content=content, source_url=url, source_title=title, metadata=metadata)
+                self.km.add_entry(layer=layer, content=content, source_url=url, source_title=title, category=category, metadata=metadata)
 
             # Identification of "Recommended Reading" for Inbox (Layer 2 suggestion logic)
             self.identify_recommendations(soup, url)
@@ -66,7 +66,7 @@ class DocLearner:
                     href = base_url.rstrip('/') + '/' + href.lstrip('/')
                 
                 print(f"[Learner] Found potential recommendation: {a.get_text().strip()} ({href})")
-                self.km.add_to_inbox(title=a.get_text().strip(), url=href, reason=f"Suggested from {base_url}")
+                self.km.add_to_inbox(title=a.get_text().strip(), url=href, reason=f"Suggested from {base_url}", item_type='recommended_reading')
 
     def ingest_path(self, path_str: str, layer: int, category: Optional[str] = None):
         """Ingest a local file or URL."""
@@ -74,7 +74,7 @@ class DocLearner:
         metadata = {"category": category} if category else {}
         
         if path_str.startswith("http"):
-            return self.scrape_official_docs(path_str, layer, metadata=metadata)
+            return self.scrape_official_docs(path_str, layer, category=category, metadata=metadata)
         
         if not path.exists():
             print(f"[Learner] Error: Path {path_str} not found.")
@@ -101,7 +101,7 @@ class DocLearner:
                 
         # 2. Add to Knowledge Base
         title = path.name
-        self.km.add_entry(layer=layer, content=content, source_url=str(path.absolute()), source_title=title, metadata=metadata)
+        self.km.add_entry(layer=layer, content=content, source_url=str(path.absolute()), source_title=title, category=category, metadata=metadata)
         
         emit("doc_learner", "completed", {"file": path.name, "layer": layer, "category": category})
         print(f"  Successfully learned '{title}'")

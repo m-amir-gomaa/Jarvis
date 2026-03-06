@@ -279,6 +279,10 @@ def route_intent(intent: str, args: dict, user_input: str):
     elif intent == "validate_nixos":
         return run_pipeline([VENV_PY, str(BASE_DIR / "lib" / "nix_validator.py"), "--repo", "/home/qwerty/NixOSenv"])
 
+    elif intent == "query_knowledge":
+        query = args.get("query", user_input)
+        return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "query_knowledge.py"), query])
+
     elif intent == "query_events":
         try:
             from lib.event_bus import query_events
@@ -416,8 +420,9 @@ def main():
         cmd_feedback("negative")
         return
     if command == "dashboard":
-        subprocess.Popen([str(BASE_DIR / "bin" / "jarvis-monitor")])
+        monitor_bin = str(BASE_DIR / "bin" / "jarvis-monitor")
         print("Jarvis: Opening dashboard...")
+        os.execv(monitor_bin, [monitor_bin])
         return
     
     # --- New Explicit Commands ---
@@ -439,24 +444,38 @@ def main():
         return
         
     if command == "knowledge":
-        # Simplified listing using sqlite3
+        from lib.knowledge_manager import KnowledgeManager
+        km = KnowledgeManager()
         if len(sys.argv) > 2 and sys.argv[2] == "list":
             print("[Jarvis] 3-Layer Knowledge Base Entries:")
-            os.system(f"sqlite3 /THE_VAULT/jarvis/data/knowledge.db 'SELECT layer, category, COUNT(*) as chunks FROM chunks GROUP BY layer, category ORDER BY layer;'")
+            with km.db_path.open() as f: pass # Ensure DB exists
+            import sqlite3
+            with sqlite3.connect(km.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute("SELECT layer, category, COUNT(*) as count FROM chunks GROUP BY layer, category ORDER BY layer").fetchall()
+                print(f"  {'Layer':<8} {'Category':<20} {'Chunks'}")
+                print("  " + "-" * 40)
+                for r in rows:
+                    cat = r['category'] or "None"
+                    print(f"  {r['layer']:<8} {cat:<20} {r['count']}")
         else:
             print("Usage: jarvis knowledge list")
         return
-        
+
     if command == "inbox":
+        from lib.knowledge_manager import KnowledgeManager
+        km = KnowledgeManager()
         # Extract process <ID>
         if len(sys.argv) >= 4 and sys.argv[2] == "process":
             item_id = sys.argv[3]
-            # When processing an inbox item, treat it as a 'learn' layer 3 explicit command with category=inbox_<id> to ensure domain separation
             print(f"[Jarvis] Processing NLP material from inbox ID {item_id}...")
-            # Here we just fetch the path from sqlite, then run doc_learner
-            query = f"SELECT url FROM inbox WHERE id = {item_id}"
-            path_b = subprocess.check_output(["sqlite3", "/THE_VAULT/jarvis/data/knowledge.db", query]).decode().strip()
-            if path_b:
+            
+            with sqlite3.connect(km.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                row = conn.execute("SELECT url FROM inbox WHERE id = ?", (item_id,)).fetchone()
+            
+            if row and row['url']:
+                path_b = row['url']
                 print(f"  Found file: {path_b}")
                 domain_category = f"pdf_doc_{item_id}"
                 print(f"  Isolating into new domain index: category='{domain_category}'")
@@ -468,12 +487,32 @@ def main():
                 env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
                 subprocess.run(cmd, env=env)
                 # Mark done
-                os.system(f"sqlite3 /THE_VAULT/jarvis/data/knowledge.db \"UPDATE inbox SET status='completed' WHERE id={item_id}\"")
+                with sqlite3.connect(km.db_path) as conn:
+                    conn.execute("UPDATE inbox SET status='completed' WHERE id=?", (item_id,))
             else:
-                print(f"Jarvis: Inbox ID {item_id} not found.")
+                print(f"Jarvis: Inbox ID {item_id} not found or has no URL.")
         else:
             print("[Jarvis] Pending Inbox Items:")
-            os.system("sqlite3 /THE_VAULT/jarvis/data/knowledge.db \"SELECT id, type, title FROM inbox WHERE status='pending'\"")
+            items = km.get_inbox()
+            if not items:
+                print("  No pending items.")
+            else:
+                print(f"  {'ID':<4} {'Type':<20} {'Title'}")
+                print("  " + "-" * 50)
+                for item in items:
+                    itype = item.get('type') or "None"
+                    print(f"  {item['id']:<4} {itype:<20} {item['title']}")
+        return
+
+    if command == "query":
+        query = " ".join(sys.argv[2:])
+        if not query:
+            print("Usage: jarvis query <question>")
+            return
+        cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "query_knowledge.py"), query]
+        env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
+        res = subprocess.run(cmd, env=env)
+        log_history(user_input, "query_explicit", "ok" if res.returncode == 0 else "failed")
         return
 
     # Natural language routing

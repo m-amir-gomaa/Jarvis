@@ -44,6 +44,9 @@ jarvis start
 # Natural language tasking
 jarvis "research Rust async traits"
 jarvis "clean this pdf for notebooklm"
+
+# Knowledge Retrieval (RAG)
+jarvis query "How does the indexing pipeline work?"
 ```
 
 ### 3. Documentation

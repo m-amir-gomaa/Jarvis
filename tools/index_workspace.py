@@ -52,6 +52,7 @@ class WorkspaceIndexer:
                             content=content,
                             source_url=str(file_path),
                             source_title=file,
+                            category=category,
                             metadata=metadata
                         )
                         files_indexed += 1
