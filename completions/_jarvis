@@ -1,5 +1,9 @@
 #compdef jarvis
 
+# Jarvis CLI Zsh Completion Script
+# Source: /home/qwerty/NixOSenv/Jarvis/completions/_jarvis
+# Auto-synced to ~/.zsh/plugins/jarvis-completions/_jarvis via jarvis.py
+
 _jarvis() {
     local ret=1
     local context state state_descr line
@@ -10,19 +14,29 @@ _jarvis() {
         'start:Start all background services'
         'stop:Stop all background services'
         'status:Show service health and model status'
-        'pause:Suspend AI inference'
-        'resume:Continue AI inference'
-        'inbox:View recommended readings'
-        'learn:Ingest documentation from a URL or file'
-        'index:Index the current directory for RAG'
-        'knowledge:Inspect the 3-Layer knowledge entries'
-        'man:Show the formal jarvis manual'
+        'uptime:Show how long each service has been running'
+        'pause:Suspend AI inference (SIGSTOP Ollama)'
+        'resume:Resume AI inference (SIGCONT Ollama)'
+        'learn:Assisted language learning or direct URL/file ingestion'
+        'index:Index the codebase for the coding agent RAG'
+        'query:Ask a question against the knowledge base'
+        'inbox:View and manage the recommended reading queue'
+        'knowledge:Inspect 3-Layer knowledge base entries'
+        'training:Show language competency matrix across all layers'
+        'config:Specialized configuration editing mode (nvim|nixos)'
+        'man:Show the formal jarvis manual page'
         'dashboard:Open the Rust-based TUI monitor'
-        'thumbs-up:Give positive feedback'
-        'thumbs-down:Give negative feedback'
+        'backup:Sync code and vault data to /THE_VAULT/JarvisData'
+        'archive:Create a timestamped .tar.gz backup'
+        'thumbs-up:Give positive feedback on the last command'
+        'thumbs-down:Give negative feedback on the last command'
+        'help:Show usage help'
     )
 
     _arguments -C \
+        '(-v --version)'{-v,--version}'[Show version information]' \
+        '(-h --help)'{-h,--help}'[Show help]' \
+        '--short[Short one-line status for Waybar integration]' \
         '1: :->cmds' \
         '*::arg:->args' && ret=0
 
@@ -32,14 +46,38 @@ _jarvis() {
             ;;
         args)
             case $line[1] in
+                learn)
+                    _arguments \
+                        '--layer[Target knowledge layer]:layer:(1 2 3)' \
+                        '--category[Knowledge category (e.g. rust, nix, python)]:category:' \
+                        '*:URL or file:_files' && ret=0
+                    ;;
+                config)
+                    local -a config_targets
+                    config_targets=(
+                        'nvim:Specialized Neovim config editing mode'
+                        'nixos:Specialized NixOS config editing mode'
+                    )
+                    _arguments -C \
+                        '1: :->target' \
+                        '*::task:->task' && ret=0
+                    case $state in
+                        target)
+                            _describe -t targets 'config targets' config_targets && ret=0
+                            ;;
+                        task)
+                            _message 'describe the configuration task' && ret=0
+                            ;;
+                    esac
+                    ;;
                 inbox)
                     local -a inbox_cmds
-                    inbox_cmds=('process:Download and ingest a specific item')
-                    
+                    inbox_cmds=(
+                        'process:Download and ingest a specific inbox item'
+                    )
                     _arguments -C \
                         '1: :->inboxcmds' \
                         '*::arg:->inboxargs' && ret=0
-                        
                     case $state in
                         inboxcmds)
                             _describe -t commands 'inbox commands' inbox_cmds && ret=0
@@ -47,42 +85,57 @@ _jarvis() {
                         inboxargs)
                             if [[ $line[1] == "process" ]]; then
                                 local -a items
-                                items=("${(@f)$(sqlite3 /THE_VAULT/jarvis/data/knowledge.db "SELECT id || ':' || title FROM inbox WHERE status = 'pending'" 2>/dev/null)}")
+                                items=("${(@f)$(sqlite3 /THE_VAULT/jarvis/data/knowledge.db \
+                                    "SELECT id || ':' || title FROM inbox WHERE status = 'pending'" \
+                                    2>/dev/null)}")
                                 _describe -t items 'pending items' items && ret=0
                             fi
                             ;;
                     esac
                     ;;
-                learn)
-                    _arguments \
-                        '--layer[Target knowledge layer (1-3)]' \
-                        '--category[Knowledge category (e.g. os, nix, rust)]' \
-                        '*:file:_files' && ret=0
-                    ;;
                 index)
                     local -a index_cmds
                     index_cmds=('list:View currently indexed files')
-                    
                     _arguments -C \
                         '1: :->indexcmds' \
                         '*::arg:->indexargs' && ret=0
-                        
-                    if [[ $state == "indexcmds" ]]; then
-                        _describe -t commands 'index commands' index_cmds && ret=0
-                    elif [[ $state == "indexargs" ]]; then
-                        _files -/ && ret=0
-                    fi
+                    case $state in
+                        indexcmds)
+                            _describe -t commands 'index commands' index_cmds && ret=0
+                            ;;
+                        indexargs)
+                            _files -/ && ret=0
+                            ;;
+                    esac
                     ;;
                 knowledge)
                     local -a knowledge_cmds
-                    knowledge_cmds=('list:View existing knowledge entries')
-                    
+                    knowledge_cmds=(
+                        'list:View existing knowledge entries by layer and category'
+                        'summary:High-level view of trained languages and layers'
+                    )
                     _arguments -C \
                         '1: :->knowcmds' && ret=0
-                        
                     if [[ $state == "knowcmds" ]]; then
                         _describe -t commands 'knowledge commands' knowledge_cmds && ret=0
                     fi
+                    ;;
+                query)
+                    _message 'enter a question to query the knowledge base' && ret=0
+                    ;;
+                backup|archive|start|stop|pause|resume|status|uptime|dashboard|man|help)
+                    # No sub-arguments for these commands
+                    ret=0
+                    ;;
+                thumbs-up|thumbs-down)
+                    ret=0
+                    ;;
+                training)
+                    ret=0
+                    ;;
+                *)
+                    # For natural language queries — complete nothing, just allow free text
+                    _message 'enter a natural language command' && ret=0
                     ;;
             esac
             ;;
