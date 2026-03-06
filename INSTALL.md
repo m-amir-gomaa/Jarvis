@@ -1,116 +1,146 @@
 # Jarvis Installation Guide
 
-Jarvis is a powerful AI coding assistant and system automation suite. This guide covers installation on various Linux environments.
+Jarvis is a local-first AI coding assistant. This guide covers installation on NixOS (recommended) and other Linux environments.
 
-## 1. NixOS (Recommended)
+---
 
-Jarvis is designed to integrate deeply with NixOS. A modular configuration is provided.
+## 1. NixOS
 
-### Prerequisites
-- NixOS with Flakes enabled.
-- `git` installed.
+### 1a. Personal / `~/NixOSenv` Setup *(my configuration)*
 
-### Steps
-1. **Clone the repository**:
+This is the canonical setup used in development. The repository lives inside `~/NixOSenv` and is managed via a Home Manager + Flake configuration.
+
+**Structure:**
+```
+~/NixOSenv/
+  Jarvis/             ← this repo (source code, Nix modules, Lua config)
+  modules/jarvis.nix  ← systemd service definitions
+  home.nix            ← declarative Zsh, aliases, dotfiles via Home Manager
+  flake.nix           ← system entrypoint
+/THE_VAULT/jarvis/    ← runtime vault (HDD): .venv, data, indexes, logs
+/THE_VAULT/JarvisData/ ← portable backup bundle (created by bin/backup.sh)
+```
+
+**Prerequisites:**
+- NixOS with Flakes enabled
+- Home Manager configured (wired into `flake.nix`)
+- An external HDD or large partition mounted at `/THE_VAULT`
+- SSH key configured for `git@github.com:m-amir-gomaa/Jarvis.git`
+
+**Steps:**
+1. **Clone inside `NixOSenv`:**
    ```bash
-   git clone https://github.com/m-amir-gomaa/Jarvis.git ~/NixOSenv/Jarvis
+   git clone git@github.com:m-amir-gomaa/Jarvis.git ~/NixOSenv/Jarvis
    ```
-2. **Import the module**:
-   Add the following to your `configuration.nix`:
+
+2. **Import the Jarvis module in `configuration.nix`:**
    ```nix
    imports = [
-     ./modules/jarvis.nix # Path to the jarvis.nix module
+     ./modules/jarvis.nix
    ];
    ```
-3. **Apply the configuration**:
+
+3. **Rebuild:**
    ```bash
    sudo nixos-rebuild switch --flake ~/NixOSenv#nixos
+   # or use the 'nr' alias if it's defined in your home.nix
    ```
-4. **Pull Ollama Models**:
+
+4. **Set up the runtime vault:**
    ```bash
-   ollama pull deepseek-coder:6.7b
-   # or any other model you prefer
+   sudo mkdir -p /THE_VAULT/jarvis
+   sudo chown $USER /THE_VAULT/jarvis
+   cd /THE_VAULT/jarvis && python -m venv .venv
+   source .venv/bin/activate && pip install requests numpy watchdog aiohttp rank_bm25 filelock 'mineru[pipeline]'
    ```
+
+5. **Pull the required Ollama models:**
+   ```bash
+   ollama pull qwen2.5-coder:7b-instruct
+   ollama pull qwen3:8b
+   ollama pull nomic-embed-text:latest
+   ```
+
+---
+
+### 1b. Generic NixOS Setup *(for other developers)*
+
+Use this if you have a different directory layout or don't use `~/NixOSenv`.
+
+**Prerequisites:**
+- NixOS with Flakes enabled
+- `git` installed
+- A `configuration.nix` you can modify (standalone or in any flake)
+
+**Steps:**
+1. **Clone anywhere you prefer:**
+   ```bash
+   git clone git@github.com:m-amir-gomaa/Jarvis.git ~/Jarvis
+   cd ~/Jarvis
+   ```
+
+2. **Copy `jarvis.nix` into your NixOS modules:**
+   ```bash
+   cp modules/jarvis.nix /path/to/your/nixos/modules/jarvis.nix
+   ```
+   Then edit `jarvis.nix` and update `JARVIS_ROOT` and `VAULT_DIR` to match your actual paths.
+
+3. **Import the module in your `configuration.nix`:**
+   ```nix
+   imports = [
+     ./path/to/your/modules/jarvis.nix
+   ];
+   ```
+
+4. **Rebuild:**
+   ```bash
+   sudo nixos-rebuild switch --flake /path/to/your/flake#hostname
+   ```
+
+5. **Set up the runtime directory and models** (same as step 4–5 above, adjust paths).
+
+> **Note:** Without Home Manager you'll need to set `PYTHONPATH` and shell aliases manually. See `docs/BOOTSTRAP.md` for details.
 
 ---
 
 ## 2. Non-NixOS with Nix Package Manager
 
-If you are on a traditional Linux distribution (Ubuntu, Fedora, etc.) but have Nix installed.
-
-### Steps
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/m-amir-gomaa/Jarvis.git Jarvis
-   cd Jarvis
-   ```
-2. **Enter Nix Shell**:
-   ```bash
-   nix-shell
-   ```
-3. **Run Setup**:
-   ```bash
-   make setup
-   ```
-
----
-
-## 3. Non-NixOS without Nix
-
-For systems using traditional package managers and standard Python environments.
-
-### Prerequisites
-- Python 3.10+
-- `pip`
-- `make`
-- `ollama` (installed manually)
-- `searxng` (optional, for research capabilities)
-
-### Steps
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/m-amir-gomaa/Jarvis.git Jarvis
-   cd Jarvis
-   ```
-2. **Create Virtual Environment**:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-3. **Install Dependencies**:
-   ```bash
-   pip install requests numpy watchdog aiohttp rank_bm25 filelock
-   pip install 'mineru[pipeline]'
-   ```
-4. **Configure Environment**:
-   Ensure `PYTHONPATH` includes the Jarvis directory:
-   ```bash
-   export PYTHONPATH=$(pwd)
-   ```
-
----
-
-## Configuration & Structure (NixOS)
-
-Jarvis utilizes a dual-directory structure on NixOS to separate source code from heavy runtime data:
-
-- **Repository (`~/NixOSenv/Jarvis`)**: Contains the source code, Lua/Neovim config, and Nix modules. This is where you should commit and push changes.
-- **Runtime Vault (`/THE_VAULT/jarvis`)**: This is the working directory for the system services. It contains the Python virtual environment (`.venv`), ingested data, indexes, and logs. This is located on the 744GB HDD to save space on the main drive.
-
-The `modules/jarvis.nix` file is configured to execute code from the vault, but references the files in the repository for configuration.
-
----
-
-## 4. Backup and Portability
-
-To keep your Jarvis environment portable, use the refined backup script:
+If you're on Ubuntu, Fedora, etc. but have the Nix package manager installed:
 
 ```bash
-./bin/backup.sh
+git clone git@github.com:m-amir-gomaa/Jarvis.git Jarvis
+cd Jarvis
+nix-shell
+make setup
 ```
 
-This script performs two clean actions:
-1. **Source Code**: Backs up the `Jarvis` repository to `JarvisData/code`.
-2. **Runtime Data**: Backs up the `/THE_VAULT/jarvis` data to `JarvisData/data` (excluding the virtual environment).
+---
 
-This ensures that even if you move machines, you have both your logic (code) and your memory (data) in one portable `JarvisData` bundle.
+## 3. Non-NixOS (Plain Linux)
+
+**Prerequisites:** Python 3.10+, `pip`, `make`, `ollama`, optionally `searxng`.
+
+```bash
+git clone git@github.com:m-amir-gomaa/Jarvis.git Jarvis
+cd Jarvis
+python -m venv .venv
+source .venv/bin/activate
+pip install requests numpy watchdog aiohttp rank_bm25 filelock 'mineru[pipeline]'
+export PYTHONPATH=$(pwd)
+```
+
+---
+
+## 4. Backup & Portability
+
+Run the bundled backup script to create a portable snapshot:
+
+```bash
+bash bin/backup.sh
+```
+
+This syncs:
+1. **Code** → `/THE_VAULT/JarvisData/code/` (repo without `.git` / build artefacts)
+2. **Runtime data** → `/THE_VAULT/JarvisData/data/` (vault without `.venv` / `target/`)
+
+For a full list of data locations that need manual USB/Syncthing sync (databases, model weights, indexes), see **[docs/BACKUP_GUIDE.md](docs/BACKUP_GUIDE.md)**.
