@@ -516,33 +516,50 @@ def sync_assets():
         import shutil
         import hashlib
 
+        def needs_sync(src, dst):
+            if not dst.exists(): return True
+            try:
+                with open(src, "rb") as fsrc, open(dst, "rb") as fdst:
+                    return hashlib.md5(fsrc.read()).hexdigest() != hashlib.md5(fdst.read()).hexdigest()
+            except Exception:
+                return True
+
+        def safe_copy(src: Path, dst: Path):
+            """Copy src to dst, removing the destination first if it's read-only
+            (can happen when NixOS/home-manager previously wrote it to the store)."""
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if dst.exists():
+                try:
+                    dst.unlink()
+                except PermissionError:
+                    # Nothing we can do if we truly lack permission
+                    return False
+            shutil.copy2(src, dst)
+            # Ensure the file is writable going forward
+            dst.chmod(0o644)
+            return True
+
         # 1. Sync Man Page
         src_man = BASE_DIR / "docs" / "jarvis.1"
         target_man = Path.home() / ".local" / "share" / "man" / "man1" / "jarvis.1"
-        
-        def needs_sync(src, dst):
-            if not dst.exists(): return True
-            with open(src, "rb") as fsrc, open(dst, "rb") as fdst:
-                return hashlib.md5(fsrc.read()).hexdigest() != hashlib.md5(fdst.read()).hexdigest()
+        if src_man.exists() and needs_sync(src_man, target_man):
+            safe_copy(src_man, target_man)
 
-        if src_man.exists():
-            target_man.parent.mkdir(parents=True, exist_ok=True)
-            if needs_sync(src_man, target_man):
-                shutil.copy2(src_man, target_man)
-                # No print to keep it silent unless it's a major update
-        
-        # 2. Sync Completion Script (Zsh)
+        # 2. Sync Completion Script (_jarvis function)
         src_comp = BASE_DIR / "completions" / "_jarvis"
         target_comp = Path.home() / ".zsh" / "plugins" / "jarvis-completions" / "_jarvis"
-        
-        if src_comp.exists():
-            target_comp.parent.mkdir(parents=True, exist_ok=True)
-            if needs_sync(src_comp, target_comp):
-                shutil.copy2(src_comp, target_comp)
-                
+        if src_comp.exists() and needs_sync(src_comp, target_comp):
+            safe_copy(src_comp, target_comp)
+
+        # 3. Sync Plugin Loader (jarvis-completions.plugin.zsh)
+        src_loader = BASE_DIR / "completions" / "jarvis-completions.plugin.zsh"
+        target_loader = Path.home() / ".zsh" / "plugins" / "jarvis-completions" / "jarvis-completions.plugin.zsh"
+        if src_loader.exists() and needs_sync(src_loader, target_loader):
+            safe_copy(src_loader, target_loader)
+
     except Exception as e:
-        # Silent failure to avoid interrupting the main flow
-        pass
+        # Non-fatal: print a warning rather than silently swallowing errors
+        print(f"[Jarvis] Warning: asset sync failed: {e}", file=sys.stderr)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
