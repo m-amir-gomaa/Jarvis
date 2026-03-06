@@ -68,6 +68,7 @@ Intents:
 - identity: answer questions about Jarvis's name, capabilities, version, or role (e.g., "who are you?", "what can you do?")
 - self_improve: attempt to improve Jarvis's own existing code or documentation.
 - ingest_materials: research, convert, and index coding documents/books.
+- learn_language: start a standardized process to learn a new programming language.
 - backup: sync codebase and vault data to /THE_VAULT/JarvisData.
 - archive: create a timestamped .tar.gz of codebase and vault data.
 
@@ -389,6 +390,14 @@ def route_intent(intent: str, args: dict, user_input: str):
             "--query", query
         ], timeout=1800)
 
+    elif intent == "learn_language":
+        query = args.get("query", user_input)
+        print(f"[Jarvis] Starting Assisted Learning Process for: {query}")
+        return run_pipeline([
+            VENV_PY, str(BASE_DIR / "pipelines" / "language_learner.py"),
+            "--query", query
+        ], timeout=1800)
+
     elif intent == "backup":
         return cmd_backup(archive=False)
 
@@ -476,6 +485,9 @@ Subcommands:
   resume           Resume Ollama (SIGCONT)
   thumbs-up        Rate last command positively
   thumbs-down      Rate last command negatively
+  learn <topic>    Start the assisted learning process for a new language
+  learn <url/file> [--layer L] [--category C]  Directly ingest a resource
+  inbox            View and manage recommended reading queue
   knowledge summary Show high-level view of trained languages
   training         Check language competency and material coverage
   config nvim|nixos Specialized configuration editing mode
@@ -493,6 +505,8 @@ Natural Language Examples:
   jarvis 'validate my nixos config'
   jarvis 'what happened today'
   jarvis 'open dashboard'
+  jarvis 'learn the Zig programming language'
+  jarvis 'help me learn Rust'
 """)
 
 
@@ -636,11 +650,23 @@ def main():
         
         # --- New Explicit Commands ---
         if command == "learn":
-            if not confirm_action("modifying knowledge indexes"): return
-            # e.g., jarvis learn URL/FILE [--layer 1] [--category docs]
-            cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "doc_learner.py")] + sys.argv[2:]
+            if len(sys.argv) < 3:
+                print("Usage: jarvis learn <topic>  - to start assisted learning")
+                print("       jarvis learn <url/file> [--layer L] [--category C]  - for direct ingestion")
+                return
+            
+            # Check if it's a URL or File Path
+            arg2 = sys.argv[2]
+            if arg2.startswith("http") or os.path.exists(arg2):
+                if not confirm_action("modifying knowledge indexes"): return
+                cmd = [VENV_PY, str(BASE_DIR / "pipelines" / "doc_learner.py")] + sys.argv[2:]
+                print(f"[Jarvis] Learning into Knowledge Layer...")
+            else:
+                # Treat as topic for assisted learning
+                cmd = [VENV_PY, str(BASE_DIR / "pipelines" / "language_learner.py"), "--query", " ".join(sys.argv[2:])]
+                print(f"[Jarvis] Starting Assisted Learning Process...")
+            
             env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
-            print(f"[Jarvis] Learning into Knowledge Layer...")
             res = subprocess.run(cmd, env=env)
             log_history(user_input, "learn_explicit", "ok" if res.returncode == 0 else "failed")
             return

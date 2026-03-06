@@ -29,7 +29,9 @@ RESEARCH_DIR = Path("/THE_VAULT/jarvis/research")
 TECH_KEYWORDS = {
     "rust", "python", "javascript", "lua", "nix", "nixos", "framework", "api", "library",
     "docker", "kubernetes", "git", "linux", "kernel", "compile", "debug", "error", "code",
-    "programming", "software", "database", "sql", "nosql", "cloud", "aws", "azure", "gcp"
+    "programming", "software", "database", "sql", "nosql", "cloud", "aws", "azure", "gcp",
+    "zig", "go", "golang", "c++", "cpp", "java", "kotlin", "swift", "typescript", "documentation",
+    "manual", "guide", "tutorial", "reddit", "forum", "overflow", "book", "course"
 }
 
 def detect_research_category(query: str) -> str:
