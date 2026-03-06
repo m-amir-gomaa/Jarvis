@@ -38,7 +38,6 @@ FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
 
 SERVICES = [
-    "jarvis-ingest",
     "jarvis-health-monitor",
     "jarvis-git-monitor",
     "jarvis-coding-agent",
