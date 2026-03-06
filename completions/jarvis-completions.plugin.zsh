@@ -1,6 +1,15 @@
 # jarvis-completions.plugin.zsh
-# This file is the plugin loader for Zsh autocompletion.
-# It adds the directory containing _jarvis to fpath so compinit can find it.
+# Plugin loader for Jarvis Zsh completions.
+#
+# This file is sourced AFTER oh-my-zsh (which already ran compinit).
+# We therefore cannot rely on the #compdef magic tag being picked up.
+# Instead we explicitly autoload and register the completion function.
 
-# The _jarvis file is in the same directory as this plugin loader.
+# Ensure _jarvis is on the fpath (belt-and-suspenders)
 fpath=("${0:A:h}" $fpath)
+
+# Explicitly autoload the completion function
+autoload -U _jarvis
+
+# Register it with the completion system post-compinit
+compdef _jarvis jarvis
