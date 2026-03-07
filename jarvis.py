@@ -756,42 +756,42 @@ def route_intent(intent: str, args: dict, user_input: str):
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 def cmd_help():
-    print("""Jarvis — Local AI Assistant
-
-Usage: jarvis '<natural language command>'
-       jarvis <subcommand>
-
-Subcommands:
-  status           Show all service health + Ollama state
-  start            Start all daemons (systemctl --user)
-  stop             Stop all daemons
-  pause            Suspend Ollama to free CPU (SIGSTOP)
-  resume           Resume Ollama (SIGCONT)
-  thumbs-up        Rate last command positively
-  thumbs-down      Rate last command negatively
-  learn <topic>    Start the assisted learning process for a new language
-  learn <url/file> [--layer L] [--category C]  Directly ingest a resource
-  inbox            View and manage recommended reading queue
-  knowledge summary Show high-level view of trained languages
-  training         Check language competency and material coverage
-  config nvim|nixos Specialized configuration editing mode
-  backup           Sync code and vault data to /THE_VAULT/JarvisData
-  archive          Create timestamped .tar.gz in ~/Backups/Jarvis
-  uptime           Show how long services have been running
-  help             Show this help
-  --version        Show version
-
-Natural Language Examples:
-  jarvis 'clean this pdf for notebooklm'
-  jarvis 'research transformer attention mechanisms'
-  jarvis 'add /path/to/paper.pdf to my knowledge base'
-  jarvis 'write a nix module for postgresql'
-  jarvis 'validate my nixos config'
-  jarvis 'what happened today'
-  jarvis 'open dashboard'
-  jarvis 'learn the Zig programming language'
-  jarvis 'help me learn Rust'
-""")
+    print("Jarvis — Local AI Assistant")
+    print("\nUsage: jarvis '<natural language command>'")
+    print("       jarvis <subcommand>")
+    print("\nSubcommands:")
+    print("  status           Show all service health + Ollama state")
+    print("  start            Start all daemons (systemctl --user)")
+    print("  stop             Stop all daemons")
+    print("  pause            Suspend Ollama to free CPU (SIGSTOP)")
+    print("  resume           Resume Ollama (SIGCONT)")
+    print("  uptime           Show how long services have been running")
+    print("  learn <topic>    Assisted language learning for a new language")
+    print("  index <root>     Index the codebase for the coding agent RAG")
+    print("  query <msg>      Ask a question against the knowledge base")
+    print("  inbox            View and manage recommended reading queue")
+    print("  knowledge        Inspect 3-Layer knowledge base entries")
+    print("  training         Check language competency matrix")
+    print("  models           List local models and cloud aliases")
+    print("  keys             Manage and verify API keys")
+    print("  toggle voice     Enable or disable the voice gateway")
+    print("  forget           Clear short-term working memory")
+    print("  sessions         List and manage active chat sessions")
+    print("  codebases        List indexed codebases")
+    print("  config nvim      Specialized Neovim config editing mode")
+    print("  config nixos     Specialized NixOS config editing mode")
+    print("  man              Show the formal jarvis manual page")
+    print("  dashboard        Open the Rust-based TUI monitor")
+    print("  backup           Sync code and vault data to /THE_VAULT")
+    print("  archive          Create timestamped .tar.gz in ~/Backups")
+    print("  thumbs-up        Rate last command positively")
+    print("  thumbs-down      Rate last command negatively")
+    print("  help             Show this help")
+    print("  --version        Show version")
+    print("\nNatural Language Examples:")
+    print("  jarvis 'clean this pdf for notebooklm'")
+    print("  jarvis 'research transformer attention mechanisms'")
+    print("  jarvis 'write a nix module for postgresql'")
 
 
 def sync_assets():
@@ -1192,7 +1192,37 @@ def main():
             if len(sys.argv) < 3: return
             ctype = sys.argv[2]
             if ctype == "commands":
-                print("\n".join(["start", "stop", "status", "uptime", "pause", "resume", "learn", "index", "query", "inbox", "knowledge", "training", "config", "man", "dashboard", "backup", "archive", "thumbs-up", "thumbs-down", "models", "keys", "toggle", "forget", "sessions", "codebases"]))
+            # List all top-level subcommands with descriptions for Zsh
+                commands = {
+                    "start": "Start all background services",
+                    "stop": "Stop all background services",
+                    "status": "Show service health and model status",
+                    "uptime": "Show how long each service has been running",
+                    "pause": "Suspend AI inference (SIGSTOP Ollama)",
+                    "resume": "Resume AI inference (SIGCONT Ollama)",
+                    "learn": "Assisted language learning or direct ingestion",
+                    "index": "Index the codebase for the coding agent RAG",
+                    "query": "Ask a question against the knowledge base",
+                    "inbox": "View and manage the recommended reading queue",
+                    "knowledge": "Inspect 3-Layer knowledge base entries",
+                    "training": "Show language competency matrix",
+                    "config": "Specialized configuration editing mode (nvim|nixos)",
+                    "man": "Show the formal jarvis manual page",
+                    "dashboard": "Open the Rust-based TUI monitor",
+                    "backup": "Sync code and vault data to storage",
+                    "archive": "Create a timestamped .tar.gz backup",
+                    "thumbs-up": "Give positive feedback on the last command",
+                    "thumbs-down": "Give negative feedback on the last command",
+                    "models": "List local models and cloud aliases",
+                    "keys": "Manage and verify API keys",
+                    "toggle": "Toggle system preferences (voice, etc.)",
+                    "forget": "Clear short-term working memory",
+                    "sessions": "List and manage active chat sessions",
+                    "codebases": "List indexed codebases",
+                    "help": "Show usage help"
+                }
+                for cmd, desc in sorted(commands.items()):
+                    print(f"{cmd}:{desc}")
             elif ctype == "categories":
                 from lib.knowledge_manager import KnowledgeManager
                 import sqlite3

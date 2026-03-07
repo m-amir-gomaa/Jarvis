@@ -35,7 +35,7 @@ _jarvis() {
     local -a subcmds
     local python_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/.venv/bin/python"
     [[ ! -x "$python_bin" ]] && python_bin="python3"
-    subcmds=("${(@f)$($python_bin "$jarvis_bin" completion commands | sed 's/$/:Command/')}")
+    subcmds=("${(@f)$($python_bin "$jarvis_bin" completion commands)}")
 
     _arguments -C \
         '(-v --version)'{-v,--version}'[Show version information]' \
