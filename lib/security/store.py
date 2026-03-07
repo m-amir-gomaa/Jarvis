@@ -48,9 +48,9 @@ class GrantStore:
 
     def revoke_persistent(self, ctx: SecurityContext, capability: str) -> bool:
         """Explicitly revoke a persistent grant."""
-        for g in ctx.grants:
+        for g in list(ctx.grants):  # copy to avoid mutation during iteration
             if g.capability == capability and g.scope == "persistent":
                 self.audit.record_revoked(ctx, capability, g.audit_token)
-                ctx.grants.remove(g)
+                ctx.grants = [x for x in ctx.grants if x is not g]
                 return True
         return False

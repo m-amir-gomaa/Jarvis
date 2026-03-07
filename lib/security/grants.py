@@ -118,6 +118,14 @@ class CapabilityGrantManager:
         cap = row["capability"]
         req = CapabilityRequest(capability=cap, reason=row["reason"], scope=row.get("scope", "task"))
         if approved:
+            # Re-check trust floor before issuing — prevents trust bypass via OOB
+            floor = CAPABILITY_TRUST_FLOOR.get(cap, 1)
+            if ctx.trust_level < floor:
+                self.audit.record_denied(ctx, cap, req.reason, "trust_level_insufficient_at_resolve", scope=req.scope)
+                self.audit.mark_pending_resolved(pending_id, "denied")
+                raise TrustLevelError(
+                    f"Trust level {ctx.trust_level} insufficient for '{cap}' (requires {floor})"
+                )
             grant = self._issue(ctx, cap, req, granted_by="user")
             self.audit.record_granted(ctx, grant, req.reason, auto=False)
             self.audit.mark_pending_resolved(pending_id, "approved")

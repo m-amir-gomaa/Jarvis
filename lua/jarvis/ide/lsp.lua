@@ -37,13 +37,22 @@ function M.setup(opts)
     on_attach = function(client, bufnr)
       M.on_attach(client, bufnr)
       -- P1-7: Fetch conn_id after LSP initialization and sync to security.lua
-      vim.defer_fn(function()
-        local result = vim.fn.system("curl -s http://localhost:8001/auth/conn_id")
-        local ok, data = pcall(vim.fn.json_decode, result)
-        if ok and data and data.conn_id then
-          require("jarvis.ide.security").set_conn_id(data.conn_id)
+      -- Use jobstart (non-blocking) instead of system() (blocking)
+      vim.fn.jobstart({"curl", "-s", "http://localhost:8001/auth/conn_id"}, {
+        on_stdout = function(_, data)
+          local s = table.concat(data)
+          if s == "" then return end
+          local ok, d = pcall(vim.fn.json_decode, s)
+          if ok and d and d.conn_id then
+            require("jarvis.ide.security").set_conn_id(d.conn_id)
+          end
+        end,
+        on_exit = function(_, code)
+          if code ~= 0 then
+            vim.notify("[Jarvis LSP] conn_id fetch failed (curl exit " .. code .. ")", vim.log.levels.DEBUG)
+          end
         end
-      end, 500)
+      })
     end,
   })
 end

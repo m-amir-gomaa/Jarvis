@@ -15,6 +15,7 @@ steps:
       Plan the specific edits needed. Be precise about what to change and where.
     model_alias: coder
     output_key: edit_plan
+    on_failure: stop  # P3-B fix: stop if planner fails to prevent undefined {{ edit_plan }} in executor
 
   - id: action_executor
     prompt_template: |

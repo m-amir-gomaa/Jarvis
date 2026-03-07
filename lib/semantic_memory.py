@@ -69,14 +69,16 @@ class SemanticMemory:
             """)
             conn.commit()
 
-    def _extract_entities(self, content: str) -> List[Tuple[str, str, str]]:
+    async def _extract_entities(self, content: str) -> List[Tuple[str, str, str]]:
         """Use language model to extract knowledge graph triples."""
         prompt = f"""Extract 1 to 5 factual relationships from the text below.
 Format strict JSON list of lists: [["Subject", "Relation", "Object"]].
 Keep entities short. No conversational text.
 Text: {content}"""
         try:
-            res_text = ask(task="analyze", messages=[{"role": "user", "content": prompt}], thinking=False)
+            # FIX: ask() is now async/returns coroutine
+            res_obj = await ask(task="analyze", prompt=prompt, thinking=False)
+            res_text = res_obj.content if hasattr(res_obj, "content") else str(res_obj)
             if not isinstance(res_text, str):
                 return []
             res_text = res_text.strip()
@@ -122,7 +124,7 @@ Text: {content}"""
             start = end - overlap
         return chunks
 
-    def ingest(self, content: str, metadata: dict, layer: int = 1, category: Optional[str] = None) -> None:
+    async def ingest(self, content: str, metadata: dict, layer: int = 1, category: Optional[str] = None) -> None:
         """Embed text and store in sqlite-vec virtual table. Automatically chunks large content."""
         chunks = self._chunk_text(content)
         
@@ -132,7 +134,8 @@ Text: {content}"""
         for i, chunk in enumerate(chunks):
             try:
                 # Generate embedding
-                vector = embed("embed", chunk)
+                # FIX: embed() is now async/returns coroutine
+                vector = await embed("embed", chunk)
                 if not vector:
                     emit('semantic_memory', 'ingest_failed', {'reason': 'Empty embedding returned'})
                     continue
@@ -161,7 +164,7 @@ Text: {content}"""
                     )
                     
                     # Entity extraction only on smaller chunks is better anyway
-                    triples = self._extract_entities(chunk)
+                    triples = await self._extract_entities(chunk)
                     if triples:
                         for item in triples:
                             sub = str(item[0])[:100]
@@ -179,12 +182,13 @@ Text: {content}"""
                 emit('semantic_memory', 'ingest_error', {'error': str(e), 'chunk': i})
                 print(f"[SemanticMemory] Error ingesting chunk {i}: {e}")
 
-    def query(self, query_text: str, k: int = 5, category: Optional[str] = None, use_hybrid: bool = True) -> List[SearchResult]:
+    async def query(self, query_text: str, k: int = 5, category: Optional[str] = None, use_hybrid: bool = True) -> List[SearchResult]:
         """
         Native vector similarity search utilizing the fast vec0 backend.
         """
         try:
-            query_vector = embed("embed", query_text)
+            # FIX: embed() is now async/returns coroutine
+            query_vector = await embed("embed", query_text)
             if not query_vector:
                 return []
                 

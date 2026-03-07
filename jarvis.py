@@ -95,11 +95,14 @@ def classify_intent(user_input: str) -> dict:
         if not is_healthy():
             return {"intent": "unknown", "args": {}}
 
-        messages = [{"role": "user", "content": INTENT_PROMPT + user_input}]
-        response = ask(task="classify", privacy=Privacy.INTERNAL, messages=messages, thinking=False)
+        # ask() takes a positional prompt string — no messages= kwarg
+        response = ask(INTENT_PROMPT + user_input, task="classify", privacy=Privacy.INTERNAL, thinking=False)
+
+        # ask() returns LLMResponse object — extract text
+        text = response.content if hasattr(response, "content") else str(response)
 
         # Extract JSON from response
-        match = re.search(r'\{.*\}', response, re.DOTALL)
+        match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
             return json.loads(match.group(0))
     except Exception as e:
