@@ -35,9 +35,10 @@ function M.setup()
   dap.configurations.cpp = dap.configurations.rust
 
   -- ── Python via debugpy ────────────────────────────────────────────────────
+  local jarvis_root = os.getenv("JARVIS_ROOT") or (os.getenv("HOME") .. "/NixOSenv/Jarvis")
   dap.adapters.python = {
     type = "executable",
-    command = "/THE_VAULT/jarvis/.venv/bin/python",
+    command = jarvis_root .. "/.venv/bin/python",
     args = { "-m", "debugpy.adapter" },
   }
 
@@ -47,7 +48,7 @@ function M.setup()
       request = "launch",
       name = "Launch file",
       program = "${file}",
-      pythonPath = "/THE_VAULT/jarvis/.venv/bin/python",
+      pythonPath = jarvis_root .. "/.venv/bin/python",
     },
   }
 
