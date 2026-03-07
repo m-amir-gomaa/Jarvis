@@ -40,6 +40,52 @@ HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
 FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
+_VAULT_ROOT = Path(os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
+
+# ── CLI V2 Security Context (Phase A) ─────────────────────────────────────────
+# Creates an ADMIN-trust SecurityContext for CLI-triggered operations.
+# shadow_mode stays ON until Phase E (all pipelines migrated + tested).
+# This is a best-effort init: if security libs fail to import (e.g. venv not
+# activated), CLI still works — it just has no audit trail.
+_CLI_CTX = None
+
+def _create_cli_ctx():
+    """Lazy-init CLI SecurityContext with ADMIN trust. Called once at dispatch time."""
+    global _CLI_CTX
+    if _CLI_CTX is not None:
+        return _CLI_CTX
+    try:
+        from lib.security.context import SecurityContext
+        from lib.security.audit import AuditLogger
+        from lib.security.store import GrantStore
+
+        audit = AuditLogger(_VAULT_ROOT / "databases" / "security_audit.db")
+        ctx = SecurityContext(agent_id="cli", trust_level=3)  # ADMIN
+        store = GrantStore(audit)
+        restored = store.load_persistent_grants(ctx)
+        if restored > 0:
+            print(f"[Jarvis] Restored {restored} persistent capability grant(s).")
+        _CLI_CTX = ctx
+    except Exception as e:
+        # Graceful degradation — CLI still works without security engine
+        print(f"[Jarvis] Security context unavailable: {e}", file=sys.stderr)
+    return _CLI_CTX
+
+
+def _shadow_require(capability: str, reason: str = "") -> None:
+    """
+    Log a capability requirement to the audit trail (shadow mode — no enforcement).
+    Call this wherever the CLI would need a capability check if fully migrated.
+    """
+    ctx = _create_cli_ctx()
+    if ctx is None:
+        return
+    try:
+        from lib.security.context import shadow_require
+        shadow_require(ctx, capability)
+    except Exception:
+        pass
+
 
 def run_pipeline(cmd: list, timeout: int = 300, risk_level: str = "low"):
     if risk_level == "high":
@@ -493,6 +539,7 @@ def route_intent(intent: str, args: dict, user_input: str):
 
     elif intent == "research":
         query = args.get("query", user_input)
+        _shadow_require("network_access", f"web search: {query[:60]}")
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "research_agent.py"), "--query", query])
 
     elif intent == "ingest":
@@ -500,10 +547,13 @@ def route_intent(intent: str, args: dict, user_input: str):
         if not file_path:
             print("Jarvis: Please specify a file path.")
             return False
+        _shadow_require("file_read", f"ingest file: {file_path}")
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "ingest.py"), "--once", file_path])
 
     elif intent == "generate_nix":
         prompt = args.get("query", user_input)
+        _shadow_require("file_write", "generate NixOS module")
+        _shadow_require("shell_exec", "nixos-rebuild after generate")
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
             "--task", "nixos", "--user-prompt", prompt, "--thinking"
@@ -514,6 +564,7 @@ def route_intent(intent: str, args: dict, user_input: str):
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "optimizer.py"), task])
 
     elif intent == "validate_nixos":
+        _shadow_require("shell_exec", "nixos-rebuild dry-run validation")
         return run_pipeline([VENV_PY, str(BASE_DIR / "lib" / "nix_validator.py"), "--repo", str(BASE_DIR.parent)])
 
     elif intent == "query_knowledge":

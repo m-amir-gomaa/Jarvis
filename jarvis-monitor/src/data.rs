@@ -2,7 +2,7 @@
 
 use std::process::Command;
 use rusqlite::{Connection, Result as SqlResult};
-use crate::app::{AppUpdate, JarvisEvent, RamUsage, ServiceStatus, BudgetInfo};
+use crate::app::{AppUpdate, JarvisEvent, PendingGrant, RamUsage, SecurityEvent, ServiceStatus, BudgetInfo};
 use chrono::Utc;
 
 fn events_db_path() -> std::path::PathBuf {
@@ -115,6 +115,68 @@ fn get_budget_info() -> BudgetInfo {
     }
     info
 }
+fn security_db_path() -> std::path::PathBuf {
+    let vault = std::env::var("VAULT_ROOT")
+        .unwrap_or_else(|_| "/THE_VAULT/jarvis".to_string());
+    std::path::PathBuf::from(vault).join("databases").join("security_audit.db")
+}
+
+fn get_security_info() -> (Vec<PendingGrant>, Vec<SecurityEvent>) {
+    let db_path = security_db_path();
+    let Ok(conn) = Connection::open(&db_path) else {
+        return (vec![], vec![]);
+    };
+    // Read-only — we never write from the monitor
+    let _ = conn.execute("PRAGMA query_only = true", []);
+
+    // Pending grants waiting for approval
+    let pending: Vec<PendingGrant> = match conn.prepare(
+        "SELECT id, ts, agent_id, capability, reason FROM pending_grants \
+         WHERE status = 'pending' ORDER BY ts DESC LIMIT 20"
+    ) {
+        Err(_) => vec![],
+        Ok(mut stmt) => {
+            // Collect inside this block while stmt is still alive
+            stmt.query_map([], |row| {
+                let id_str = row.get::<_, i64>(0)
+                    .map(|v| v.to_string())
+                    .unwrap_or_default();
+                Ok(PendingGrant {
+                    id:         id_str,
+                    ts:         row.get(1)?,
+                    agent_id:   row.get(2)?,
+                    capability: row.get(3)?,
+                    reason:     row.get(4)?,
+                })
+            }).map(|rows| rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
+              .unwrap_or_default()
+        }
+    };
+
+    // Recent capability events (last 30)
+    let events: Vec<SecurityEvent> = match conn.prepare(
+        "SELECT ts, agent_id, capability, action, COALESCE(scope, 'task') \
+         FROM capability_events ORDER BY ts DESC LIMIT 30"
+    ) {
+        Err(_) => vec![],
+        Ok(mut stmt) => {
+            stmt.query_map([], |row| {
+                let raw_ts: String = row.get(0).unwrap_or_default();
+                let short_ts = raw_ts.get(..19).unwrap_or(&raw_ts).to_string();
+                Ok(SecurityEvent {
+                    ts:         short_ts,
+                    agent_id:   row.get(1)?,
+                    capability: row.get(2)?,
+                    action:     row.get(3)?,
+                    scope:      row.get(4)?,
+                })
+            }).map(|rows| rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
+              .unwrap_or_default()
+        }
+    };
+
+    (pending, events)
+}
 
 
 pub async fn poll_data() -> Option<AppUpdate> {
@@ -138,6 +200,7 @@ pub async fn poll_data() -> Option<AppUpdate> {
     let active_task = get_active_task(&events);
     let ram = get_ram_usage();
     let budget = get_budget_info();
+    let (pending_grants, recent_security_events) = get_security_info();
 
-    Some(AppUpdate { services, events, ram, active_task, budget })
+    Some(AppUpdate { services, events, ram, active_task, budget, pending_grants, recent_security_events })
 }

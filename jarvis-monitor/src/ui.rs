@@ -78,28 +78,193 @@ fn render_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
     render_events(f, app, bottom_cols[1]);
 }
 
-fn render_security(f: &mut Frame, _app: &App, area: Rect) {
-    let block = Block::default().borders(Borders::ALL).title(" Security Audit Log ");
-    let para = Paragraph::new("Loading from security_audit.db...")
-        .block(block)
-        .style(Style::default().fg(Color::Yellow));
-    f.render_widget(para, area);
+fn render_security(f: &mut Frame, app: &App, area: Rect) {
+    // Split into top (pending) / bottom (recent events)
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(area);
+
+    // ── Pending Grants ──────────────────────────────────────────────────────
+    let pending_header = Row::new(vec![
+        Cell::from("ID").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Agent").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Capability").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Reason").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Time").style(Style::default().add_modifier(Modifier::BOLD)),
+    ]);
+
+    let pending_rows: Vec<Row> = if app.pending_grants.is_empty() {
+        vec![Row::new(vec![Cell::from("─── No pending capability requests ───")
+            .style(Style::default().fg(Color::DarkGray))])]
+    } else {
+        app.pending_grants.iter().map(|g| {
+            let short_reason = if g.reason.len() > 40 {
+                format!("{}…", &g.reason[..39])
+            } else {
+                g.reason.clone()
+            };
+            let short_ts = g.ts.get(..16).unwrap_or(&g.ts).to_string();
+            Row::new(vec![
+                Cell::from(g.id.clone()).style(Style::default().fg(Color::Yellow)),
+                Cell::from(g.agent_id.clone()),
+                Cell::from(g.capability.clone()).style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Cell::from(short_reason),
+                Cell::from(short_ts).style(Style::default().fg(Color::DarkGray)),
+            ])
+        }).collect()
+    };
+
+    let pending_count = app.pending_grants.len();
+    let pending_title = if pending_count > 0 {
+        format!(" ⚠ Pending Grants ({}) — run: jarvis approve <id> ", pending_count)
+    } else {
+        " Pending Grants (none) ".to_string()
+    };
+    let pending_title_color = if pending_count > 0 { Color::Yellow } else { Color::Green };
+
+    let pending_widths = [
+        Constraint::Length(6), Constraint::Length(14), Constraint::Length(20),
+        Constraint::Min(30), Constraint::Length(17),
+    ];
+    let pending_table = Table::new(pending_rows, pending_widths)
+        .header(pending_header.style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)))
+        .block(Block::default().borders(Borders::ALL)
+            .title(pending_title)
+            .style(Style::default().fg(pending_title_color).add_modifier(Modifier::BOLD)));
+
+    f.render_widget(pending_table, chunks[0]);
+
+    // ── Recent Capability Events ────────────────────────────────────────────
+    let event_header = Row::new(vec![
+        Cell::from("Time").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Agent").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Capability").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Action").style(Style::default().add_modifier(Modifier::BOLD)),
+        Cell::from("Scope").style(Style::default().add_modifier(Modifier::BOLD)),
+    ]);
+
+    let event_rows: Vec<Row> = if app.recent_security_events.is_empty() {
+        vec![Row::new(vec![Cell::from("─── No audit events (security_audit.db may not exist yet) ───")
+            .style(Style::default().fg(Color::DarkGray))])]
+    } else {
+        app.recent_security_events.iter()
+            .skip(app.security_scroll)
+            .take(chunks[1].height.saturating_sub(3) as usize)
+            .map(|e| {
+                let action_color = match e.action.as_str() {
+                    "granted"  => Color::Green,
+                    "denied"   => Color::Red,
+                    "revoked"  => Color::Magenta,
+                    "pending"  => Color::Yellow,
+                    _          => Color::White,
+                };
+                let action_symbol = match e.action.as_str() {
+                    "granted"  => "✓ granted",
+                    "denied"   => "✗ denied",
+                    "revoked"  => "↩ revoked",
+                    "pending"  => "⏳ pending",
+                    other      => other,
+                };
+                Row::new(vec![
+                    Cell::from(e.ts.clone()).style(Style::default().fg(Color::DarkGray)),
+                    Cell::from(e.agent_id.clone()),
+                    Cell::from(e.capability.clone()).style(Style::default().fg(Color::Cyan)),
+                    Cell::from(action_symbol).style(Style::default().fg(action_color).add_modifier(Modifier::BOLD)),
+                    Cell::from(e.scope.clone()).style(Style::default().fg(Color::DarkGray)),
+                ])
+            }).collect()
+    };
+
+    let total_events = app.recent_security_events.len();
+    let events_title = if total_events > 0 {
+        format!(" Audit Log ({}/{}) — j/k to scroll ", app.security_scroll + 1, total_events)
+    } else {
+        " Audit Log (empty) ".to_string()
+    };
+
+    let event_widths = [
+        Constraint::Length(17), Constraint::Length(16), Constraint::Length(22),
+        Constraint::Length(12), Constraint::Length(10),
+    ];
+    let event_table = Table::new(event_rows, event_widths)
+        .header(event_header.style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)))
+        .block(Block::default().borders(Borders::ALL)
+            .title(events_title)
+            .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)));
+
+    f.render_widget(event_table, chunks[1]);
 }
 
 fn render_ers(f: &mut Frame, _app: &App, area: Rect) {
-    let block = Block::default().borders(Borders::ALL).title(" ERS Reasoning Chains ");
-    let para = Paragraph::new("No active chains.")
-        .block(block)
-        .style(Style::default().fg(Color::Magenta));
-    f.render_widget(para, area);
+    // ERS tab — chains are short-lived; show a helpful status message
+    let items = vec![
+        ListItem::new(Line::from(vec![
+            Span::styled("ERS chains are ephemeral — no persistent state to display.", Style::default().fg(Color::DarkGray)),
+        ])),
+        ListItem::new(Line::from("")),
+        ListItem::new(Line::from(vec![
+            Span::styled("To trigger a chain: ", Style::default().fg(Color::White)),
+            Span::styled("jarvis 'review my last commit'", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ])),
+        ListItem::new(Line::from(vec![
+            Span::styled("Available chains: ", Style::default().fg(Color::White)),
+            Span::styled("code_review, code_action, research_deep, git_summarize, nixos_verify, debug_error", Style::default().fg(Color::Green)),
+        ])),
+        ListItem::new(Line::from(vec![
+            Span::styled("Chain logs: ", Style::default().fg(Color::White)),
+            Span::styled("$VAULT_ROOT/logs/ers_chains.log", Style::default().fg(Color::DarkGray)),
+        ])),
+    ];
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL)
+            .title(" ERS Reasoning Chains ")
+            .style(Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)));
+    f.render_widget(list, area);
 }
 
 fn render_ide(f: &mut Frame, _app: &App, area: Rect) {
-    let block = Block::default().borders(Borders::ALL).title(" IDE Bridge Status ");
-    let para = Paragraph::new("LSP port 8002: Active\nHTTP port 8001: Active")
-        .block(block)
-        .style(Style::default().fg(Color::Cyan));
-    f.render_widget(para, area);
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    // Do a quick TCP probe to check if ports are actually listening
+    let lsp_up = TcpStream::connect_timeout(
+        &"127.0.0.1:8002".parse().unwrap(), Duration::from_millis(200)
+    ).is_ok();
+    let http_up = TcpStream::connect_timeout(
+        &"127.0.0.1:8001".parse().unwrap(), Duration::from_millis(200)
+    ).is_ok();
+
+    let lsp_status = if lsp_up { ("● LSP  port 8002: Active", Color::Green) }
+                     else       { ("○ LSP  port 8002: Inactive", Color::Red) };
+    let http_status = if http_up { ("● HTTP port 8001: Active", Color::Green) }
+                      else        { ("○ HTTP port 8001: Inactive", Color::Red) };
+
+    let items = vec![
+        ListItem::new(Line::from(vec![
+            Span::styled(lsp_status.0, Style::default().fg(lsp_status.1).add_modifier(Modifier::BOLD)),
+        ])),
+        ListItem::new(Line::from(vec![
+            Span::styled(http_status.0, Style::default().fg(http_status.1).add_modifier(Modifier::BOLD)),
+        ])),
+        ListItem::new(Line::from("")),
+        ListItem::new(Line::from(vec![
+            Span::styled("Actions: fix  explain  refactor  review  doc_gen  test_gen  commit  search  chat  model", Style::default().fg(Color::DarkGray)),
+        ])),
+        ListItem::new(Line::from(vec![
+            Span::styled("Trust: unauthenticated=BASIC(1)  authenticated=ELEVATED(2)", Style::default().fg(Color::DarkGray)),
+        ])),
+        ListItem::new(Line::from(vec![
+            Span::styled("Start sidecar: ", Style::default().fg(Color::White)),
+            Span::styled("python services/jarvis_lsp.py", Style::default().fg(Color::Cyan)),
+        ])),
+    ];
+
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL)
+            .title(" IDE Bridge Status ")
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+    f.render_widget(list, area);
 }
 
 fn render_services(f: &mut Frame, app: &App, area: Rect) {

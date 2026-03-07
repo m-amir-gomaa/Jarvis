@@ -43,12 +43,32 @@ pub struct BudgetInfo {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct PendingGrant {
+    pub id: String,
+    pub ts: String,
+    pub agent_id: String,
+    pub capability: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SecurityEvent {
+    pub ts: String,
+    pub agent_id: String,
+    pub capability: String,
+    pub action: String,  // granted | denied | revoked | pending
+    pub scope: String,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct AppUpdate {
     pub services: Vec<ServiceStatus>,
     pub events: Vec<JarvisEvent>, // newest first
     pub ram: RamUsage,
     pub active_task: Option<String>,
     pub budget: BudgetInfo,
+    pub pending_grants: Vec<PendingGrant>,
+    pub recent_security_events: Vec<SecurityEvent>,
 }
 
 pub struct App {
@@ -59,6 +79,9 @@ pub struct App {
     pub scroll_offset: usize,
     pub budget: BudgetInfo,
     pub active_tab: Tab,
+    pub pending_grants: Vec<PendingGrant>,
+    pub recent_security_events: Vec<SecurityEvent>,
+    pub security_scroll: usize,
 }
 
 impl App {
@@ -76,6 +99,9 @@ impl App {
             scroll_offset: 0,
             budget: BudgetInfo::default(),
             active_tab: Tab::Dashboard,
+            pending_grants: vec![],
+            recent_security_events: vec![],
+            security_scroll: 0,
         }
     }
 
@@ -85,17 +111,37 @@ impl App {
         self.ram = update.ram;
         self.active_task = update.active_task;
         self.budget = update.budget;
+        self.pending_grants = update.pending_grants;
+        self.recent_security_events = update.recent_security_events;
     }
 
     pub fn scroll_down(&mut self) {
-        if self.scroll_offset + 1 < self.events.len() {
-            self.scroll_offset += 1;
+        match self.active_tab {
+            Tab::Security => {
+                if self.security_scroll + 1 < self.recent_security_events.len() {
+                    self.security_scroll += 1;
+                }
+            }
+            _ => {
+                if self.scroll_offset + 1 < self.events.len() {
+                    self.scroll_offset += 1;
+                }
+            }
         }
     }
 
     pub fn scroll_up(&mut self) {
-        if self.scroll_offset > 0 {
-            self.scroll_offset -= 1;
+        match self.active_tab {
+            Tab::Security => {
+                if self.security_scroll > 0 {
+                    self.security_scroll -= 1;
+                }
+            }
+            _ => {
+                if self.scroll_offset > 0 {
+                    self.scroll_offset -= 1;
+                }
+            }
         }
     }
 
