@@ -4,7 +4,7 @@ import subprocess
 from lib.event_bus import emit
 from lib.git_summarizer import get_git_diff, summarize_diff
 
-# /THE_VAULT/jarvis/services/git_monitor.py
+# /home/qwerty/NixOSenv/Jarvis/services/git_monitor.py
 
 REPO_PATH = "/home/qwerty/NixOSenv"
 CHECK_INTERVAL = 3600  # 1 hour
@@ -13,7 +13,7 @@ def check_for_changes():
     """Checks for new commits and emits summaries."""
     try:
         # Get last checked commit or use HEAD~1
-        last_commit_path = "/THE_VAULT/jarvis/logs/last_commit.txt"
+        last_commit_path = "/home/qwerty/NixOSenv/Jarvis/logs/last_commit.txt"
         since = "HEAD~1"
         if os.path.exists(last_commit_path):
             with open(last_commit_path, "r") as f:

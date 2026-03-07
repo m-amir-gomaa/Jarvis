@@ -1,0 +1,8 @@
+[preferences]
+voice_enabled = false
+notification_level = "info"
+default_thinking = true
+
+[ui]
+theme = "dark"
+compact_status = true

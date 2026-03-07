@@ -5,7 +5,7 @@ The **Coding Agent** is the heart of Jarvis's intelligence. It is a multi-thread
 ## Architecture
 
 - **Path**: `services/coding_agent.py`
-- **Runtime**: `/THE_VAULT/jarvis` (Production)
+- **Runtime**: `/home/qwerty/NixOSenv/Jarvis` (Production)
 - **Port**: `7002`
 - **Concurrency**: Uses `ThreadingHTTPServer` to handle multiple requests simultaneously (e.g., performing a code fix while allowing a cancellation request).
 
@@ -56,4 +56,4 @@ systemctl --user status jarvis-coding-agent.service
 systemctl --user restart jarvis-coding-agent.service
 ```
 
-Logs are stored in `/THE_VAULT/jarvis/logs/`.
+Logs are stored in `/home/qwerty/NixOSenv/Jarvis/logs/`.

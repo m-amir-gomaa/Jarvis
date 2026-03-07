@@ -2,16 +2,18 @@ import os
 import sys
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/lib/env_manager.py
+# /home/qwerty/NixOSenv/Jarvis/lib/env_manager.py
 
 REQUIRED_VARS = {
     'OLLAMA_BASE_URL':       ('http://localhost:11434', 'Ollama REST API endpoint'),
     'ANYTHINGLLM_BASE_URL':  ('http://localhost:3001',  'AnythingLLM REST API endpoint'),
     'ANYTHINGLLM_API_KEY':   (None,                     'AnythingLLM authentication key'),
     'GITEA_WEBHOOK_SECRET':  (None,                     'HMAC secret for Gitea webhooks'),
+    'OPENROUTER_API_KEY':    (None,                     'OpenRouter API key for cloud LLMs'),
 }
 
-CONFIG_DIR = "/THE_VAULT/jarvis/config"
+JARVIS_ROOT = os.environ.get("JARVIS_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+CONFIG_DIR = os.path.join(JARVIS_ROOT, "config")
 DOTENV_PATH = os.path.join(CONFIG_DIR, ".env")
 EXAMPLE_PATH = os.path.join(CONFIG_DIR, "env.example")
 
@@ -20,7 +22,7 @@ def load(required: list[str] = None) -> dict:
     Loads environment variables from os.environ and fallback to .env file.
     Returns a dict with 'resolved' variables and 'missing' list if any.
     """
-    # 1. Load /THE_VAULT/jarvis/config/.env if it exists
+    # 1. Load /home/qwerty/NixOSenv/Jarvis/config/.env if it exists
     if os.path.exists(DOTENV_PATH):
         with open(DOTENV_PATH, "r") as f:
             for line in f:

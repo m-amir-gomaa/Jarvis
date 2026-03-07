@@ -13,16 +13,15 @@ This is the canonical setup used in development. The repository lives inside `~/
 **Structure:**
 ```
 ~/NixOSenv/
-  Jarvis/             ← source code, indices, and .venv (SSD - Core)
+  Jarvis/             ← source code, indices, and .venv (Core Root)
   modules/jarvis.nix  ← systemd service definitions
-/THE_VAULT/JarvisBackups/ ← redundant backup storage (HDD)
+# Backups are stored in ~/Backups/Jarvis by default
 ```
 
 **Prerequisites:**
 - NixOS with Flakes enabled
 - Home Manager configured
 - SSD partition for `~/NixOSenv` (Recommended for performance)
-- Large HDD partition for backups (`/THE_VAULT`)
 
 **Steps:**
 1. **Clone inside `NixOSenv` (SSD):**

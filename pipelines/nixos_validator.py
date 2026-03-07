@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MVP 10 — NixOS Validator
-/THE_VAULT/jarvis/lib/nix_validator.py  (also: pipelines/nixos_validator.py)
+/home/qwerty/NixOSenv/Jarvis/lib/nix_validator.py  (also: pipelines/nixos_validator.py)
 
 Runs `nix flake check` on the NixOS config repo, captures any errors,
 passes them to Qwen3-14B for diagnosis, and saves a report to review/.
@@ -13,14 +13,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
+sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
 from lib.event_bus import emit
 from lib.model_router import route
 from lib.ollama_client import chat, is_healthy
 
-REVIEW_DIR = Path("/THE_VAULT/jarvis/review")
+REVIEW_DIR = Path("/home/qwerty/NixOSenv/Jarvis/review")
 NIX_REPO = Path("/home/qwerty/NixOSenv")
-EXPERT_PROMPT_PATH = Path("/THE_VAULT/jarvis/prompts/nixos/best.txt")
+EXPERT_PROMPT_PATH = Path("/home/qwerty/NixOSenv/Jarvis/prompts/nixos/best.txt")
 
 DEFAULT_EXPERT = (
     "You are an expert NixOS engineer specializing in flake-based configurations. "
@@ -76,7 +76,8 @@ def diagnose_error(error_output: str) -> str:
     system = load_expert_prompt()
     messages = [{"role": "user", "content": f"NixOS error:\n\n{error_output[:3000]}"}]
     try:
-        return chat(route("diagnose"), messages, system=system, thinking=True)
+        decision = route("diagnose")
+        return chat(decision.model_alias, messages, system=system, thinking=True)
     except Exception as e:
         return f"(diagnosis failed: {e})"
 

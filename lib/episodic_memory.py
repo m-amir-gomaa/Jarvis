@@ -4,9 +4,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# /THE_VAULT/jarvis/lib/episodic_memory.py
+import os
+# /home/qwerty/NixOSenv/Jarvis/lib/episodic_memory.py
 
-DB_PATH = Path("/THE_VAULT/jarvis/logs/events.db")
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+DB_PATH = BASE_DIR / "logs" / "events.db"
 
 def get_recent_events(limit: int = 20, source: Optional[str] = None) -> List[Dict[str, Any]]:
     if not DB_PATH.exists():

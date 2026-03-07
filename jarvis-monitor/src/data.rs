@@ -2,7 +2,8 @@
 
 use std::process::Command;
 use rusqlite::{Connection, Result as SqlResult};
-use crate::app::{AppUpdate, JarvisEvent, RamUsage, ServiceStatus};
+use crate::app::{AppUpdate, JarvisEvent, RamUsage, ServiceStatus, BudgetInfo};
+use chrono::Utc;
 
 const EVENTS_DB: &str = "/THE_VAULT/jarvis/logs/events.db";
 
@@ -83,6 +84,31 @@ fn get_active_task(events: &[JarvisEvent]) -> Option<String> {
     })
 }
 
+fn get_budget_info() -> BudgetInfo {
+    let root = std::env::var("JARVIS_ROOT").unwrap_or_else(|_| "/home/qwerty/NixOSenv/Jarvis".to_string());
+    let db_path = format!("{}/data/api_usage.db", root);
+    
+    let mut info = BudgetInfo {
+        tokens_used: 0,
+        daily_limit: 200_000,
+        cost_usd: 0.0,
+        cost_limit: 2.0,
+    };
+
+    if let Ok(conn) = Connection::open(&db_path) {
+        let today = Utc::now().format("%Y-%m-%d").to_string();
+        if let Ok(mut stmt) = conn.prepare("SELECT SUM(prompt_tokens + output_tokens), SUM(cost_usd) FROM api_usage WHERE date(ts) = ?") {
+            if let Ok(mut rows) = stmt.query([today]) {
+                if let Ok(Some(row)) = rows.next() {
+                    info.tokens_used = row.get::<_, Option<i64>>(0).unwrap_or(Some(0)).unwrap_or(0);
+                    info.cost_usd = row.get::<_, Option<f64>>(1).unwrap_or(Some(0.0)).unwrap_or(0.0);
+                }
+            }
+        }
+    }
+    info
+}
+
 
 pub async fn poll_data() -> Option<AppUpdate> {
     let service_names = ["jarvis-ingest", "jarvis-health-monitor", "jarvis-git-monitor", "jarvis-coding-agent"];
@@ -104,6 +130,7 @@ pub async fn poll_data() -> Option<AppUpdate> {
     let events = query_recent_events();
     let active_task = get_active_task(&events);
     let ram = get_ram_usage();
+    let budget = get_budget_info();
 
-    Some(AppUpdate { services, events, ram, active_task })
+    Some(AppUpdate { services, events, ram, active_task, budget })
 }

@@ -6,7 +6,7 @@ from pathlib import Path
 from lib.knowledge_manager import KnowledgeManager
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/tools/index_workspace.py
+# /home/qwerty/NixOSenv/Jarvis/tools/index_workspace.py
 
 class WorkspaceIndexer:
     def __init__(self):

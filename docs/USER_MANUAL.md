@@ -5,7 +5,7 @@ Welcome to Jarvis! This manual explains how the entire local AI ecosystem works 
 ## Architecture Overview
 Jarvis consists of several local services running via `systemctl --user`. Since you have no dedicated GPU, everything runs efficiently on CPU using `Ollama`.
 - **jarvis-coding-agent**: Provides HTTP endpoints (port 7002) for Neovim integrations.
-- **jarvis-ingest**: Watches the `/THE_VAULT/jarvis/inbox` folder. Drop Markdown/PDFs here to add them to your knowledge base.
+- **jarvis-ingest**: Watches the `/home/qwerty/NixOSenv/Jarvis/inbox` folder. Drop Markdown/PDFs here to add them to your knowledge base.
 - **jarvis-health-monitor**: Generates warnings if CPU usage or RAM usages spike, pausing inference if necessary.
 - **jarvis-git-monitor**: Summarizes git commits.
 
@@ -25,13 +25,13 @@ The Neovim plugin hooks into the `jarvis-coding-agent` via asynchronous requests
 - `<leader>jc` — **Chat with RAG**: A prompt will appear. Your query is sent to Jarvis which searches your indexed codebase and answers it based on the current context.
 - `<leader>jf` — **Fix Diagnostics**: Selects all current errors in the file, sends them with the current buffer context to the agent loop, and returns a unified diff.
 - `<leader>je` — **Explain Code**: Highlight a block of code and press `<leader>je` to get a succinct explanation in a split window.
-- `<leader>ji` — **Index Project**: Run this from the root of a project. Jarvis will recursively parse and embed your source code into `/THE_VAULT/jarvis/index/codebase.db`.
+- `<leader>ji` — **Index Project**: Run this from the root of a project. Jarvis will recursively parse and embed your source code into `/home/qwerty/NixOSenv/Jarvis/index/codebase.db`.
 - `<leader>jt` — **Toggle FIM Suggestions**: Enables or disables background autocomplete suggestions.
 
 ## Indexing & RAG (Retrieval-Augmented Generation)
 
 ### How Indexing Works
-When you type `<leader>ji` inside your project or drop a document into `/THE_VAULT/jarvis/inbox`, Jarvis converts the text into mathematical vectors (embeddings) using the `nomic-embed-text` model. These vectors are saved into a SQLite database (`nixosenv.db`, `codebase.db`, etc.).
+When you type `<leader>ji` inside your project or drop a document into `/home/qwerty/NixOSenv/Jarvis/inbox`, Jarvis converts the text into mathematical vectors (embeddings) using the `nomic-embed-text` model. These vectors are saved into a SQLite database (`nixosenv.db`, `codebase.db`, etc.).
 
 ### How RAG Works
 When you ask a question via `<leader>jc`, Jarvis:

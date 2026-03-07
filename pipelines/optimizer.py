@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MVP 6 — Prompt Optimizer
-/THE_VAULT/jarvis/pipelines/optimizer.py
+/home/qwerty/NixOSenv/Jarvis/pipelines/optimizer.py
 
 Self-improving engine: generates prompt variants via meta-prompt,
 evaluates each variant against test inputs using quality rules,
@@ -26,9 +26,9 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # Runtime paths
-PROMPTS_DIR = Path("/THE_VAULT/jarvis/prompts")
+PROMPTS_DIR = Path("/home/qwerty/NixOSenv/Jarvis/prompts")
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
+sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
 from lib.ollama_client import chat, OllamaError
 from lib.model_router import route
 from lib.event_bus import emit
@@ -77,7 +77,7 @@ Example format: ["prompt one text", "prompt two text", ...]"""
 
     print(f"  Generating {num_variants} variants via meta-prompt (thinking mode)...")
     response = chat(
-        model_alias=route("reason"),
+        model_alias=route("reason").model_alias,
         messages=messages,
         thinking=True,
         temperature=0.7,
@@ -126,7 +126,7 @@ Text to rate:
 Output ONLY a single float number between 0.0 and 1.0. Nothing else."""
     try:
         response = chat(
-            model_alias=route("score"),
+            model_alias=route("score").model_alias,
             messages=[{"role": "user", "content": judge_prompt}],
             thinking=False,
             temperature=0.1,
@@ -169,7 +169,7 @@ def evaluate_variant(variant_prompt: str, test_inputs: list[str], quality_rules:
 
         try:
             output = chat(
-                model_alias=route("score"),
+                model_alias=route("score").model_alias,
                 messages=[{"role": "user", "content": original[:3000]}],
                 system=variant_prompt,
                 thinking=False,

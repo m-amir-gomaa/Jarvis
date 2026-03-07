@@ -15,7 +15,8 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(BASE_DIR))
 from lib.event_bus import emit, query_today
 
 # Configuration

@@ -1,4 +1,4 @@
-# /THE_VAULT/jarvis/config/models.toml
+# /home/qwerty/NixOSenv/Jarvis/config/models.toml
 
 [models]
 chat = "qwen3:8b"

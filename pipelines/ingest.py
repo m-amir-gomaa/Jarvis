@@ -9,7 +9,7 @@ from tools import chunker
 from tools import cleaner
 from lib import anythingllm_client
 
-# /THE_VAULT/jarvis/pipelines/ingest.py
+# /home/qwerty/NixOSenv/Jarvis/pipelines/ingest.py
 
 def run_pipeline(input_file: str, workspace_slug: str, once: bool = False):
     """

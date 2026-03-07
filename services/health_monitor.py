@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# /THE_VAULT/jarvis/services/health_monitor.py (Updated)
+# /home/qwerty/NixOSenv/Jarvis/services/health_monitor.py (Updated)
 import os
 import time
 import subprocess
 from lib.event_bus import emit
 
-PAUSE_FILE = "/THE_VAULT/jarvis/logs/pause_time.tmp"
+PAUSE_FILE = "/home/qwerty/NixOSenv/Jarvis/logs/pause_time.tmp"
 NOTIFICATION_INTERVAL = 300 # 5 minutes
 
 def check_pause_duration():

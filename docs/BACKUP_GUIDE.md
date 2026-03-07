@@ -40,7 +40,7 @@ If you need to restore from an archive, use the following commands:
 
 3. **Restore Vault Data (HDD):**
    ```bash
-   tar -xzf [FILE] -C /THE_VAULT/jarvis --strip-components=1 vault
+   tar -xzf [FILE] -C /home/qwerty/NixOSenv/Jarvis --strip-components=1 vault
    ```
 
 ---

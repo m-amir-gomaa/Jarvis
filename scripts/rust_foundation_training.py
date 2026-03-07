@@ -3,9 +3,9 @@ import os
 import sys
 from pathlib import Path
 
-BASE_DIR = Path("/THE_VAULT/jarvis")
+BASE_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
 REPO_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
-VENV_PY = "/THE_VAULT/jarvis/.venv/bin/python"
+VENV_PY = "/home/qwerty/NixOSenv/Jarvis/.venv/bin/python"
 LEARNER = str(REPO_DIR / "pipelines" / "doc_learner.py")
 
 def run_learn(path, layer, category):

@@ -1,0 +1,22 @@
+[limits]
+daily_tokens      = 200_000   # hard daily input+output token ceiling
+daily_cost_usd    = 2.00      # hard daily cost ceiling (USD)
+monthly_cost_usd  = 30.00     # hard monthly ceiling (USD)
+warning_threshold = 0.80      # warn user at 80% daily usage
+
+[per_task_limits]
+research = 8_000
+fix      = 12_000
+reason   = 16_000
+chat     = 6_000
+default  = 4_000
+
+[agent_loop]
+max_steps             = 8
+max_tokens_per_session = 40_000
+
+[model_costs]
+# cost per 1000 tokens in USD (input / output)
+"claude-sonnet-4-5"  = { input = 0.003, output = 0.015 }
+"claude-opus-4-5"    = { input = 0.015, output = 0.075 }
+"gpt-4o"             = { input = 0.005, output = 0.015 }

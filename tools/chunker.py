@@ -5,7 +5,7 @@ import argparse
 import tomllib
 from typing import List, Dict, Optional
 
-# /THE_VAULT/jarvis/tools/chunker.py
+# /home/qwerty/NixOSenv/Jarvis/tools/chunker.py
 
 DEFAULT_CONFIG = {
     'chunker': {
@@ -18,7 +18,7 @@ DEFAULT_CONFIG = {
 }
 
 def load_config():
-    path = "/THE_VAULT/jarvis/config/chunker.toml"
+    path = "/home/qwerty/NixOSenv/Jarvis/config/chunker.toml"
     if os.path.exists(path):
         with open(path, "rb") as f:
             return tomllib.load(f)

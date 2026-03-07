@@ -10,7 +10,7 @@ from datetime import datetime
 
 BASE_DIR = Path(__file__).parent.parent.parent
 JARVIS_EXE = BASE_DIR / "jarvis.py"
-VENV_PY = "/THE_VAULT/jarvis/.venv/bin/python"
+VENV_PY = "/home/qwerty/NixOSenv/Jarvis/.venv/bin/python"
 
 TEST_CASES = [
     {

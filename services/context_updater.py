@@ -1,100 +1,66 @@
 #!/usr/bin/env python3
-"""
-MVP 15 — Context Updater
-/THE_VAULT/jarvis/services/context_updater.py
-
-Queries events.db for the past 7 days of activity, synthesizes a short
-"what has qwerty been working on" paragraph, and appends it to user_context.md
-under a dated heading. Keeps the AI's identity context fresh automatically.
-
-Triggered by: systemd timer jarvis-context-updater (Sunday 22:00)
-"""
-
-import os
-import sys
 import sqlite3
-import json
-from datetime import datetime, timezone
+import time
+import os
 from pathlib import Path
+import sys
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
-from lib.event_bus import emit
-from lib.ollama_client import chat, is_healthy
-from lib.model_router import route
+# /home/qwerty/NixOSenv/Jarvis/services/context_updater.py
 
-CONTEXT_PATH = Path("/THE_VAULT/jarvis/config/user_context.md")
+# Add JARVIS_ROOT to sys.path to allow imports
+JARVIS_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(JARVIS_ROOT))
 
+from lib.llm import ask, Privacy
 
-def get_week_events() -> list[dict]:
-    db = "/THE_VAULT/jarvis/logs/events.db"
+def update_context():
+    db_path = JARVIS_ROOT / "logs" / "events.db"
+    if not db_path.exists():
+        print(f"No events.db found at {db_path}.")
+        return
+
+    # Last 7 days
+    week_ago = int(time.time()) - (7 * 24 * 3600)
+    
     try:
-        con = sqlite3.connect(db)
-        rows = con.execute(
-            "SELECT source, event, details FROM events WHERE ts > datetime('now', '-7 days')"
-        ).fetchall()
-        con.close()
-        return [{"source": r[0], "event": r[1], "details": json.loads(r[2])} for r in rows]
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM events WHERE ts > ? ORDER BY ts ASC", (week_ago,)).fetchall()
+        conn.close()
     except Exception as e:
-        print(f"Warning: could not read events.db: {e}")
-        return []
+        print(f"Error reading events: {e}")
+        return
 
-
-def format_events(events: list[dict]) -> str:
-    lines = []
-    for e in events:
-        detail_str = ", ".join(f"{k}={v}" for k, v in e["details"].items()) if e["details"] else ""
-        lines.append(f"- [{e['source']}] {e['event']}" + (f": {detail_str}" if detail_str else ""))
-    return "\n".join(lines)
-
-
-def synthesize_summary(events_text: str) -> str:
-    if not is_healthy():
-        print("[Context Updater] Ollama offline — skipping synthesis.")
-        return None
-    system = (
-        "You are summarizing a developer's week from their system activity log. "
-        "Write a single paragraph (50-150 words) describing what they worked on and accomplished. "
-        "Be specific about tools, projects, and milestones. "
-        "Write in third person: 'This week, qwerty...'"
-    )
-    messages = [{"role": "user", "content": f"Activity log:\n{events_text}"}]
-    try:
-        return chat(route("summarize"), messages, system=system, thinking=False)
-    except Exception as e:
-        print(f"[Context Updater] Synthesis failed: {e}")
-        return None
-
-
-def append_to_context(summary: str, week_of: str) -> None:
-    """Append — NEVER overwrite — user_context.md."""
-    CONTEXT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CONTEXT_PATH, "a") as f:
-        f.write(f"\n## Week of {week_of}\n\n{summary}\n")
-    print(f"[Context Updater] Appended to {CONTEXT_PATH}")
-
-
-def main():
-    week_of = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"[Context Updater] Running for week ending {week_of}...")
-
-    events = get_week_events()
-    if not events:
-        print("[Context Updater] No events in past 7 days. Exiting.")
-        sys.exit(0)
-
-    print(f"[Context Updater] {len(events)} events found. Synthesizing summary...")
-    events_text = format_events(events)
-    summary = synthesize_summary(events_text)
-
-    if summary:
-        append_to_context(summary, week_of)
-        emit("context_updater", "context_updated", {"week_of": week_of, "events": len(events)})
-        print("[Context Updater] Done.")
-        sys.exit(0)
+    if not rows:
+        print("No recent events to process.")
+        # Create a basic context if empty
+        summary = "No significant activities recorded this week. Jarvis is standing by."
     else:
-        print("[Context Updater] No summary generated.")
-        sys.exit(1)
+        events_text = ""
+        for r in rows:
+            events_text += f"- [{r['source']}] {r['event']}\n"
 
+        prompt = f"""Summarize the following recent events into a concise paragraph (3-4 sentences) describing the user's focus and progress for this week. 
+This will be used as a 'Long-Term Memory' context for the AI. Look for patterns in coding, learning, or system configuration.
+
+Events:
+{events_text}
+
+Summary:"""
+
+        print(f"Synthesizing context from {len(rows)} events...")
+        summary = ask(task="reason", privacy=Privacy.INTERNAL, messages=[{"role": "user", "content": prompt}], thinking=False)
+    
+    context_path = JARVIS_ROOT / "docs" / "user_context.md"
+    
+    header = f"# User Context (Updated {time.strftime('%Y-%m-%d %H:%M:%S')})\n\n"
+    
+    try:
+        with open(context_path, "w") as f:
+            f.write(header + summary.strip() + "\n")
+        print(f"Context updated successfully in {context_path}")
+    except Exception as e:
+        print(f"Error writing context: {e}")
 
 if __name__ == "__main__":
-    main()
+    update_context()

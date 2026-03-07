@@ -41,12 +41,17 @@ echo "────────────────────────�
 
 if [ "$MODE" == "sync" ]; then
     for DEST_ROOT in "$SSD_BACKUP_ROOT" "$HDD_BACKUP_ROOT"; do
+        if [ ! -d "$(dirname "$DEST_ROOT")" ] && [ ! -d "$DEST_ROOT" ]; then
+            echo "[!] Skipping unmounted or missing backup root: $DEST_ROOT"
+            continue
+        fi
+        
         echo "[*] Syncing to: $DEST_ROOT"
         BACKUP_DATA="$DEST_ROOT/JarvisData"
 
         mkdir -p "$BACKUP_DATA"
 
-        echo "    - Syncing unified Jarvis (SSD to $(basename $DEST_ROOT))..."
+        echo "    - Syncing unified Jarvis (SSD to $(basename "$DEST_ROOT"))..."
         rsync -ah --delete "${EXCLUDES[@]}" "$JARVIS_ROOT/" "$BACKUP_DATA/"
         echo ""
     done

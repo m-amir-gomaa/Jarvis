@@ -1,0 +1,7 @@
+[codebases]
+# format: "absolute_path" = "privacy_tier"
+"/home/qwerty/NixOSenv/Jarvis" = "public"
+"/home/qwerty/NixOSenv" = "public"
+"/home/qwerty/.config/nvim" = "public"
+"/home/qwerty/projects/open_source_repo" = "public"
+"/THE_VAULT/internal_docs" = "internal"

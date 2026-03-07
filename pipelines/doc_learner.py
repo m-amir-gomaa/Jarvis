@@ -1,13 +1,17 @@
 import sys
+import os
 import argparse
 import requests
 from bs4 import BeautifulSoup
-from pathlib import Path
 from typing import List, Dict, Any, Optional
+from pathlib import Path
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(BASE_DIR))
+
 from lib.knowledge_manager import KnowledgeManager
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/pipelines/doc_learner.py
+# /home/qwerty/NixOSenv/Jarvis/pipelines/doc_learner.py
 
 class DocLearner:
     def __init__(self):
@@ -17,7 +21,8 @@ class DocLearner:
         """Basic scraper for official documentation sites."""
         print(f"[Learner] Crawling {url} for Layer {layer}...")
         try:
-            response = requests.get(url, timeout=30)
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')

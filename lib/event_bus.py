@@ -4,9 +4,13 @@ import os
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
-# /THE_VAULT/jarvis/lib/event_bus.py
+import sys
+from pathlib import Path
 
-DB_PATH = '/THE_VAULT/jarvis/logs/events.db'
+# /home/qwerty/NixOSenv/Jarvis/lib/event_bus.py
+
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+DB_PATH = str(BASE_DIR / 'logs' / 'events.db')
 
 def _init_db():
     """Initializes the events database if it doesn't exist."""

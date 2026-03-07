@@ -11,20 +11,21 @@
 
 Jarvis is designed for high performance on limited hardware (i7-1165G7). To achieve this, it uses a unique dual-directory structure:
 
-- **The Repository (`~/NixOSenv/Jarvis`)**: This is the source code repo you are looking at. It contains the logic, Neovim configuration, and NixOS modules. Code changes and Git operations happen here.
-- **The Vault (`/THE_VAULT/jarvis`)**: This is the high-capacity runtime directory (located on a 744GB HDD). It stores the heavy lifting: Python virtual environments, LLM context, SQLite databases (`events.db`, `knowledge.db`), and indexed codebases.
+- **The Repository (`~/NixOSenv/Jarvis`)**: This is the source code repo you are looking at. It contains the logic, Neovim configuration, and NixOS modules.
+- **The Data/Index**: All local knowledge, embeddings, and indices are stored within the project structure, prioritizing performance and portability.
 
 ---
 
 ## ✨ Key Features
 
-- **3nd-Layer Knowledge Architecture**: Optimized- [x] **RAM-Aware Prefetching**: Predictively loads AI models into RAM based on your activity (Stage 2).
-- [x] **Self-Heal Daemon**: Monitors and auto-restarts failed Jarvis services (Stage 3).
-- [x] **Auto-Doc Syncer**: Automatically keeps documentation in sync with code changes (Stage 3).
-- **Specialized Config Modes**: Dedicated `jarvis config nvim` and `jarvis config nixos` workflows for expert system management.
-- **Safety & Personalization**: High-risk operation confirmations and long-term user profile memory.
-- **TUI Dashboard**: High-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring and **precise task labeling**.
-- **Performance Metrics**: Every response now includes a **duration timestamp** (e.g., "Response took 1.45s") for performance tracking.
+- **3-Layer Knowledge Architecture**: Optimized RAG system prioritizing local docs (Stage 1).
+- **Model & API Management**: Manage local Ollama models and API keys directly via CLI (`jarvis models`, `jarvis keys`).
+- **Voice command Toggle**: Enable/disable voice interaction via `jarvis toggle voice`.
+- **Self-Heal Daemon**: Monitors and auto-restarts failed Jarvis services (Stage 3).
+- **Auto-Doc Syncer**: Automatically keeps documentation in sync with code changes (Stage 3).
+- **Specialized Config Modes**: Dedicated `jarvis config nvim` and `jarvis config nixos` workflows.
+- **TUI Dashboard**: High-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring.
+- **Performance Metrics**: Every response includes a **duration timestamp** for performance tracking.
 
 ## Detailed Documentation
 

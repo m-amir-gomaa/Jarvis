@@ -27,11 +27,20 @@ pub struct RamUsage {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct BudgetInfo {
+    pub tokens_used: i64,
+    pub daily_limit: i64,
+    pub cost_usd: f64,
+    pub cost_limit: f64,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct AppUpdate {
     pub services: Vec<ServiceStatus>,
     pub events: Vec<JarvisEvent>, // newest first
     pub ram: RamUsage,
     pub active_task: Option<String>,
+    pub budget: BudgetInfo,
 }
 
 pub struct App {
@@ -40,6 +49,7 @@ pub struct App {
     pub ram: RamUsage,
     pub active_task: Option<String>,
     pub scroll_offset: usize,
+    pub budget: BudgetInfo,
 }
 
 impl App {
@@ -55,6 +65,7 @@ impl App {
             ram: RamUsage::default(),
             active_task: None,
             scroll_offset: 0,
+            budget: BudgetInfo::default(),
         }
     }
 
@@ -63,6 +74,7 @@ impl App {
         self.events = update.events;
         self.ram = update.ram;
         self.active_task = update.active_task;
+        self.budget = update.budget;
     }
 
     pub fn scroll_down(&mut self) {

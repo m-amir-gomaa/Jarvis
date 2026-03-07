@@ -14,7 +14,7 @@ import subprocess
 from pathlib import Path
 from lib.event_bus import emit
 
-BASE_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
 PYTHONPATH = str(BASE_DIR)
 
@@ -32,6 +32,7 @@ def confirm(prompt_msg):
 def main():
     parser = argparse.ArgumentParser(description="Jarvis Language Learner Orchestrator")
     parser.add_argument("--query", "-q", required=True, help="Topic/Language to learn")
+    parser.add_argument("--url", help="Documentation URL for Stage 2")
     args = parser.parse_args()
 
     topic = args.query
@@ -43,10 +44,13 @@ def main():
     research_cmd = [VENV_PY, str(BASE_DIR / "pipelines" / "research_agent.py"), "--query", f"official {topic} programming language documentation", "--sources", "3"]
     run_pipeline(research_cmd)
     
-    # We don't have a direct way to get the output from research_agent.py easily here without parsing files,
-    # but the user can see the output.
-    
-    doc_url = input(f"\n[Action Required] Please paste the official documentation URL for {topic} to begin scraping (or press Enter to skip if you want to paste it later): ").strip()
+    doc_url = args.url
+    if not doc_url:
+        # Fallback to interactive only if NOT in a pipeline
+        if sys.stdin.isatty():
+            doc_url = input(f"\n[Action Required] Please paste the official documentation URL for {topic} to begin scraping: ").strip()
+        else:
+            print("[Info] No URL provided via --url and no TTY found. Skipping Stage 2.")
     
     if doc_url:
         print(f"\n[Stage 2] Starting core ingestion for {doc_url} (Layer 1 & 2)...")

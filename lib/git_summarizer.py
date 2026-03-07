@@ -6,7 +6,7 @@ from lib.ollama_client import chat
 from lib.model_router import route
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/lib/git_summarizer.py
+# /home/qwerty/NixOSenv/Jarvis/lib/git_summarizer.py
 
 def get_git_diff(repo_path: str, since: str = "HEAD~1") -> str:
     """Returns the git diff for the given repository and range."""

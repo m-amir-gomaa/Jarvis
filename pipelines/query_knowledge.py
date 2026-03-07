@@ -5,7 +5,7 @@ from lib.knowledge_manager import KnowledgeManager
 from lib.ollama_client import chat
 from lib.model_router import route
 
-# /THE_VAULT/jarvis/pipelines/query_knowledge.py
+# /home/qwerty/NixOSenv/Jarvis/pipelines/query_knowledge.py
 
 def query_knowledge(query: str, category: str = None):
     km = KnowledgeManager()
@@ -24,8 +24,16 @@ def query_knowledge(query: str, category: str = None):
         return False
 
     # 2. Context Preparation
-    context = "\n\n".join([f"--- Source: {r['source_title']} ({r['source_url']}) ---\n{r['content']}" for r in results[:5]])
+    context_parts = [f"--- Source: {r['source_title']} ({r['source_url']}) ---\n{r['content']}" for r in results[:5]]
     
+    try:
+        from lib.episodic_memory import get_session_context
+        context_parts.append(get_session_context())
+    except ImportError:
+        pass
+        
+    context = "\n\n".join(context_parts)
+
     # 3. Generation
     # 3. Generation
     system_prompt = """You ARE Jarvis, a high-performance local AI orchestrator for NixOS. 
@@ -39,7 +47,8 @@ DO NOT analyze the context as a set of files or code; internalize it as your own
     print("[RAG] Thinking...")
     try:
         # Using stream=True for "all output always in terminal" real-time feel
-        response_gen = chat(route("classify"), [{"role": "user", "content": prompt}], system=system_prompt, thinking=False, stream=True)
+        decision = route("chat")
+        response_gen = chat(decision.model_alias, [{"role": "user", "content": prompt}], system=system_prompt, thinking=False, stream=True)
         
         print("\nJarvis: ", end="", flush=True)
         for chunk in response_gen:

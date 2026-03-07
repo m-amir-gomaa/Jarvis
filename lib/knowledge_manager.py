@@ -4,15 +4,20 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
-# /THE_VAULT/jarvis/lib/knowledge_manager.py
+import os
+# /home/qwerty/NixOSenv/Jarvis/lib/knowledge_manager.py
 
-KNOWLEDGE_DB = Path("/THE_VAULT/jarvis/data/knowledge.db")
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+KNOWLEDGE_DB = BASE_DIR / "data" / "knowledge.db"
 
 class KnowledgeManager:
     def __init__(self, db_path: Path = KNOWLEDGE_DB):
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
+        
+        from lib.semantic_memory import SemanticMemory
+        self.sm = SemanticMemory(str(db_path))
 
     def _init_db(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -84,33 +89,21 @@ class KnowledgeManager:
     def add_entry(self, layer: int, content: str, source_url: Optional[str] = None, 
                   source_title: Optional[str] = None, category: Optional[str] = None, 
                   metadata: Optional[Dict] = None):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "INSERT INTO chunks (layer, category, content, source_url, source_title, metadata) VALUES (?, ?, ?, ?, ?, ?)",
-                (layer, category, content, source_url, source_title, json.dumps(metadata or {}))
-            )
+        meta = metadata or {}
+        if source_url: meta['source'] = source_url
+        if source_title: meta['source_title'] = source_title
+        self.sm.ingest(content, metadata=meta, layer=layer, category=category)
 
     def update_entry(self, source_url: str, content: str, category: Optional[str] = None, metadata: Optional[Dict] = None):
-        with sqlite3.connect(self.db_path) as conn:
-            if category:
-                conn.execute(
-                    "UPDATE chunks SET content = ?, category = ?, metadata = ?, last_updated = CURRENT_TIMESTAMP WHERE source_url = ?",
-                    (content, category, json.dumps(metadata or {}), source_url)
-                )
-            else:
-                conn.execute(
-                    "UPDATE chunks SET content = ?, metadata = ?, last_updated = CURRENT_TIMESTAMP WHERE source_url = ?",
-                    (content, json.dumps(metadata or {}), source_url)
-                )
+        self.sm.delete_by_source(source_url)
+        meta = metadata or {}
+        meta['source'] = source_url
+        self.sm.ingest(content, metadata=meta, layer=2, category=category)
 
     def set_identity(self, identity_text: str):
-        with sqlite3.connect(self.db_path) as conn:
-            # Delete old identity chunks to avoid duplicates
-            conn.execute("DELETE FROM chunks WHERE category = 'identity'")
-            conn.execute(
-                "INSERT INTO chunks (layer, category, source_title, source_url, content) VALUES (?, ?, ?, ?, ?)",
-                (1, "identity", "System Identity", "internal://identity", identity_text)
-            )
+        # Identity defaults to source 'internal://identity'
+        self.sm.delete_by_source("internal://identity")
+        self.sm.ingest(identity_text, metadata={"source": "internal://identity", "source_title": "System Identity"}, layer=1, category="identity")
 
     def add_to_inbox(self, title: str, url: str, reason: str, item_type: str = 'recommended_reading'):
         with sqlite3.connect(self.db_path) as conn:
@@ -126,28 +119,19 @@ class KnowledgeManager:
             return [dict(r) for r in rows]
 
     def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None) -> List[Dict]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            # 1. Try keyword search
-            sql = "SELECT * FROM chunks WHERE content LIKE ?"
-            params: List[Any] = [f"%{query_text}%"]
-            if layer:
-                sql += " AND layer = ?"
-                params.append(layer)
-            if category:
-                sql += " AND category = ?"
-                params.append(category)
+        results = self.sm.query(query_text, k=10, category=category)
+        
+        # Map SearchResult back to legacy Dict format for existing callers
+        legacy_results = []
+        for r in results:
+            if layer and r.metadata.get('layer') != layer:
+                continue
+            legacy_results.append({
+                'content': r.content,
+                'source_url': r.metadata.get('source', r.metadata.get('source_url', '')),
+                'source_title': r.metadata.get('source_title', ''),
+                'category': r.metadata.get('category', category),
+                'layer': r.metadata.get('layer', layer)
+            })
             
-            rows = conn.execute(sql, params).fetchall()
-            
-            # 2. Fallback: If no results and category is provided, return top entries for that category
-            if not rows and category:
-                sql = "SELECT * FROM chunks WHERE category = ?"
-                params = [category]
-                if layer:
-                    sql += " AND layer = ?"
-                    params.append(layer)
-                sql += " LIMIT 5"
-                rows = conn.execute(sql, params).fetchall()
-                
-            return [dict(r) for r in rows]
+        return legacy_results

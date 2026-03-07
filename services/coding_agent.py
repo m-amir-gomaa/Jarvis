@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MVP 12 — Coding Agent HTTP Server
-/THE_VAULT/jarvis/services/coding_agent.py
+/home/qwerty/NixOSenv/Jarvis/services/coding_agent.py
 
 HTTP server on localhost:7002. Powers the Jarvis Neovim plugin.
 Endpoints:
@@ -29,14 +29,15 @@ import signal
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
-from lib.ollama_client import chat, chat_managed, generate, embed, is_healthy, OllamaError
-from lib.model_router import route
-from lib.event_bus import emit
-
 # Base directory configuration (Unified SSD Architecture)
-JARVIS_ROOT = Path(os.getenv("JARVIS_ROOT", "/home/qwerty/NixOSenv/Jarvis"))
+JARVIS_ROOT = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
 BASE_DIR = JARVIS_ROOT # For backward compatibility
+
+sys.path.insert(0, str(BASE_DIR))
+from lib.ollama_client import chat as ollama_chat, generate, embed, is_healthy, OllamaError
+from lib.model_router import route
+from lib.llm import ask, Privacy
+from lib.event_bus import emit
 
 # Active data on SSD
 INDEX_DB = JARVIS_ROOT / "index" / "codebase.db"
@@ -347,7 +348,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         try:
             # CRITICAL: suffix parameter required. Without it, Ollama does regular completion.
             result = generate(
-                model_alias=route("complete"),
+                model_alias=route("complete", privacy=Privacy.PRIVATE).model_alias,
                 prompt=prefix,
                 suffix=suffix,   # ← THIS IS REQUIRED FOR FIM
                 thinking=False,
@@ -372,8 +373,9 @@ class JarvisHandler(BaseHTTPRequestHandler):
         system = build_system_prompt(rag_chunks)
 
         try:
-            response = chat_managed(
-                model_alias=route("chat"),
+            response = ask(
+                task="chat",
+                privacy=Privacy.PRIVATE,
                 messages=messages,
                 system=system,
                 thinking=False,
@@ -399,8 +401,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             emit("coding_agent", "starting_fix", {"task_id": task_id, "prompt": prompt[:50] + "..."})
             proc = subprocess.Popen(
                 [
-                    "/THE_VAULT/jarvis/.venv/bin/python",
-                    "/THE_VAULT/jarvis/pipelines/agent_loop.py",
+                    str(BASE_DIR / ".venv" / "bin" / "python"),
+                    str(BASE_DIR / "pipelines" / "agent_loop.py"),
                     "--task", task,
                     "--user-prompt", prompt,
                     "--max-retries", str(max_retries),
@@ -409,7 +411,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                env={**os.environ, "PYTHONPATH": "/THE_VAULT/jarvis"},
+                env={**os.environ, "PYTHONPATH": str(BASE_DIR)},
             )
             
             with tasks_lock:
@@ -453,7 +455,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         system = f"You are a senior {language} engineer. Explain this code concisely in plain English. Focus on what it does, not how it looks."
         messages = [{"role": "user", "content": f"```{language}\n{code[:3000]}\n```"}]
         try:
-            response = chat(route("chat"), messages, system=system, thinking=False)
+            response = ask(task="chat", privacy=Privacy.PRIVATE, messages=messages, system=system, thinking=False)
             self._send_json({"explanation": response})
         except OllamaError as e:
             self._send_json({"error": str(e)}, 503)
@@ -476,7 +478,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         system = "You are a senior engineer. Generate a high-quality, semantic commit message following the Conventional Commits spec. Focus on intent. Max 72 chars per line."
         messages = [{"role": "user", "content": f"Summarize this git diff into a commit message:\n\n{diff[:5000]}"}]
         try:
-            response = chat(route("summarize"), messages, system=system, thinking=False)
+            response = ask(task="summarize", privacy=Privacy.PRIVATE, messages=messages, system=system, thinking=False)
             self._send_json({"summary": response})
             emit("coding_agent", "git_summarize")
         except OllamaError as e:
@@ -493,7 +495,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         messages = [{"role": "user", "content": prompt}]
         
         try:
-            response = chat(route("chat"), messages, system=system, thinking=False)
+            response = ask(task="chat", privacy=Privacy.PRIVATE, messages=messages, system=system, thinking=False)
             self._send_json({"analysis": response})
             emit("coding_agent", "analyze_error")
         except OllamaError as e:
@@ -510,13 +512,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
             # Run research_agent.py with 3 sources for speed
             result = subprocess.run(
                 [
-                    "/THE_VAULT/jarvis/.venv/bin/python",
-                    "/home/qwerty/NixOSenv/Jarvis/pipelines/research_agent.py",
+                    str(BASE_DIR / ".venv" / "bin" / "python"),
+                    str(BASE_DIR / "pipelines" / "research_agent.py"),
                     "--query", query,
                     "--sources", "3"
                 ],
                 capture_output=True, text=True, timeout=300,
-                env={**os.environ, "PYTHONPATH": "/home/qwerty/NixOSenv/Jarvis"},
+                env={**os.environ, "PYTHONPATH": str(BASE_DIR)},
             )
             
             # Extract path from stderr or stdout where research_agent logs it
@@ -534,13 +536,17 @@ class JarvisHandler(BaseHTTPRequestHandler):
     def _handle_prefetch(self, data: dict):
         """Prefetch a model into memory."""
         alias = data.get("model_alias", "chat")
-        model = route(alias)
+        decision = route(alias, privacy=Privacy.PRIVATE)
+        if decision.backend != 'local':
+            self._send_json({"status": "skipped", "reason": "Cloud backend does not need prefetching"})
+            return
+            
         try:
             # Load model by sending a minimal prompt with keep_alive
             # This is non-blocking in the sense that we don't wait for a long response
-            chat(model, [{"role": "user", "content": "hi"}], system="You are a prefetcher. Repl with 'OK' only.", thinking=False)
-            emit("coding_agent", "prefetch", {"model": model})
-            self._send_json({"status": "prefetched", "model": model})
+            ollama_chat(decision.model_alias, [{"role": "user", "content": "hi"}], system="You are a prefetcher. Repl with 'OK' only.", thinking=False)
+            emit("coding_agent", "prefetch", {"model": decision.model_alias})
+            self._send_json({"status": "prefetched", "model": decision.model_alias})
         except Exception as e:
             self._send_json({"error": str(e)}, 500)
 

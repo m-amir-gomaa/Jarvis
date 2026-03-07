@@ -8,3 +8,7 @@ node_modules/
 .env
 logs/
 data/
+models/
+research/
+whisper-cpp-out/
+test_data/chunks/

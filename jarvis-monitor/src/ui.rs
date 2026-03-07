@@ -97,7 +97,7 @@ fn render_active_task(f: &mut Frame, app: &App, area: Rect) {
 fn render_system(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(4), Constraint::Length(4), Constraint::Min(0)])
+        .constraints([Constraint::Length(4), Constraint::Length(4), Constraint::Length(4), Constraint::Min(0)])
         .split(area);
 
     // RAM gauge
@@ -125,11 +125,24 @@ fn render_system(f: &mut Frame, app: &App, area: Rect) {
         .label(swap_label);
     f.render_widget(swap_gauge, chunks[1]);
 
+    // Budget gauge
+    let budget_ratio = if app.budget.daily_limit > 0 {
+        (app.budget.tokens_used as f64 / app.budget.daily_limit as f64).min(1.0)
+    } else { 0.0 };
+    let budget_label = format!("{} / {} tk | ${:.2}", app.budget.tokens_used, app.budget.daily_limit, app.budget.cost_usd);
+    let budget_color = if budget_ratio > 0.85 { Color::Red } else if budget_ratio > 0.6 { Color::Yellow } else { Color::Green };
+    let budget_gauge = Gauge::default()
+        .block(Block::default().borders(Borders::ALL).title(" Budget ").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)))
+        .gauge_style(Style::default().fg(budget_color).bg(Color::Gray))
+        .ratio(budget_ratio)
+        .label(budget_label);
+    f.render_widget(budget_gauge, chunks[2]);
+
     // Key hints
     let hints = Paragraph::new("q:quit  j/k:scroll  r:refresh  e:open")
         .block(Block::default().borders(Borders::ALL).title(" Keys ").style(Style::default().fg(Color::Gray).add_modifier(Modifier::BOLD)))
         .style(Style::default().fg(Color::Gray).add_modifier(Modifier::BOLD));
-    f.render_widget(hints, chunks[2]);
+    f.render_widget(hints, chunks[3]);
 }
 
 fn render_events(f: &mut Frame, app: &App, area: Rect) {

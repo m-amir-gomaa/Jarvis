@@ -63,6 +63,15 @@ Performs a Retrieval-Augmented Generation (RAG) query against the knowledge base
 .B dashboard
 Opens the recompiled Rust TUI (\fCjarvis-monitor\fR) with optimized contrast and precise task labeling for real-time monitoring of active research and ingestion tasks.
 .TP
+.B models
+Displays a list of available local Ollama models, configured aliases, and the status of cloud providers.
+.TP
+.B keys
+Lists important environment variables and API keys, masking sensitive values for privacy.
+.TP
+.B toggle voice
+Enables or disables voice command processing by the \fCjarvis-voice-gateway\fR.
+.TP
 .B thumbs-up / thumbs-down
 Provides feedback for the daily optimizer.
 .TP
@@ -96,7 +105,7 @@ Researches coding materials, converts multi-format documents, and indexes them b
 .br
 \fBMechanism:\fR Orchestrates \fCresearch_agent.py\fR, \fCdoc_converter.py\fR (MinerU), and \fCdoc_learner.py\fR. Monitoring wait loop at \fC~/Downloads/JarvisMaterials\fR.
 .SH DETERMINISTIC EXECUTION
-To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR, \fBbackup\fR, \fBarchive\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
+To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR, \fBbackup\fR, \fBarchive\fR, \fBmodels\fR, \fBkeys\fR, \fBtoggle\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
 .SH NATURAL LANGUAGE ROUTING MECHANISM
 When a free-text prompt is provided:
 .IP 1.
@@ -120,13 +129,13 @@ Jarvis fetches context using a 3-Layer local structure before hitting the LLM:
 When a task dictates domain knowledge (e.g., 'rewrite in Rust'), the \fBKnowledgeManager\fR searches \fCknowledge.db\fR using cosine similarity against the prompt's embedding. High-scoring chunks from the relevant layers are retrieved, formatted, and forcefully injected into the LLM system prompt under a \fI[LOCAL KNOWLEDGE]\fR XML block to prevent hallucinations.
 .SH FILES
 .TP
-.I /THE_VAULT/jarvis/
+.I /home/qwerty/NixOSenv/Jarvis/
 Base directory for all Jarvis data and logic.
 .TP
-.I /THE_VAULT/jarvis/data/knowledge.db
+.I /home/qwerty/NixOSenv/Jarvis/data/knowledge.db
 SQLite database for the 3-Layer Knowledge Base and Embeddings.
 .TP
-.I /THE_VAULT/jarvis/logs/events.db
+.I /home/qwerty/NixOSenv/Jarvis/logs/events.db
 Daily activity log and episodic memory.
 .SH SEE ALSO
 .BR ollama (1),

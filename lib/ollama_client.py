@@ -9,12 +9,16 @@ from filelock import FileLock
 from lib.model_router import route
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/lib/ollama_client.py
+# /home/qwerty/NixOSenv/Jarvis/lib/ollama_client.py
 
-CONFIG_PATH = "/THE_VAULT/jarvis/config/models.toml"
-LOCK_PATH = "/THE_VAULT/jarvis/logs/ollama.lock"
+from pathlib import Path
+
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+
+CONFIG_PATH = str(BASE_DIR / "config" / "models.toml")
+LOCK_PATH = str(BASE_DIR / "logs" / "ollama.lock")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-USER_CONTEXT_PATH = "/THE_VAULT/jarvis/config/user_context.md"
+USER_CONTEXT_PATH = str(BASE_DIR / "config" / "user_context.md")
 
 class OllamaError(Exception):
     pass

@@ -4,7 +4,7 @@ import json
 from typing import List, Dict, Optional
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/lib/anythingllm_client.py
+# /home/qwerty/NixOSenv/Jarvis/lib/anythingllm_client.py
 
 BASE_URL = os.environ.get("ANYTHINGLLM_BASE_URL", "http://localhost:3001")
 API_KEY = os.environ.get("ANYTHINGLLM_API_KEY")

@@ -9,6 +9,7 @@ graph TD
     subgraph "User Interface"
         CLI["CLI (jarvis.py)"]
         TUI["TUI Dashboard (jarvis-monitor)"]
+        WEB["Web UI (services/web_ui.py)"]
     end
 
     subgraph "Orchestration & Pipelines"
@@ -34,6 +35,7 @@ graph TD
     subgraph "External Services"
         OLLAMA["Ollama (LLM)"]
         SEARXNG["SearXNG (Search)"]
+        VG["Voice Gateway (services/voice_gateway.py)"]
     end
 
     %% Interactions
@@ -41,6 +43,7 @@ graph TD
     CLI --> AL
     CLI --> RA
     CLI -- "config nvim|nixos" --> AL
+    CLI -- "models|keys|toggle" --> ROUTER
     
     MI --> RA
     MI --> CONV
@@ -60,20 +63,23 @@ graph TD
     
     CLI --> EDB
     TUI --> EDB
+    VG --> CLI
+    CLI --> VG
 ```
 
 ## Component Descriptions
 
 | Component | Responsibility |
 |-----------|----------------|
-| **jarvis.py** | Main entry point, intent classification, safety confirmation, and command routing. |
+| **jarvis.py** | Main entry point, intent classification, safety confirmation, and command routing. Now handles model/key management and voice toggling. |
 | **Material Ingestor** | Orchestrates research and automated ingestion of coding materials (books/docs). |
-| **Doc Learner** | Handles the ingestion of URLs and local files into the knowledge base (3-Layer Architecture). |
+| **Doc Learner** | Handles the ingestion of URLs and local files into the knowledge base (3-Layer Architecture). Includes automatic chunking for large docs. |
 | **Agent Loop** | A self-correcting orchestrator for complex tasks, autonomous self-improvement, and specialized config editing (nvim/nixos). |
 | **Doc Converter** | Uses Pandoc and MinerU (magic-pdf) for high-fidelity Markdown extraction. |
 | **Knowledge Manager** | Manages the multi-layered SQLite knowledge base for RAG. |
-| **Model Router** | Maps specific AI tasks (summarize, reason, clean) to the best-fit local LLM. |
-| **The Vault** | High-capacity storage for databases, virtual environments, and intermediate files. |
+| **Model Router** | Maps specific AI tasks (summarize, reason, clean) to the best-fit local LLM. Manages model aliases and keep-alive strategy. |
+| **Voice Gateway** | Translates voice commands to CLI actions via Whisper.cpp. Respects user-toggled preferences. |
+| **The Vault** | High-capacity storage for databases, virtual environments, and intermediate files (Unified with main repo on SSD). |
 
 ## Data Flow: Material Indexing
 1. User provides a topic via CLI.

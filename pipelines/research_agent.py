@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 MVP 8 — Research Agent
-/THE_VAULT/jarvis/pipelines/research_agent.py
+/home/qwerty/NixOSenv/Jarvis/pipelines/research_agent.py
 
 Searches SearXNG (localhost:8888) for a query, fetches top results,
-summarizes findings via Qwen3-14B, and saves to /THE_VAULT/jarvis/research/.
+summarizes findings via Qwen3-14B, and saves to /home/qwerty/NixOSenv/Jarvis/research/.
 """
 
 import argparse
@@ -16,14 +16,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-
-sys.path.insert(0, "/THE_VAULT/jarvis")
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(BASE_DIR))
 from lib.event_bus import emit
-from lib.model_router import route
-from lib.ollama_client import chat, is_healthy
+from lib.llm import ask, Privacy
+from lib.ollama_client import is_healthy
 
 SEARXNG_URL = os.getenv("SEARXNG_URL", "http://localhost:8888")
-RESEARCH_DIR = Path("/THE_VAULT/jarvis/research")
+RESEARCH_DIR = BASE_DIR / "research"
 
 
 TECH_KEYWORDS = {
@@ -95,7 +95,7 @@ def summarize_results(query: str, results: list[dict], deep: bool = False, categ
     try:
         model_task = "reason" if deep else "summarize"
         # Reduced num_ctx to 4096 for CPU speed stability
-        return chat(route(model_task), messages, system=system, thinking=deep, num_ctx=4096)
+        return ask(task=model_task, privacy=Privacy.PUBLIC, messages=messages, system=system, thinking=deep, context_tokens=4096)
     except Exception as e:
         return f"(summarization failed: {e})\n\nRaw snippets:\n{snippets}"
 

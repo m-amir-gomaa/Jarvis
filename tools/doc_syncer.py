@@ -11,7 +11,7 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/THE_VAULT/jarvis")
+sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
 from lib.ollama_client import chat
 from lib.model_router import route
 

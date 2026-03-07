@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MVP BIG — Jarvis Unified CLI
-/THE_VAULT/jarvis/jarvis.py  (extended with full routing)
+/home/qwerty/NixOSenv/Jarvis/jarvis.py  (extended with full routing)
 
 Natural language front-end to all Jarvis pipelines.
 Uses Mistral-7B intent classification to route commands.
@@ -27,14 +27,14 @@ import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
+BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent))
+sys.path.insert(0, str(BASE_DIR))
 from lib.event_bus import emit
 
-REPO_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
-BASE_DIR = REPO_DIR
+REPO_DIR = BASE_DIR
 HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
 FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
@@ -56,21 +56,20 @@ INTENT_PROMPT = """You are an intent classifier for a command-line AI assistant.
 Classify the user input into exactly ONE of these intents and respond with valid JSON only.
 
 Intents:
-- clean_document: clean/process a PDF or markdown file
-- research: research a topic online
-- ingest: add a file to the knowledge base
-- generate_nix: write or fix a NixOS module or config
-- optimize_prompt: improve a prompt for a task
-- validate_nixos: check NixOS configuration for errors
-- git_summary: summarize recent git commits
-- query_knowledge: ask a QUESTION about existing knowledge (e.g., "what is X?", "how does Y work?"). IMPORTANT: Do NOT use this for adding new features or commands.
-- unknown: use this for anything not recognized OR for requests to ADD NEW commands, features, or capabilities that Jarvis doesn't yet have.
-- identity: answer questions about Jarvis's name, capabilities, version, or role (e.g., "who are you?", "what can you do?")
-- self_improve: attempt to improve Jarvis's own existing code or documentation.
-- ingest_materials: research, convert, and index coding documents/books.
-- learn_language: start a standardized process to learn a new programming language.
-- backup: sync codebase and vault data to /THE_VAULT/JarvisData.
-- archive: create a timestamped .tar.gz of codebase and vault data.
+- [ ] generate_nix: write or fix a NixOS module or config
+- [ ] optimize_prompt: improve a prompt for a task
+- [ ] validate_nixos: check NixOS configuration for errors
+- [ ] git_summary: summarize recent git commits
+- [ ] knowledge_graph_query: specifically for "what do I know about <topic>" or "show me the graph for <topic>". Use this for synthesizing overall knowledge or "what do I know" style questions.
+- [ ] query_knowledge: ask a SPECIFIC QUESTION about technical facts or how things work.
+- [ ] plan: decompose a high-level goal into a sequence of steps or a strategic plan. Use this for complex goals like "setup a new project" or "fix a series of issues".
+- [ ] manage_calendar: add or list calendar events. Keywords: "schedule", "meeting", "event", "calendar", "tomorrow".
+- [ ] manage_tasks: add, list, or complete tasks. Keywords: "todo", "task", "remember to", "done", "complete task".
+- [ ] refactor: perform complex code changes across multiple files. Keywords: "refactor", "extract", "move", "rename class", "restructure".
+- [ ] explain_error: provide diagnostic lens on a compiler or runtime error. Keywords: "explain error", "why did it fail", "fix this error".
+- [ ] manage_models: list local and cloud models. Keywords: "models", "show models", "what models".
+- [ ] manage_keys: list API keys and environment variables. Keywords: "keys", "api keys", "environment".
+- [ ] toggle_voice: enable or disable voice gateway. Keywords: "toggle voice", "mute microphone", "voice commands on/off".
 
 Response format (JSON only, no other text):
 {"intent": "<intent>", "args": {"file": "<file if mentioned>", "query": "<query if applicable>"}}
@@ -82,14 +81,14 @@ User input: """
 
 def classify_intent(user_input: str) -> dict:
     try:
-        from lib.ollama_client import chat, is_healthy
-        from lib.model_router import route
+        from lib.ollama_client import is_healthy
+        from lib.llm import ask, Privacy
 
         if not is_healthy():
             return {"intent": "unknown", "args": {}}
 
         messages = [{"role": "user", "content": INTENT_PROMPT + user_input}]
-        response = chat(route("classify"), messages, thinking=False, temperature=0.1)
+        response = ask(task="classify", privacy=Privacy.INTERNAL, messages=messages, thinking=False)
 
         # Extract JSON from response
         match = re.search(r'\{.*\}', response, re.DOTALL)
@@ -125,30 +124,75 @@ def cmd_stop():
         print(f"  {svc}: {'✓ stopped' if ok else '✗'}")
 
 
-def cmd_status():
-    print("[Jarvis] Service Status:")
-    print(f"  {'Service':<30} {'State':<12} {'Latency'}")
-    print("  " + "-" * 55)
+def cmd_status(short=False):
+    if not short:
+        print("[Jarvis] Service Status:")
+        print(f"  {'Service':<30} {'State':<12} {'Latency'}")
+        print("  " + "-" * 55)
 
+    active_count = 0
+    total_count = len(SERVICES)
     for svc in SERVICES:
         result = subprocess.run(
             ["systemctl", "--user", "is-active", f"{svc}.service"],
             capture_output=True, text=True, timeout=5
         )
         state = result.stdout.strip()
-        icon = "●" if state == "active" else "○"
-        print(f"  {icon} {svc:<28} {state:<12}")
+        if state == "active":
+            active_count += 1
+        
+        if not short:
+            icon = "●" if state == "active" else "○"
+            print(f"  {icon} {svc:<28} {state:<12}")
 
     # Ollama status
+    ollama_ok = False
     try:
         from lib.ollama_client import is_healthy, list_models
         ollama_ok = is_healthy()
-        models = list_models() if ollama_ok else []
-        print(f"\n  Ollama: {'✓ running' if ollama_ok else '✗ offline'}")
-        if models:
-            print(f"  Loaded models: {', '.join(models[:3])}")
+        if not short:
+            models = list_models() if ollama_ok else []
+            print(f"\n  Ollama: {'✓ running' if ollama_ok else '✗ offline'}")
+            if models:
+                print(f"  Loaded models: {', '.join(models[:3])}")
     except Exception:
-        print("  Ollama: (check failed)")
+        if not short:
+            print("  Ollama: (check failed)")
+
+    # Inbox/Review counts for short status
+    inbox_count = 0
+    review_count = 0
+    if short:
+        try:
+            from lib.knowledge_manager import KnowledgeManager
+            km = KnowledgeManager()
+            inbox_count = len(km.get_inbox())
+            review_dir = BASE_DIR / "review"
+            if review_dir.exists():
+                review_count = len(list(review_dir.glob("*.md")))
+        except Exception:
+            pass
+
+    if short:
+        status_char = "✓" if ollama_ok else "✗"
+        print(f"{status_char}{active_count}/{total_count} | inbox:{inbox_count} | review:{review_count}")
+        return
+
+    # Budget status
+    try:
+        from lib.budget_controller import BudgetController
+        bc = BudgetController()
+        summary = bc.get_daily_summary()
+        pct = (summary['tokens_used'] / bc.config['limits']['daily_tokens']) * 100
+        cost_pct = (summary['cost_usd'] / bc.config['limits']['daily_cost_usd']) * 100
+        warn_thresh = bc.config['limits']['warning_threshold'] * 100
+        
+        warn = "⚠️ " if pct >= warn_thresh or cost_pct >= warn_thresh else "✓ "
+        print(f"\n  {warn}Budget: {summary['tokens_used']} tokens ({pct:.1f}%), ${summary['cost_usd']:.3f} ({cost_pct:.1f}%)")
+        if bc.is_local_only_mode():
+            print("  ⚠️ BUDGET EXHAUSTED: Cloud LLMs disabled.")
+    except Exception as e:
+        print(f"  Budget: (check failed {e})")
 
     # Swap status
     result = subprocess.run(["free", "-h"], capture_output=True, text=True, timeout=5)
@@ -171,17 +215,6 @@ def cmd_uptime():
         print(f"  {svc:<30} {ts}")
 
 
-def cmd_short_status() -> str:
-    """One-liner for Waybar integration."""
-    active = 0
-    for svc in SERVICES:
-        res = subprocess.run(
-            ["systemctl", "--user", "is-active", f"{svc}.service"],
-            capture_output=True, text=True, timeout=3
-        )
-        if res.stdout.strip() == "active":
-            active += 1
-    return f"Jarvis {active}/{len(SERVICES)}"
 
 
 # ── Pause / Resume ────────────────────────────────────────────────────────────
@@ -204,10 +237,18 @@ def cmd_pause():
             os.kill(pid, signal.SIGSTOP)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            print(f"Jarvis: Permission denied to pause PID {pid}. (Are you running as the same user as Ollama?)")
+            return
     with open(BASE_DIR / "logs" / "pause_time.tmp", "w") as f:
         f.write(str(int(time.time())))
     subprocess.run(["notify-send", "Jarvis Paused", "CPU inference suspended."])
     print(f"Jarvis: Paused {len(pids)} Ollama processes.")
+    try:
+        from lib.event_bus import emit
+        emit("system", "paused", {"count": len(pids), "type": "ollama"})
+    except Exception:
+        pass
 
 
 def cmd_resume():
@@ -220,11 +261,19 @@ def cmd_resume():
             os.kill(pid, signal.SIGCONT)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            print(f"Jarvis: Permission denied to resume PID {pid}.")
+            return
     pause_file = BASE_DIR / "logs" / "pause_time.tmp"
     if pause_file.exists():
         pause_file.unlink()
     subprocess.run(["notify-send", "Jarvis Resumed", "AI tasks continuing."])
     print(f"Jarvis: Resumed {len(pids)} Ollama processes.")
+    try:
+        from lib.event_bus import emit
+        emit("system", "resumed", {"count": len(pids), "type": "ollama"})
+    except Exception:
+        pass
 
 
 # ── Feedback ──────────────────────────────────────────────────────────────────
@@ -252,12 +301,105 @@ def cmd_backup(archive=False):
     print(f"[Jarvis] {mode_str} code and vault data...")
     
     script_path = REPO_DIR / "bin" / "backup.sh"
+    if not script_path.exists():
+        print(f"Error: {script_path} not found.")
+        return False
+    
     cmd = ["bash", str(script_path)]
     if archive:
         cmd.append("--archive")
     
-    result = subprocess.run(cmd)
-    return result.returncode == 0
+    return subprocess.run(cmd).returncode == 0
+
+
+# ── Model & API Management ──────────────────────────────────────────────────
+
+def cmd_models():
+    print("=== Jarvis Model Configuration ===")
+    from lib.ollama_client import list_models, is_healthy
+    import tomllib
+    
+    # Local Models
+    if is_healthy():
+        try:
+            local_models = list_models()
+            print(f"\n[Local Ollama] Status: Online")
+            print(f"Available: {', '.join(local_models)}")
+        except Exception as e:
+            print(f"\n[Local Ollama] Error: {e}")
+    else:
+        print(f"\n[Local Ollama] Status: Offline")
+
+    # Aliases
+    config_path = BASE_DIR / "config" / "models.toml"
+    if config_path.exists():
+        with open(config_path, "rb") as f:
+            config = tomllib.load(f)
+            print("\n[Aliases (models.toml)]")
+            for alias, model in config.get("models", {}).items():
+                print(f"  {alias:<10} -> {model}")
+    
+    # Cloud (OpenRouter)
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if key:
+        print(f"\n[Cloud OpenRouter] Status: Configured (Key: {key[:8]}...{key[-4:]})")
+    else:
+        print(f"\n[Cloud OpenRouter] Status: Not Configured")
+
+
+def cmd_keys():
+    print("=== Jarvis API Keys & Environment ===")
+    tracked_env = [
+        "OPENROUTER_API_KEY",
+        "SEARXNG_URL",
+        "OLLAMA_BASE_URL",
+        "JARVIS_ROOT",
+        "PYTHONPATH"
+    ]
+    for var in tracked_env:
+        val = os.environ.get(var, "Not Set")
+        if "KEY" in var and val != "Not Set":
+            masked = val[:8] + "*" * (len(val) - 12) + val[-4:] if len(val) > 12 else "****"
+            print(f"  {var:<20}: {masked}")
+        else:
+            print(f"  {var:<20}: {val}")
+
+
+# ── Preferences & Toggles ─────────────────────────────────────────────────────
+
+def load_preferences():
+    import tomllib
+    pref_path = BASE_DIR / "config" / "preferences.toml"
+    if not pref_path.exists():
+        return {}
+    with open(pref_path, "rb") as f:
+        return tomllib.load(f)
+
+def save_preferences(prefs):
+    import toml
+    pref_path = BASE_DIR / "config" / "preferences.toml"
+    with open(pref_path, "w") as f:
+        toml.dump(prefs, f)
+
+def cmd_toggle_voice():
+    prefs = load_preferences()
+    if "preferences" not in prefs:
+        prefs["preferences"] = {}
+    
+    current = prefs["preferences"].get("voice_enabled", True)
+    new_state = not current
+    prefs["preferences"]["voice_enabled"] = new_state
+    
+    save_preferences(prefs)
+    status = "ENABLED" if new_state else "DISABLED"
+    print(f"Jarvis: Voice commands are now {status}.")
+    
+    # Restart or signal voice_gateway service if needed
+    # For now, we just notify
+    if new_state:
+        print("  Suggested: Run 'systemctl --user start jarvis-voice-gateway' if not running.")
+    else:
+        print("  Suggested: Run 'systemctl --user stop jarvis-voice-gateway' to release microphone.")
 
 
 # ── History Logging ───────────────────────────────────────────────────────────
@@ -274,9 +416,60 @@ def log_history(user_input: str, intent: str, status: str):
         f.write(json.dumps(entry) + "\n")
 
 
+def cmd_knowledge_query(query: str) -> bool:
+    print(f"[Jarvis] Analyzing knowledge for: '{query}'...")
+    try:
+        from lib.semantic_memory import SemanticMemory
+        from lib.knowledge_graph import KnowledgeGraph
+        from lib.llm import ask, Privacy
+        
+        # 1. Semantic RAG
+        sm = SemanticMemory()
+        rag_results = sm.query(query, k=5)
+        context_text = "\n\n".join([f"Source: {r.metadata.get('source')}\nContent: {r.content}" for r in rag_results])
+        
+        # 2. Knowledge Graph
+        kg = KnowledgeGraph()
+        graph_data = kg.get_related_entities(query)
+        graph_text = "\n".join([f"- {g['subject']} --[{g['relation']}]--> {g['object']}" for g in graph_data])
+        
+        # 3. Synthesis
+        prompt = f"""You are Jarvis's knowledge synthesis engine.
+Synthesize a comprehensive report about the topic based on the provided Vector Retrieval (RAG) and Knowledge Graph data.
+
+TOPIC: {query}
+
+### GRAHP RELATIONS
+{graph_text or "No direct graph relations found."}
+
+### SEMANTIC CONTEXT
+{context_text or "No semantic context found."}
+
+Provide a structured, professional report. If facts conflict, note the ambiguity."""
+
+        print("[Jarvis] Synthesizing report...")
+        report = ask(task="analyze", messages=[{"role": "user", "content": prompt}], thinking=False)
+        print("\n" + "="*60)
+        print(f"KNOWLEDGE REPORT: {query}")
+        print("="*60)
+        print(report)
+        print("="*60 + "\n")
+        return True
+    except Exception as e:
+        print(f"[Jarvis] Knowledge query failed: {e}", file=sys.stderr)
+        return False
+
+
 # ── Pipeline Routing ──────────────────────────────────────────────────────────
 
 def route_intent(intent: str, args: dict, user_input: str):
+    if intent == "knowledge_graph_query":
+        query = args.get("query", "")
+        if not query:
+            print("Jarvis: What topic should I look up?")
+            return False
+        return cmd_knowledge_query(query)
+
     if intent == "clean_document":
         file_path = args.get("file", "")
         if not file_path:
@@ -307,7 +500,7 @@ def route_intent(intent: str, args: dict, user_input: str):
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "optimizer.py"), task])
 
     elif intent == "validate_nixos":
-        return run_pipeline([VENV_PY, str(BASE_DIR / "lib" / "nix_validator.py"), "--repo", "/home/qwerty/NixOSenv"])
+        return run_pipeline([VENV_PY, str(BASE_DIR / "lib" / "nix_validator.py"), "--repo", str(BASE_DIR.parent)])
 
     elif intent == "query_knowledge":
         query = args.get("query", user_input)
@@ -342,7 +535,36 @@ def route_intent(intent: str, args: dict, user_input: str):
         return True
 
     elif intent == "health_check":
-        cmd_status()
+        short = args.get("short", False) or "--short" in user_input
+        cmd_status(short=short)
+        return True
+
+    elif intent == "refactor":
+        query = args.get("query", user_input)
+        print(f"[Jarvis] Starting Agentic Refactoring: {query}")
+        return run_pipeline([
+            VENV_PY, str(BASE_DIR / "pipelines" / "refactor_agent.py"),
+            "--query", query
+        ], timeout=1800)
+
+    elif intent == "explain_error":
+        query = args.get("query", user_input)
+        print(f"[Jarvis] Analyzing Error (Diagnostic Lens): {query}")
+        return run_pipeline([
+            VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
+            "--task", "diagnostic", "--user-prompt", query, "--role", "diagnostic", "--thinking"
+        ], timeout=600)
+
+    elif intent == "manage_models":
+        cmd_models()
+        return True
+
+    elif intent == "manage_keys":
+        cmd_keys()
+        return True
+
+    elif intent == "toggle_voice":
+        cmd_toggle_voice()
         return True
 
     elif intent == "pause":
@@ -404,6 +626,69 @@ def route_intent(intent: str, args: dict, user_input: str):
     elif intent == "archive":
         return cmd_backup(archive=True)
 
+    elif intent == "plan":
+        goal = args.get("query", user_input)
+        return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "strategist.py"), goal])
+
+    elif intent == "manage_calendar":
+        try:
+            from lib.calendar_manager import CalendarManager
+            cm = CalendarManager()
+            if "list" in user_input.lower() or "show" in user_input.lower():
+                events = cm.list_events()
+                if not events:
+                    print("Jarvis: No upcoming events.")
+                else:
+                    print("Jarvis: Upcoming Events:")
+                    for e in events:
+                        print(f"  [{e['start_ts'].split('T')[0]}] {e['title']}")
+                return True
+            else:
+                # Basic parsing for "add event X at Y"
+                # For now, just add as a simple string logic or ask LLM to parse
+                title = args.get("query", user_input)
+                # We'll default to tomorrow for now if no time found
+                start = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+                cm.add_event(title, start)
+                print(f"Jarvis: Event '{title}' scheduled for tomorrow.")
+                return True
+        except Exception as e:
+            print(f"Jarvis: Calendar error: {e}")
+            return False
+
+    elif intent == "manage_tasks":
+        try:
+            from lib.calendar_manager import CalendarManager
+            cm = CalendarManager()
+            if "list" in user_input.lower() or "show" in user_input.lower() or "tasks" in user_input.lower():
+                tasks = cm.list_tasks()
+                if not tasks:
+                    print("Jarvis: Your todo list is empty.")
+                else:
+                    print("Jarvis: Your Tasks:")
+                    for t in tasks:
+                        print(f"  [{t['id']}] {t['title']} (P{t['priority']})")
+                return True
+            elif "done" in user_input.lower() or "complete" in user_input.lower():
+                # Extract task ID
+                match = re.search(r'\d+', user_input)
+                if match:
+                    task_id = int(match.group(0))
+                    cm.complete_task(task_id)
+                    print(f"Jarvis: Task {task_id} marked as completed.")
+                    return True
+                else:
+                    print("Jarvis: Which task ID should I mark as done?")
+                    return False
+            else:
+                title = args.get("query", user_input)
+                cm.add_task(title)
+                print(f"Jarvis: Task '{title}' added to your list.")
+                return True
+        except Exception as e:
+            print(f"Jarvis: Task error: {e}")
+            return False
+
     else:
         # Unknown intent — first check identity knowledge base for capabilities
         print(f"Jarvis: I didn't understand '{user_input}'. Searching my capabilities...")
@@ -431,8 +716,7 @@ def route_intent(intent: str, args: dict, user_input: str):
 
         print(f"Jarvis: Still unsure. Checking if I can implement this as a new capability...")
         try:
-            from lib.ollama_client import chat
-            from lib.model_router import route
+            from lib.llm import ask, Privacy
             
             # 1. Ask if this is a plausible feature
             evolution_prompt = (
@@ -441,7 +725,7 @@ def route_intent(intent: str, args: dict, user_input: str):
                 f"Is this request a missing software or system capability that Jarvis could potentially implement by modifying his own Python code or system config?\n"
                 f"Answer with 'YES: <brief feature spec>' or 'NO'."
             )
-            evolution_res = chat(route("classify"), [{"role": "user", "content": evolution_prompt}], thinking=False).strip()
+            evolution_res = ask(task="classify", privacy=Privacy.INTERNAL, messages=[{"role": "user", "content": evolution_prompt}], thinking=False).strip()
             
             if evolution_res.startswith("YES:"):
                 feature_spec = evolution_res[4:].strip()
@@ -461,7 +745,7 @@ def route_intent(intent: str, args: dict, user_input: str):
                 f"optimize prompt, validate nixos, status, start, stop, pause, resume, dashboard, ingest_materials, user_profile, identity.\n"
                 f"Suggest 3 similar commands the user might have meant. Be concise."
             )
-            response = chat(route("classify"), [{"role": "user", "content": suggest_prompt}], thinking=False)
+            response = ask(task="classify", privacy=Privacy.INTERNAL, messages=[{"role": "user", "content": suggest_prompt}], thinking=False)
             print(f"  Did you mean?\n{response}")
         except Exception as e:
             print(f"Debug: Evolution/Suggestion logic failed: {e}")
@@ -589,10 +873,7 @@ def main():
         
         # 2. Safety Confirmation for High-Risk Intents
         HIGH_RISK_INTENTS = ["generate_nix", "ingest", "learn_explicit", "index_explicit", "self_improve", "ingest_materials"]
-        
-        # We need to peek at the intent if it's natural language, or check command
-        command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
-        
+
         def confirm_action(reason: str):
             print(f"\n[Jarvis] WARNING: This operation involves {reason}.")
             choice = input("Confirm execution? [y/N]: ").lower().strip()
@@ -601,8 +882,57 @@ def main():
         # Direct commands bypassing NLP intent classifier
         command = sys.argv[1]
         
+        if command == "codebases":
+            import tomllib
+            cb_path = BASE_DIR / "config" / "codebases.toml"
+            if len(sys.argv) >= 3 and sys.argv[2] in ("add", "remove"):
+                # Handle add/remove
+                print("[Jarvis] Modifying codebases.toml is currently a manual operation. Open config/codebases.toml to edit.")
+                return
+            
+            if cb_path.exists():
+                with open(cb_path, "rb") as f:
+                    data = tomllib.load(f).get("codebases", {})
+                print("[Jarvis] Tracked Codebases & Privacy Tiers:")
+                print(f"  {'Path':<50} {'Tier'}")
+                print("  " + "-" * 60)
+                for path, tier in data.items():
+                    print(f"  {path:<50} {tier}")
+            else:
+                print("Jarvis: config/codebases.toml not found.")
+            return
+
+        if command == "forget":
+            from lib.working_memory import WorkingMemory
+            WorkingMemory().clear()
+            print("[Jarvis] Working memory for the current session has been cleared.")
+            return
+
+        if command == "sessions":
+            from lib.working_memory import WorkingMemory
+            sessions = WorkingMemory().list_sessions()
+            if not sessions:
+                print("No sessions found.")
+                return
+            print(f"{'Session ID':<40} {'Turns':<10} {'Tokens':<10} {'Last Active'}")
+            print("-" * 80)
+            for s in sessions:
+                print(f"{s['session_id']:<40} {s['turns']:<10} {s['tokens']:<10} {s['last_active']}")
+            return
+
         if command in ("--version", "-v"):
             print(f"jarvis v{VERSION}")
+            return
+        if command == "--budget-status":
+            from lib.budget_controller import BudgetController
+            bc = BudgetController()
+            summary = bc.get_daily_summary()
+            print("[Jarvis] Budget Status (Daily):")
+            print(f"  Tokens Used:  {summary['tokens_used']} / {bc.config['limits']['daily_tokens']}")
+            print(f"  Cost (USD):   ${summary['cost_usd']:.4f} / ${bc.config['limits']['daily_cost_usd']:.2f}")
+            print(f"  Requests:     {summary['requests_count']}")
+            if bc.is_local_only_mode():
+                print("  WARNING: Local-only mode active (budget exhausted).")
             return
         if command == "help":
             cmd_help()
@@ -615,12 +945,8 @@ def main():
             else:
                 print(f"Jarvis: Manual not found at {man_path}")
             return
-        if command == "status":
-            cmd_status()
-            log_history(user_input, "health_check", "ok")
-            return
         if command == "--short":
-            print(cmd_short_status())
+            cmd_status(short=True)
             return
         if command == "start":
             cmd_start()
@@ -837,6 +1163,11 @@ def main():
             env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
             res = subprocess.run(cmd, env=env)
             log_history(user_input, "query_explicit", "ok" if res.returncode == 0 else "failed")
+            return
+        if command == "status":
+            short = "--short" in sys.argv
+            cmd_status(short=short)
+            log_history(user_input, "health_check", "ok")
             return
 
         # Natural language routing

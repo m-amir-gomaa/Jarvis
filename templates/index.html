@@ -1,0 +1,51 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>Jarvis AI</h1>
+        <div id="status-indicator">
+            <span class="status-dot"></span>
+            <span hx-get="/health" hx-trigger="load, every 10s" hx-target="#status-text">System Online</span>
+            <span id="status-text"></span>
+        </div>
+    </header>
+
+    <main>
+        <section id="event-feed">
+            <div class="section-header">
+                <h2>System Events</h2>
+                <button hx-get="/api/events" hx-target="#events-list" hx-swap="innerHTML">Refresh</button>
+            </div>
+            <div id="events-list" hx-get="/api/events" hx-trigger="load, every 5s" hx-swap="innerHTML">
+                <p>Loading events...</p>
+            </div>
+        </section>
+
+        <section id="kg-visualizer">
+            <div class="section-header">
+                <h2>Knowledge Graph</h2>
+            </div>
+            <div id="graph-container">
+                <!-- Placeholder for D3.js visualization -->
+                <div class="glass-card">
+                  <p>Graph visualization module loading...</p>
+                  <p class="subtitle">Real-time entity relation mapping</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Jarvis v0.1.0 | Autonomous Phase 7 | <a href="/docs">Documentation</a></p>
+    </footer>
+</body>
+</html>

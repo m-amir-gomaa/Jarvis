@@ -5,7 +5,7 @@ import sys
 from typing import List, Tuple
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/lib/nix_validator.py
+# /home/qwerty/NixOSenv/Jarvis/lib/nix_validator.py
 
 def run_nix_instantiate(file_path: str) -> Tuple[bool, str]:
     """Runs nix-instantiate to check for syntax/eval errors."""

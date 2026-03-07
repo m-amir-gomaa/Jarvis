@@ -12,9 +12,9 @@ from lib.event_bus import emit
 # /home/qwerty/NixOSenv/Jarvis/pipelines/material_ingestor.py
 
 BASE_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
-VAULT_DIR = Path("/THE_VAULT/jarvis")
+VAULT_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
 DOWNLOADS_DIR = Path("/home/qwerty/Downloads/JarvisMaterials")
-VENV_PY = "/THE_VAULT/jarvis/.venv/bin/python"
+VENV_PY = "/home/qwerty/NixOSenv/Jarvis/.venv/bin/python"
 
 def run_command(cmd, input_str=None):
     """Runs a command and handles user confirmation if needed."""
@@ -64,7 +64,7 @@ def process_material(file_path):
     is_pdf = file_path.suffix.lower() == ".pdf"
     
     # Run doc_converter.py
-    # /THE_VAULT/jarvis/tools/doc_converter.py <input> --cleanup
+    # /home/qwerty/NixOSenv/Jarvis/tools/doc_converter.py <input> --cleanup
     conv_cmd = [VENV_PY, str(VAULT_DIR / "tools" / "doc_converter.py"), str(file_path), "--cleanup"]
     md_output_path_str = run_command(conv_cmd)
     

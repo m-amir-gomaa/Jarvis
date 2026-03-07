@@ -8,7 +8,7 @@ from lib.ollama_client import chat, OllamaError
 from lib.model_router import route
 from lib.event_bus import emit
 
-# /THE_VAULT/jarvis/tools/cleaner.py
+# /home/qwerty/NixOSenv/Jarvis/tools/cleaner.py
 
 DEFAULT_PROMPT = """You are a document preparation assistant. Clean and optimise this Markdown for upload to NotebookLM. NotebookLM is text-only.
 

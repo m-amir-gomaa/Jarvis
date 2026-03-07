@@ -2,7 +2,11 @@
 
 .PHONY: setup test test-all status lint clean
 
-VENV = /home/qwerty/NixOSenv/Jarvis/.venv
+JARVIS_ROOT ?= $(shell pwd)
+export PYTHONPATH = $(JARVIS_ROOT)
+REPO_DIR = $(JARVIS_ROOT)
+
+VENV = $(JARVIS_ROOT)/.venv
 PY = $(VENV)/bin/python
 
 setup:
@@ -14,10 +18,10 @@ test-mvp1:
 	$(PY) lib/ollama_client.py
 
 test-mvp2:
-	$(PY) tools/chunker.py test_data/sample.md --by-heading
+	$(PY) tools/chunker.py test_data/sample.md --strategy heading
 
 test-mvp3:
-	$(PY) tools/cleaner.py test_data/sample.md
+	$(PY) tools/cleaner.py test_data/chunks/chunks_manifest.json
 
 test-mvp5:
 	$(PY) pipelines/ingest.py --once test_data/sample.md
@@ -25,7 +29,37 @@ test-mvp5:
 test-mvp7:
 	$(PY) pipelines/agent_loop.py --task python_sum --user-prompt "sum a list" --output /tmp/out.py
 
-test-all: test-mvp1 test-mvp2 test-mvp3 test-mvp5 test-mvp7
+test-budget:
+	$(PY) tools/test_budget.py
+
+test-budget-session:
+	$(PY) tools/test_budget_session.py
+
+test-router:
+	$(PY) tools/test_router.py
+
+test-cloud:
+	$(PY) tools/test_cloud.py
+
+test-llm:
+	$(PY) tools/test_llm.py
+
+test-memory:
+	$(PY) tools/test_memory.py
+
+test-tools:
+	$(PY) tools/test_tools.py
+
+test-react:
+	$(PY) tools/test_react.py
+
+migrate-vectors:
+	$(PY) tools/migrate_vectors.py
+
+test-semantic:
+	$(PY) tools/test_semantic.py
+
+test-all: test-mvp1 test-mvp2 test-mvp3 test-mvp5 test-mvp7 test-budget test-budget-session test-router test-cloud test-llm test-memory test-tools test-react test-semantic
 	@echo "All tests passed"
 
 status:
