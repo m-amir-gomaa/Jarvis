@@ -48,6 +48,26 @@ _VAULT_ROOT = Path(os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
 # This is a best-effort init: if security libs fail to import (e.g. venv not
 # activated), CLI still works — it just has no audit trail.
 _CLI_CTX = None
+_CLI_GRANT_MGR = None
+
+def _get_grant_mgr():
+    """Lazy-init CLI CapabilityGrantManager."""
+    global _CLI_GRANT_MGR
+    if _CLI_GRANT_MGR is not None:
+        return _CLI_GRANT_MGR
+    try:
+        from lib.security.audit import AuditLogger
+        from lib.security.grants import CapabilityGrantManager
+        audit = AuditLogger(_VAULT_ROOT / "databases" / "security_audit.db")
+        _CLI_GRANT_MGR = CapabilityGrantManager(
+            audit_logger=audit,
+            auto_grant_local_model=True,
+            auto_grant_ide_read=True,
+            prompt_style="interactive",
+        )
+    except Exception:
+        pass
+    return _CLI_GRANT_MGR
 
 def _create_cli_ctx():
     """Lazy-init CLI SecurityContext with ADMIN trust. Called once at dispatch time."""
@@ -55,12 +75,24 @@ def _create_cli_ctx():
     if _CLI_CTX is not None:
         return _CLI_CTX
     try:
-        from lib.security.context import SecurityContext
+        from lib.security.context import SecurityContext, CapabilityGrant
         from lib.security.audit import AuditLogger
         from lib.security.store import GrantStore
 
         audit = AuditLogger(_VAULT_ROOT / "databases" / "security_audit.db")
         ctx = SecurityContext(agent_id="cli", trust_level=3)  # ADMIN
+        
+        # Auto-grant model:local for CLI interactive sessions
+        from datetime import datetime
+        ctx.add_grant(CapabilityGrant(
+            capability="model:local",
+            granted_at=datetime.now(),
+            expires_at=None,
+            granted_by="cli_auto",
+            scope="session",
+            audit_token="auto_cli"
+        ))
+        
         store = GrantStore(audit)
         restored = store.load_persistent_grants(ctx)
         if restored > 0:
@@ -71,21 +103,66 @@ def _create_cli_ctx():
         print(f"[Jarvis] Security context unavailable: {e}", file=sys.stderr)
     return _CLI_CTX
 
+def run_ers_chain(chain_id: str, context: dict, output_key: str) -> bool:
+    """Helper to dispatch an ERS chain execution from the CLI."""
+    import asyncio
+    try:
+        from lib.ers.chain import ChainLoader
+        from lib.ers.augmentor import ChainAugmentor
+        from lib.llm import _get_router as get_router
+    except ImportError as e:
+        print(f"[Jarvis] ERS Engine unavailable: {e}")
+        return False
 
-def _shadow_require(capability: str, reason: str = "") -> None:
+    loader = ChainLoader()
+    loader.load_all()
+    chain = loader.get(chain_id)
+    if not chain:
+        print(f"[Jarvis] Chain '{chain_id}' not found.")
+        return False
+        
+    ctx = _create_cli_ctx()
+    mgr = _get_grant_mgr()
+    if not (ctx and mgr):
+        print("[Jarvis] Security engine failed to initialize.")
+        return False
+        
+    augmentor = ChainAugmentor(model_router=get_router(), security_manager=mgr)
+    print(f"[Jarvis] Running ERS chain: {chain_id} ...")
+    
+    result = asyncio.run(augmentor.run_chain(chain, ctx, initial_context=context))
+    if not result.success:
+        print(f"Chain failed:\n" + "\n".join(result.errors))
+        return False
+        
+    if output_key in result.outputs:
+        print(result.outputs[output_key])
+        return True
+    else:
+        print(f"[Jarvis] Chain succeeded, but missed output key '{output_key}'.")
+        return True
+
+def _enforce_capability(capability: str, reason: str = "") -> bool:
     """
-    Log a capability requirement to the audit trail (shadow mode — no enforcement).
-    Call this wherever the CLI would need a capability check if fully migrated.
+    Request a capability via the interactive CLI grant manager.
+    Call this wherever the CLI needs a capability check.
     """
     ctx = _create_cli_ctx()
-    if ctx is None:
-        return
+    mgr = _get_grant_mgr()
+    if not (ctx and mgr):
+        print(f"[Jarvis] Cannot verify {capability} - security engine unavailable.")
+        return False
     try:
-        from lib.security.context import shadow_require
-        shadow_require(ctx, capability)
-    except Exception:
-        pass
-
+        from lib.security.grants import CapabilityRequest
+        mgr.request(ctx, CapabilityRequest(
+            capability=capability,
+            reason=reason,
+            scope="session"
+        ))
+        return True
+    except Exception as e:
+        print(f"[Jarvis] Permission denied: {e}")
+        return False
 
 def run_pipeline(cmd: list, timeout: int = 300, risk_level: str = "low"):
     if risk_level == "high":
@@ -140,6 +217,14 @@ def classify_intent(user_input: str) -> dict:
 
         if not is_healthy():
             return {"intent": "unknown", "args": {}}
+            
+        # 1. Deterministic text match for testing ERS chains
+        if user_input.strip() == "validate my nixos config":
+            return {"intent": "validate_nixos", "args": {}}
+        if user_input.strip() == "summarize my git commits":
+            return {"intent": "git_summary", "args": {}}
+        if user_input.startswith("ingest "):
+            return {"intent": "ingest", "args": {"file": user_input[7:].strip()}}
 
         # ask() takes a positional prompt string — no messages= kwarg
         response = ask(INTENT_PROMPT + user_input, task="classify", privacy=Privacy.INTERNAL, thinking=False)
@@ -539,21 +624,38 @@ def route_intent(intent: str, args: dict, user_input: str):
 
     elif intent == "research":
         query = args.get("query", user_input)
-        _shadow_require("network_access", f"web search: {query[:60]}")
-        return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "research_agent.py"), "--query", query])
+        if not _enforce_capability("network_access", f"web search: {query[:60]}"):
+            return False
+        return run_ers_chain("research_deep", {"topic": query}, output_key="report")
+
+    elif intent == "git_summary":
+        try:
+            diff = subprocess.check_output(["git", "diff", "--cached"], cwd=str(BASE_DIR), text=True)
+            if not diff.strip():
+                diff = subprocess.check_output(["git", "diff"], cwd=str(BASE_DIR), text=True)
+            if not diff.strip():
+                print("Jarvis: No changes spotted in git repo.")
+                return True
+            return run_ers_chain("git_summarize", {"git_diff": diff}, output_key="commit_message")
+        except subprocess.CalledProcessError:
+            print("Jarvis: Failed to run git diff.")
+            return False
 
     elif intent == "ingest":
         file_path = args.get("file", "")
         if not file_path:
             print("Jarvis: Please specify a file path.")
             return False
-        _shadow_require("file_read", f"ingest file: {file_path}")
+        if not _enforce_capability("file_read", f"ingest file: {file_path}"):
+            return False
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "ingest.py"), "--once", file_path])
 
     elif intent == "generate_nix":
         prompt = args.get("query", user_input)
-        _shadow_require("file_write", "generate NixOS module")
-        _shadow_require("shell_exec", "nixos-rebuild after generate")
+        if not _enforce_capability("file_write", "generate NixOS module"):
+            return False
+        if not _enforce_capability("shell_exec", "nixos-rebuild after generate"):
+            return False
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
             "--task", "nixos", "--user-prompt", prompt, "--thinking"
@@ -561,14 +663,22 @@ def route_intent(intent: str, args: dict, user_input: str):
 
     elif intent == "optimize_prompt":
         task = args.get("query", "notebooklm")
+        # Optimization usually involves reading local prompts
+        if not _enforce_capability("file_read", f"optimize prompt for: {task}"):
+            return False
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "optimizer.py"), task])
 
     elif intent == "validate_nixos":
-        _shadow_require("shell_exec", "nixos-rebuild dry-run validation")
-        return run_pipeline([VENV_PY, str(BASE_DIR / "lib" / "nix_validator.py"), "--repo", str(BASE_DIR.parent)])
+        if not _enforce_capability("shell_exec", "nixos-rebuild dry-run validation"):
+            return False
+        nix_config_path = BASE_DIR.parent / "configuration.nix"
+        nix_code = nix_config_path.read_text() if nix_config_path.exists() else "(config not found locally)"
+        return run_ers_chain("nixos_verify", {"nix_code": nix_code}, output_key="safety_check")
 
     elif intent == "query_knowledge":
         query = args.get("query", user_input)
+        if not _enforce_capability("file_read", "search knowledge base (RAG)"):
+            return False
         return run_pipeline([VENV_PY, str(BASE_DIR / "pipelines" / "query_knowledge.py"), query])
 
     elif intent == "query_events":
@@ -589,10 +699,15 @@ def route_intent(intent: str, args: dict, user_input: str):
     elif intent == "open_dashboard":
         monitor_bin = BASE_DIR / "bin" / "jarvis-monitor"
         if not monitor_bin.exists():
+            if not _enforce_capability("shell_exec", "build jarvis-monitor dashboard"):
+                return False
             print("Jarvis: Dashboard binary not found. Building it now, this will take a moment...")
             subprocess.run(["cargo", "build", "--release"], cwd=str(BASE_DIR / "jarvis-monitor"), check=True)
             monitor_bin.parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(["cp", str(BASE_DIR / "jarvis-monitor" / "target" / "release" / "jarvis-monitor"), str(monitor_bin)], check=True)
+        
+        if not _enforce_capability("shell_exec", "launch dashboard"):
+            return False
         print("Jarvis: Opening dashboard...")
         subprocess.Popen([str(monitor_bin)])
         return True
@@ -613,6 +728,8 @@ def route_intent(intent: str, args: dict, user_input: str):
     elif intent == "refactor":
         query = args.get("query", user_input)
         print(f"[Jarvis] Starting Agentic Refactoring: {query}")
+        if not _enforce_capability("file_write", f"refactor: {query}"):
+            return False
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "refactor_agent.py"),
             "--query", query
@@ -621,6 +738,8 @@ def route_intent(intent: str, args: dict, user_input: str):
     elif intent == "explain_error":
         query = args.get("query", user_input)
         print(f"[Jarvis] Analyzing Error (Diagnostic Lens): {query}")
+        if not _enforce_capability("model:local", "diagnostic lens error analysis"):
+            return False
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
             "--task", "diagnostic", "--user-prompt", query, "--role", "diagnostic", "--thinking"
@@ -771,16 +890,17 @@ def route_intent(intent: str, args: dict, user_input: str):
                 search_query = "capabilities"
             
             from pipelines.query_knowledge import query_knowledge
+            import asyncio
             # Only return True if it's a specific question that RAG can answer definitively.
             # If it's a command/request for a feature, we let it fall through to evolution.
             is_question = any(w in user_input.lower() for w in ["what", "how", "who", "where", "can you"])
             if is_question:
-                if query_knowledge(search_query, category="identity"):
+                if asyncio.run(query_knowledge(search_query, category="identity")):
                     return True
             else:
                 # If it's not a clear question, we still run RAG but don't return True,
                 # allowing it to proceed to the Evolution check.
-                query_knowledge(search_query, category="identity")
+                asyncio.run(query_knowledge(search_query, category="identity"))
         except Exception as e:
             print(f"Debug: RAG fallback failed: {e}")
             pass
@@ -796,7 +916,7 @@ def route_intent(intent: str, args: dict, user_input: str):
                 f"Is this request a missing software or system capability that Jarvis could potentially implement by modifying his own Python code or system config?\n"
                 f"Answer with 'YES: <brief feature spec>' or 'NO'."
             )
-            evolution_res = ask(task="classify", privacy=Privacy.INTERNAL, messages=[{"role": "user", "content": evolution_prompt}], thinking=False).strip()
+            evolution_res = ask(evolution_prompt, task="classify", privacy=Privacy.INTERNAL, thinking=False).content.strip()
             
             if evolution_res.startswith("YES:"):
                 feature_spec = evolution_res[4:].strip()
@@ -816,8 +936,8 @@ def route_intent(intent: str, args: dict, user_input: str):
                 f"optimize prompt, validate nixos, status, start, stop, pause, resume, dashboard, ingest_materials, user_profile, identity.\n"
                 f"Suggest 3 similar commands the user might have meant. Be concise."
             )
-            response = ask(task="classify", privacy=Privacy.INTERNAL, messages=[{"role": "user", "content": suggest_prompt}], thinking=False)
-            print(f"  Did you mean?\n{response}")
+            response = ask(suggest_prompt, task="classify", privacy=Privacy.INTERNAL, thinking=False)
+            print(f"  Did you mean?\n{response.content}")
         except Exception as e:
             print(f"Debug: Evolution/Suggestion logic failed: {e}")
             print("  Try: jarvis help")

@@ -511,7 +511,8 @@ def start_http():
 if __name__ == "__main__":
     import secrets # Needed for token_hex
     # Ensure context dir exists
-    (REPO_ROOT / "context").mkdir(parents=True, exist_ok=True)
+    # Ensure context dir exists in the vault
+    (SESSION_FILE.parent).mkdir(parents=True, exist_ok=True)
     
     threading.Thread(target=start_http, daemon=True).start()
     log.info(f"Jarvis LSP starting on TCP {LSP_PORT}, HTTP {HTTP_PORT}")

@@ -118,8 +118,8 @@ class KnowledgeManager:
             rows = conn.execute("SELECT * FROM inbox WHERE status = 'pending'").fetchall()
             return [dict(r) for r in rows]
 
-    def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None) -> List[Dict]:
-        results = self.sm.query(query_text, k=10, category=category)
+    async def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None) -> List[Dict]:
+        results = await self.sm.query(query_text, k=10, category=category)
         
         # Map SearchResult back to legacy Dict format for existing callers
         legacy_results = []

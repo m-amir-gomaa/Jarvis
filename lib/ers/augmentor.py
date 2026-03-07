@@ -18,7 +18,7 @@ RAM_GATE_MB = 1024
 class ERSExecutionResult(BaseModel):
     chain_id: str
     success:  bool
-    outputs:  dict[str, str]
+    outputs:  dict[str, str | None]
     errors:   list[str]
 
 class ChainAugmentor:
@@ -118,8 +118,11 @@ class ChainAugmentor:
             )
             return {"key": key, "output": response[0], "error": None}
         except Exception as e:
-            log.error(f"Step {step.id} failed: {e}")
-            return {"key": key, "output": None, "error": str(e)}
+            import traceback
+            err_str = traceback.format_exc()
+            log.error(f"Step {step.id} failed: {err_str}")
+            print(f"Step {step.id} failed: {err_str}")
+            return {"key": key, "output": None, "error": str(repr(e))}
         finally:
             # Revoke all task-scoped grants on the step child context.
             # Produces audit trail for step-level capability lifecycle.

@@ -1,0 +1,63 @@
+# Jarvis Developer Guide (V3)
+
+Welcome to the Jarvis development community. This guide will help you understand the codebase, contribute new features, and master AI engineering.
+
+## 1. Contribution Rules
+
+To maintain the quality and security of Jarvis, all contributions must follow these rules:
+
+### Security First
+- Never bypass the `SecurityContext`.
+- Always request the minimum capability required for a task.
+- Ensure all new intents in `jarvis.py` use `_enforce_capability`.
+
+### Testing & Quality
+- **Lints**: Run `make lint` before committing.
+- **Tests**: All new features must include integration tests in the `tests/` directory.
+- **Validation**: `make test-all` must pass on your local NixOS machine.
+
+### Documentation
+- Update `BOOTSTRAP_V3.md` for major architectural changes.
+- Ensure all new components are documented in `docs/COMPONENTS.md`.
+
+## 2. Tutorial: Creating an ERS Chain
+
+ERS chains allow you to define complex reasoning workflows in YAML.
+
+1. **Define the Chain**: Create `chains/my_new_task.yaml`.
+2. **Add Steps**: Define sequential or parallel steps with Jinja2 prompts.
+3. **Specify Capabilities**: List required capabilities for each step.
+4. **Route the Intent**: Add a new match in `jarvis.py:classify_intent` and `route_intent`.
+
+Example Step:
+```yaml
+- name: analyze_logs
+  model: coder
+  prompt: "Analyze these logs: {{ input }}"
+  capabilities: ["file_read"]
+```
+
+## 3. AI Engineering Resources
+
+To master AI engineering and contribute effectively to Jarvis, we recommend the following resources:
+
+### 🎓 Foundational Learning
+- **Andrej Karpathy's "Zero to Hero"**: The gold standard for understanding LLMs from first principles. [YouTube](https://www.youtube.com/@AndrejKarpathy)
+- **Umar Jamil**: Excellent paper walkthroughs and PyTorch implementations. [YouTube](https://www.youtube.com/@umarjamil)
+- **DeepLearning.AI**: Specialized courses on Prompt Engineering and AI Agents. [Website](https://www.deeplearning.ai/)
+
+### 📚 Essential Reading
+- **"Deep Learning" (Goodfellow, Bengio, Courville)**: The theoretical foundation of the field.
+- **"Hands-On Machine Learning" (Aurélien Géron)**: Practical guide for building AI systems.
+- **Anthropic/OpenAI Documentation**: Best practices for prompt engineering and model usage.
+
+### 🌐 Key Communities & Tools
+- **Hugging Face**: The hub for models, datasets, and the `transformers` library.
+- **LangChain / LlamaIndex**: Frameworks for building RAG and agentic workflows.
+- **arXiv.org**: Stay updated with the latest research papers (CS.CL, CS.AI).
+
+## 4. Getting Help
+
+- Open an issue on GitHub for bugs or feature requests.
+- Join our community discussions (if applicable).
+- Consult the **[Architecture Guide](ARCHITECTURE.md)** for deep technical questions.

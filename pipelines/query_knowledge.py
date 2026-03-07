@@ -7,17 +7,17 @@ from lib.model_router import route
 
 # /home/qwerty/NixOSenv/Jarvis/pipelines/query_knowledge.py
 
-def query_knowledge(query: str, category: str = None):
+async def query_knowledge(query: str, category: str = None):
     km = KnowledgeManager()
     print(f"[RAG] Searching knowledge base for: '{query}'...")
     
     # 1. Retrieval
-    results = km.search(query, category=category)
+    results = await km.search(query, category=category)
     if not results:
         # Try a broader search if no direct match
         words = query.split()
         if len(words) > 1:
-            results = km.search(words[0], category=category)
+            results = await km.search(words[0], category=category)
     
     if not results:
         print("Jarvis: I couldn't find anything relevant in my knowledge base.")
@@ -69,6 +69,7 @@ DO NOT analyze the context as a set of files or code; internalize it as your own
         return False
 
 def main():
+    import asyncio
     parser = argparse.ArgumentParser(description="Jarvis Knowledge Query (RAG)")
     parser.add_argument("query", help="Question to ask")
     parser.add_argument("--category", "-c", help="Specific category to search in")
@@ -78,7 +79,7 @@ def main():
         print("Usage: jarvis query <question>")
         sys.exit(1)
 
-    success = query_knowledge(args.query, category=args.category)
+    success = asyncio.run(query_knowledge(args.query, category=args.category))
     if not success:
         sys.exit(1)
 

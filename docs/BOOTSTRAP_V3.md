@@ -17,20 +17,20 @@ Jarvis is a multi-modal AI orchestrator designed for local-first execution with 
 
 ### Session Management
 - Tokens are generated on every CLI run: `_ensure_session_token()`.
-- Stored at `/THE_VAULT/jarvis/context/active_session_token` (Mode 600).
-- LSP clients must provide this token to gain `ELEVATED` (Trust 2) status.
+- **Absolute Source of Truth**: `/THE_VAULT/jarvis/context/active_session_token` (Mode 600). 
+- *Note:* Both the CLI and `jarvis_lsp.py` must synchronize on this path.
 
 ### Capability Gates
+- **STRICT ENFORCEMENT**: Shadow Mode is **DISABLED**. Denied capabilities or insufficient trust levels will block execution and prompt the user (Interactive) or raise `CapabilityPending` (OOB).
 - **BASIC (Trust 1)**: Anonymous/unauthenticated. Auto-grants `model:local`, `chat:basic`, `ide:read`.
 - **ELEVATED (Trust 2)**: Authenticated. Can request `ide:edit`, `vcs:read`.
-- **ADMIN (Trust 3)**: CLI/Manual. Full control, including `vcs:write`, `sys:manage`.
+- **ADMIN (Trust 3)**: CLI/Manual. Full control, including `vcs:write`, `sys:manage`, and direct subprocess execution.
 
 ### OOB Approval Flow
 1. Client requests a capability (e.g., `ide:edit`).
 2. Server raises `CapabilityPending` if not auto-allowed.
-3. User runs `jarvis pending` to see requests.
-4. User runs `jarvis approve <id>` to grant/deny.
-5. Client long-polls `/security/pending` to receive the result.
+3. User runs `jarvis approve <id>` to grant/deny.
+4. Client long-polls `/security/pending?conn_id=...` to receive the result.
 
 ## 3. Data & Storage
 
@@ -43,16 +43,29 @@ All databases are consolidated in the Vault:
 ## 4. Operational Commands
 
 - `make test-all`: Run full validation suite (Security, ERS, Models, IDE).
-- `make rust-build`: Rebuild the Dashboard TUI.
-- `jarvis status`: Check health of all sub-services.
+- `make rust-build`: Rebuild the Dashboard TUI (requires `ollama stop` to free RAM).
+- `jarvis status`: Check health of all services, including budget and Ollama latency.
 - `jarvis approve <id>` / `jarvis pending`: Manage security requests.
 
-## 5. Development Status
+## 6. Documentation Ecosystem
 
-- **Core Engine**: 95% complete. Robust security and model routing.
-- **IDE Integration**: 90% complete. End-to-end Lua logic with `conn_id` isolation.
-- **Dashboard TUI**: Functional baseline. Live DB integration for Security/ERS tabs pending.
-- **CLI V2**: Future roadmap item (migrating CLI from v1 to v2 primitives).
+Jarvis documentation is rebuilt from the ground up for V3 to ensure clarity and maintainability.
+
+### Persistent Lifecycle
+- **Source of Truth**: `docs/BOOTSTRAP_V3.md` must be updated after any major architectural change.
+- **Redundancy Purge**: All V1/V2 legacy docs have been removed. Do NOT create independent `.md` files without linking them to the core suite.
+- **Structure**:
+    - `README.md` (Root): High-level overview and quick start.
+    - `docs/INSTALL.md`: Comprehensive setup guide.
+    - `docs/USAGE.md`: Interaction patterns (CLI/IDE/TUI).
+    - `docs/ARCHITECTURE.md`: Subsystems, security flow, and Mermaid diagrams.
+    - `docs/COMPONENTS.md`: Technical reference for all `lib/` and `services/` modules.
+    - `docs/DEVELOPER_GUIDE.md`: Contribution path, tutorials, and AI engineering resources.
+
+### External Resources for AI Engineering
+- **Youtube**: Andrej Karpathy's "Zero to Hero" series, Umar Jamil (Paper implementations).
+- **Books**: "Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow" (Geron), "Deep Learning" (Goodfellow).
+- **Websites**: Hugging Face Course, Anthropic/OpenAI documentation, LangChain/LlamaIndex docs.
 
 ---
-*Last Updated: March 7, 2026*
+*Last Updated: March 8, 2026*

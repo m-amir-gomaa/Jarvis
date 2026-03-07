@@ -64,7 +64,11 @@ class SecurityContext:
     is_clone:    bool = False # FIX-CONTEXT-1
 
     def has(self, cap: str) -> bool:
-        return any(g.capability == cap and g.is_valid() for g in self.grants)
+        if any(g.capability == cap and g.is_valid() for g in self.grants):
+            return True
+        if self.parent_ctx:
+            return self.parent_ctx.has(cap)
+        return False
 
     def require(self, cap: str) -> CapabilityGrant:
         from .exceptions import CapabilityDenied, CapabilityExpired
@@ -73,6 +77,11 @@ class SecurityContext:
                 if g.is_valid():
                     return g
                 raise CapabilityExpired(cap, self.agent_id)
+        if self.parent_ctx:
+            try:
+                return self.parent_ctx.require(cap)
+            except (CapabilityDenied, CapabilityExpired):
+                pass
         raise CapabilityDenied(cap, self.agent_id)
 
     def add_grant(self, grant: CapabilityGrant) -> None:
