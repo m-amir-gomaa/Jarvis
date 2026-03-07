@@ -33,6 +33,7 @@ from pathlib import Path
 BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent))
 sys.path.insert(0, str(BASE_DIR))
 from lib.event_bus import emit
+import secrets as _secrets
 
 REPO_DIR = BASE_DIR
 HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
@@ -40,7 +41,14 @@ FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
 
-def run_pipeline(cmd: list, timeout: int = 300):
+def run_pipeline(cmd: list, timeout: int = 300, risk_level: str = "low"):
+    if risk_level == "high":
+        print(f"⚠️  HIGH RISK OPERATION DETECTED: {' '.join(cmd)}")
+        confirm = input("This operation may significantly alter your system. Proceed? [y/N] ").strip().lower()
+        if confirm not in ("y", "yes"):
+            print("Operation aborted by user.")
+            return False
+            
     env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
     result = subprocess.run(cmd, env=env, timeout=timeout)
     return result.returncode == 0
@@ -496,7 +504,7 @@ def route_intent(intent: str, args: dict, user_input: str):
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
             "--task", "nixos", "--user-prompt", prompt, "--thinking"
-        ], timeout=600)
+        ], timeout=600, risk_level="high")
 
     elif intent == "optimize_prompt":
         task = args.get("query", "notebooklm")
@@ -554,7 +562,7 @@ def route_intent(intent: str, args: dict, user_input: str):
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "refactor_agent.py"),
             "--query", query
-        ], timeout=1800)
+        ], timeout=1800, risk_level="high")
 
     elif intent == "explain_error":
         query = args.get("query", user_input)
@@ -594,7 +602,7 @@ def route_intent(intent: str, args: dict, user_input: str):
         return run_pipeline([
             VENV_PY, str(BASE_DIR / "pipelines" / "agent_loop.py"),
             "--task", "self_improvement", "--user-prompt", query, "--role", "coding", "--thinking"
-        ], timeout=900)
+        ], timeout=900, risk_level="high")
 
     elif intent == "user_profile":
         query = args.get("query", user_input)
@@ -745,7 +753,7 @@ def route_intent(intent: str, args: dict, user_input: str):
                     "--task", "self_improvement", 
                     "--user-prompt", f"Implement new capability into jarvis.py and related pipelines: {feature_spec}", 
                     "--role", "coding", "--thinking"
-                ], timeout=1200)
+                ], timeout=1200, risk_level="high")
             
             # 2. Fallback to suggestions if not a feature
             suggest_prompt = (
@@ -855,9 +863,28 @@ def sync_assets():
         print(f"[Jarvis] Warning: asset sync failed: {e}", file=sys.stderr)
 
 
+# ── Session Management ────────────────────────────────────────────────────────
+
+def _ensure_session_token() -> str:
+    """
+    Generate (or refresh) the active session token and write it to VAULT_ROOT.
+    Called once at CLI startup. Returns the token string.
+    """
+    vault_root = Path(os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
+    session_file = vault_root / "context" / "active_session_token"
+    session_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    token = _secrets.token_hex(16)
+    session_file.write_text(token)
+    session_file.chmod(0o600)
+    return token
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    # P0-3: Write session token on every CLI invocation
+    _current_session_token = _ensure_session_token()
     sync_assets()
     start_time = time.time()
     try:
@@ -1168,6 +1195,68 @@ def main():
                         print(f"  {item['id']:<4} {itype:<20} {item['title']}")
             return
 
+        if command == "approve":
+            if len(sys.argv) < 3:
+                print("Usage: jarvis approve <pending_id>")
+                print("       Resolves a pending OOB capability approval.")
+                print("       Run 'jarvis pending' to list pending approvals.")
+                return
+            pending_id = sys.argv[2]
+            
+            from lib.security.audit import AuditLogger
+            from lib.security.grants import CapabilityGrantManager
+            from lib.security.context import SecurityContext
+            from lib.security.exceptions import CapabilityPending
+            
+            audit = AuditLogger()
+            gm = CapabilityGrantManager(audit_logger=audit)
+            
+            row = audit.get_pending(pending_id)
+            if row is None:
+                print(f"[Jarvis] No pending approval found with id: {pending_id}")
+                return
+            
+            cap = row["capability"]
+            agent = row["agent_id"]
+            reason = row["reason"]
+            print(f"\n[Jarvis] Pending approval request:")
+            print(f"  Capability : {cap}")
+            print(f"  Agent      : {agent}")
+            print(f"  Reason     : {reason}")
+            print(f"  Pending ID : {pending_id}")
+            
+            resp = input("\n  Approve? [y/N] ").strip().lower()
+            approved = resp in ("y", "yes")
+            
+            # Use an ADMIN-level context to resolve (only admin can approve)
+            admin_ctx = SecurityContext(agent_id="cli-admin", trust_level=3)
+            try:
+                grant = gm.resolve_pending(pending_id, admin_ctx, approved=approved)
+                if approved and grant:
+                    print(f"[Jarvis] Approved. Capability '{cap}' granted.")
+                else:
+                    print(f"[Jarvis] Denied. Capability '{cap}' rejected.")
+            except Exception as e:
+                print(f"[Jarvis] Error resolving pending grant: {e}", file=sys.stderr)
+            
+            log_history(user_input, "approve", "ok")
+            return
+
+        if command == "pending":
+            from lib.security.audit import AuditLogger
+            audit = AuditLogger()
+            rows = audit.list_pending()
+            if not rows:
+                print("[Jarvis] No pending capability approvals.")
+                return
+            print(f"\n[Jarvis] Pending capability approvals ({len(rows)}):\n")
+            print(f"  {'ID':<10} {'Agent':<20} {'Capability':<25} {'Reason'}")
+            print("  " + "-" * 75)
+            for r in rows:
+                print(f"  {r['id']:<10} {r['agent_id']:<20} {r['capability']:<25} {r['reason']}")
+            print(f"\n  Run: jarvis approve <id>")
+            return
+
         if command == "query":
             query = " ".join(sys.argv[2:])
             if not query:
@@ -1233,6 +1322,8 @@ def main():
                     "forget": "Clear short-term working memory",
                     "sessions": "List and manage active chat sessions",
                     "codebases": "List indexed codebases",
+                    "approve": "Approve a pending OOB capability grant",
+                    "pending": "List pending capability approval requests",
                     "help": "Show usage help"
                 }
                 for cmd, desc in sorted(commands.items()):

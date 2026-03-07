@@ -4,6 +4,12 @@ import logging
 from .adapters.base import ModelAdapter
 from ..security.context import SecurityContext
 
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+
 log = logging.getLogger("jarvis.models.router")
 
 class ModelRouter:
@@ -14,8 +20,32 @@ class ModelRouter:
         """
         self.config = config
         self.adapters = adapters
+        self._aliases = self._load_aliases()
 
-    async def generate(self, model_alias: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, ctx: SecurityContext = None, **kwargs) -> str:
+    def _load_aliases(self) -> dict[str, str]:
+        """
+        Load model aliases from config/models.toml [aliases] section.
+        Falls back to safe local-only qwen3 defaults if config is missing.
+        Called once at init time. (FIX-MOD-1)
+        """
+        raw = self.config.get("aliases", {})
+        if not raw:
+            import logging
+            logging.getLogger("jarvis.models.router").warning(
+                "No [aliases] section in models.toml — using local-only defaults. "
+                "Add [aliases] to config/models.toml."
+            )
+            return {
+                "reason":   "local/qwen3:14b-q4_K_M",
+                "chat":     "local/qwen3:8b",
+                "fast":     "local/qwen3:1.7b",
+                "coder":    "local/qwen2.5-coder:7b-instruct",
+                "complete": "local/qwen3:1.7b",
+                "embed":    "local/nomic-embed-text:latest",
+            }
+        return dict(raw)
+
+    async def generate(self, model_alias: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, ctx: SecurityContext = None, **kwargs) -> tuple[str, dict[str, int]]:
         """
         Resolves model_alias and executes call via appropriate adapter.
         Aliasing logic:
@@ -51,17 +81,26 @@ class ModelRouter:
             else:
                 raise RuntimeError(f"Model provider {provider} is not available")
 
-        return await adapter.generate(model_name, prompt, stop=stop, max_tokens=max_tokens, **kwargs)
+        result, usage = await adapter.generate(model_name, prompt, stop=stop, max_tokens=max_tokens, **kwargs)
+        return result, usage
+
+    def call(self, model_alias: str, prompt: str, **kwargs) -> tuple[str, dict[str, int]]:
+        """Synchronous wrapper for generate()."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        if loop.is_running():
+            # nest_asyncio is already applied at the module level.
+            pass
+            
+        return loop.run_until_complete(self.generate(model_alias, prompt, **kwargs))
 
     def _resolve_alias(self, alias: str) -> str:
-        # Minimal resolution logic for Phase 3
-        # In a real app, this would come from models.toml
-        aliases = {
-            "reason": "external/anthropic/claude-3-haiku-20240307",
-            "chat":   "local/llama3:8b",
-            "fast":   "local/mistral:7b"
-        }
-        return aliases.get(alias, alias)
+        return self._aliases.get(alias, alias)
 
     def _parse_spec(self, spec: str) -> tuple[str, str | None]:
         if spec.startswith("local/"):

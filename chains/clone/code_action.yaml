@@ -1,0 +1,29 @@
+id: clone_code_action
+description: "IDE code action executed in a child clone context."
+
+steps:
+  - id: action_planner
+    prompt_template: |
+      You are an IDE assistant. The user requested: {{ action_type }}
+
+      Code at cursor:
+      {{ code_context }}
+
+      File: {{ file_path }}
+      Language: {{ language }}
+
+      Plan the specific edits needed. Be precise about what to change and where.
+    model_alias: coder
+    output_key: edit_plan
+
+  - id: action_executor
+    prompt_template: |
+      Execute this edit plan precisely.
+
+      Plan: {{ edit_plan }}
+      Original code: {{ code_context }}
+
+      Return ONLY the modified code with no preamble.
+      Preserve indentation, formatting style, and surrounding context.
+    model_alias: coder
+    output_key: modified_code

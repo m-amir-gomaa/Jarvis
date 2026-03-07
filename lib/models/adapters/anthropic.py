@@ -13,7 +13,7 @@ class AnthropicAdapter(ModelAdapter):
     def __init__(self, secrets_manager):
         self.sm = secrets_manager
 
-    async def generate(self, model: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, **kwargs) -> str:
+    async def generate(self, model: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, **kwargs) -> tuple[str, dict[str, int]]:
         api_key = self.sm.get("anthropic_api_key")
         if not api_key:
             raise ValueError("Anthropic API key not found in secrets store.")
@@ -36,7 +36,11 @@ class AnthropicAdapter(ModelAdapter):
             resp = await client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
-            return str(data["content"][0]["text"])
+            usage = {
+                "prompt_tokens": data.get("usage", {}).get("input_tokens", 0),
+                "output_tokens": data.get("usage", {}).get("output_tokens", 0)
+            }
+            return str(data["content"][0]["text"]), usage
 
     def is_available(self) -> bool:
         return self.sm.has("anthropic_api_key")

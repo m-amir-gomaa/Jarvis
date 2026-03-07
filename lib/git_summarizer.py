@@ -21,20 +21,43 @@ def get_git_diff(repo_path: str, since: str = "HEAD~1") -> str:
         raise RuntimeError("Git diff timed out")
 
 def summarize_diff(diff_text: str) -> str:
-    """Uses LLM to summarize a git diff."""
+    """Uses LLM to summarize a git diff with smart truncation."""
     if not diff_text.strip():
         return "No changes detected."
         
+    # FIX: Smart Truncation
+    MAX_CHARS = 12000 
+    if len(diff_text) > MAX_CHARS:
+        print(f"[GitSummarizer] Warning: Diff too large ({len(diff_text)} chars). Applying smart truncation.")
+        lines = diff_text.splitlines()
+        truncated_lines = []
+        for line in lines:
+            # Keep file indicators and hunk headers
+            if line.startswith("diff --git") or line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+                truncated_lines.append(line)
+            # Keep added/removed lines but limit them
+            elif (line.startswith("+") or line.startswith("-")) and len(truncated_lines) < 200:
+                truncated_lines.append(line)
+        
+        diff_text = "\n".join(truncated_lines)
+        diff_text += f"\n\n[TRUNCATED: original was {len(lines)} lines]"
+
     prompt = f"""Summarize the following git diff concisely. Focus on:
 1. Significant logic changes.
 2. New files or deleted files.
 3. Potential breaking changes.
 
 DIFF:
-{diff_text[:8000]} # Truncate if too large
+{diff_text}
 """
     try:
-        return chat(route('summarize'), [{'role': 'user', 'content': prompt}])
+        # Compatibility check: if model_router or route not available, use fallback
+        try:
+            model = route('summarize')
+        except:
+            model = 'fast'
+            
+        return chat(model, [{'role': 'user', 'content': prompt}])
     except Exception as e:
         emit('git_summarizer', 'error', {'error': str(e)}, level='ERROR')
         raise

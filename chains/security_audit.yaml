@@ -1,0 +1,18 @@
+id: security_audit
+description: "Audits code for common security vulnerabilities."
+
+steps:
+  - id: scan_vulnerabilities
+    prompt_template: |
+      Audit the following code for security vulnerabilities (injection, overflow,
+      logic errors):
+      {{ code }}
+    model_alias: reason
+    output_key: vulns
+
+  - id: remediation_plan
+    prompt_template: |
+      Develop a remediation plan for these vulnerabilities:
+      {{ vulns }}
+    model_alias: reason
+    output_key: plan

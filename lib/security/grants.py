@@ -62,14 +62,14 @@ class CapabilityGrantManager:
 
         # Trust level check
         if ctx.trust_level < floor:
-            self.audit.record_denied(ctx, cap, req.reason, "trust_level_insufficient")
+            self.audit.record_denied(ctx, cap, req.reason, "trust_level_insufficient", scope=req.scope)
             raise TrustLevelError(
                 f"TrustLevel {ctx.trust_level} insufficient for '{cap}' (requires {floor})"
             )
 
         # Auto-grant check
         if cap in self.auto_grants:
-            grant = self._issue(ctx, cap, req)
+            grant = self._issue(ctx, cap, req, granted_by="system")
             self.audit.record_granted(ctx, grant, req.reason, auto=True)
             ctx.add_grant(grant)
             return grant
@@ -81,11 +81,11 @@ class CapabilityGrantManager:
         style = self._effective_style()
 
         if style == "auto_deny":
-            self.audit.record_denied(ctx, cap, req.reason, "auto_deny_policy")
+            self.audit.record_denied(ctx, cap, req.reason, "auto_deny_policy", scope=req.scope)
             raise CapabilityDenied(cap, ctx.agent_id)
 
         if style == "auto_allow":
-            grant = self._issue(ctx, cap, req)
+            grant = self._issue(ctx, cap, req, granted_by="system")
             self.audit.record_granted(ctx, grant, req.reason, auto=True)
             ctx.add_grant(grant)
             return grant
@@ -99,12 +99,12 @@ class CapabilityGrantManager:
         # style == "interactive" — blocking TTY prompt
         msg = self._build_message(cap, req)
         if self._prompt(msg):
-            grant = self._issue(ctx, cap, req)
+            grant = self._issue(ctx, cap, req, granted_by="user")
             self.audit.record_granted(ctx, grant, req.reason, auto=False)
             ctx.add_grant(grant)
             return grant
         else:
-            self.audit.record_denied(ctx, cap, req.reason, "user_denied")
+            self.audit.record_denied(ctx, cap, req.reason, "user_denied", scope=req.scope)
             raise CapabilityDenied(cap, ctx.agent_id)
 
     def resolve_pending(self, pending_id: str, ctx: SecurityContext, approved: bool) -> CapabilityGrant | None:
@@ -118,13 +118,13 @@ class CapabilityGrantManager:
         cap = row["capability"]
         req = CapabilityRequest(capability=cap, reason=row["reason"], scope=row.get("scope", "task"))
         if approved:
-            grant = self._issue(ctx, cap, req)
+            grant = self._issue(ctx, cap, req, granted_by="user")
             self.audit.record_granted(ctx, grant, req.reason, auto=False)
             self.audit.mark_pending_resolved(pending_id, "approved")
             ctx.add_grant(grant)
             return grant
         else:
-            self.audit.record_denied(ctx, cap, req.reason, "user_denied_oob")
+            self.audit.record_denied(ctx, cap, req.reason, "user_denied_oob", scope=req.scope)
             self.audit.mark_pending_resolved(pending_id, "denied")
             return None
 
@@ -137,12 +137,12 @@ class CapabilityGrantManager:
         base += f"  [Scope: {req.scope}]"
         return base
 
-    def _issue(self, ctx: SecurityContext, cap: str, req: CapabilityRequest) -> CapabilityGrant:
+    def _issue(self, ctx: SecurityContext, cap: str, req: CapabilityRequest, granted_by: str = "user") -> CapabilityGrant:
         return CapabilityGrant(
             capability=cap,
             granted_at=datetime.now(timezone.utc),
             expires_at=None,
-            granted_by="user",
+            granted_by=granted_by,
             scope=req.scope,
             audit_token=str(uuid.uuid4()),
         )

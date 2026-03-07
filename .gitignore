@@ -12,3 +12,4 @@ data/models/
 research/
 whisper-cpp-out/
 test_data/chunks/
+models/whisper/*.bin

@@ -1,0 +1,17 @@
+id: nixos_verify
+description: "Verifies a NixOS configuration fragment for syntax and safety."
+
+steps:
+  - id: lint_nix
+    prompt_template: |
+      Lint and check this Nix configuration for syntax or logic errors:
+      {{ nix_code }}
+    model_alias: reason
+    output_key: lint_results
+
+  - id: check_security
+    prompt_template: |
+      Check if this Nix config adheres to safety best practices:
+      {{ nix_code }}
+    model_alias: reason
+    output_key: safety_check

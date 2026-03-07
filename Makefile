@@ -11,8 +11,19 @@ PY = $(VENV)/bin/python
 
 setup:
 	python -m venv $(VENV)
-	$(VENV)/bin/pip install requests numpy watchdog aiohttp rank_bm25 filelock
+	$(VENV)/bin/pip install --upgrade pip
+	$(VENV)/bin/pip install -r requirements-v2.txt
 	$(VENV)/bin/pip install 'mineru[pipeline]'
+
+rust-build:
+	@echo "Unloading Ollama models to free RAM before Rust build..."
+	ollama stop qwen3:14b-q4_K_M || true
+	ollama stop qwen3:8b || true
+	cargo build --release --manifest-path jarvis-monitor/Cargo.toml
+	cp jarvis-monitor/target/release/jarvis-monitor bin/jarvis-monitor
+	@echo "Rust build complete. Restart Ollama if needed: ollama run qwen3:14b-q4_K_M"
+
+.PHONY: rust-build
 
 test-mvp1:
 	$(PY) lib/ollama_client.py

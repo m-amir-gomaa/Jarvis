@@ -15,3 +15,11 @@ chat = ""
 fast = ""
 complete = "sha256:8f68893c685c"  # Example or fill later
 embed = "sha256:0a109f422b47" 
+
+[aliases]
+reason   = "local/qwen3:14b-q4_K_M"
+chat     = "local/qwen3:8b"
+fast     = "local/qwen3:1.7b"
+coder    = "local/qwen2.5-coder:7b-instruct"
+complete = "local/qwen3:1.7b"
+embed    = "local/nomic-embed-text:latest"

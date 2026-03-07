@@ -1,0 +1,24 @@
+id: research_deep
+description: "Multi-step deep research chain."
+
+steps:
+  - id: breakdown
+    prompt_template: |
+      Break down the topic '{{ topic }}' into 3-5 sub-components for deep
+      technical research. Output as a bulleted list.
+    model_alias: reason
+    output_key: breakdown
+
+  - id: analysis
+    prompt_template: |
+      Research each of these components and provide a technical summary for each:
+      {{ breakdown }}
+    model_alias: reason
+    output_key: analysis
+
+  - id: synthesis
+    prompt_template: |
+      Synthesize the following research into a final cohesive report:
+      {{ analysis }}
+    model_alias: reason
+    output_key: report

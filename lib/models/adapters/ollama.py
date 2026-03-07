@@ -12,7 +12,7 @@ class OllamaAdapter(ModelAdapter):
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url
 
-    async def generate(self, model: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, **kwargs) -> str:
+    async def generate(self, model: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, **kwargs) -> tuple[str, dict[str, int]]:
         url = f"{self.base_url}/api/generate"
         payload = {
             "model": model,
@@ -28,7 +28,11 @@ class OllamaAdapter(ModelAdapter):
             resp = await client.post(url, json=payload)
             resp.raise_for_status()
             data = resp.json()
-            return str(data.get("response", ""))
+            usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "output_tokens": data.get("eval_count", 0)
+            }
+            return str(data.get("response", "")), usage
 
     def is_available(self) -> bool:
         # Simple health check

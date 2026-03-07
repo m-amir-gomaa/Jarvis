@@ -1,0 +1,17 @@
+id: debug_error
+description: "Analyzes a traceback and proposes a fix."
+
+steps:
+  - id: analyze_error
+    prompt_template: |
+      Analyze this traceback and identify the root cause:
+      {{ traceback }}
+    model_alias: reason
+    output_key: root_cause
+
+  - id: propose_fix
+    prompt_template: |
+      Based on the root cause: {{ root_cause }}
+      Propose a minimal code fix for the file: {{ file }}
+    model_alias: coder
+    output_key: fix

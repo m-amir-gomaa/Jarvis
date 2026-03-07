@@ -192,6 +192,10 @@ Text: {content}"""
             
             with self._get_connection() as conn:
                 # Native KNN search via sqlite-vec
+                # FIX: If category filter is used, we must search deeper (larger k) 
+                # to ensure we don't miss matches after filtering.
+                search_k = k * 10 if category else k
+                
                 if category:
                     sql = """
                         SELECT m.content, m.layer, m.category, m.source, v.distance 
@@ -199,8 +203,9 @@ Text: {content}"""
                         JOIN chunk_metadata m ON v.rowid = m.rowid
                         WHERE v.embedding MATCH ? AND v.k = ? AND m.category = ?
                         ORDER BY v.distance ASC
+                        LIMIT ?
                     """
-                    params = (vector_bytes, k, category)
+                    params = (vector_bytes, search_k, category, k)
                 else:
                     sql = """
                         SELECT m.content, m.layer, m.category, m.source, v.distance 

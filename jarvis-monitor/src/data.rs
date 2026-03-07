@@ -5,12 +5,18 @@ use rusqlite::{Connection, Result as SqlResult};
 use crate::app::{AppUpdate, JarvisEvent, RamUsage, ServiceStatus, BudgetInfo};
 use chrono::Utc;
 
-const EVENTS_DB: &str = "/THE_VAULT/jarvis/logs/events.db";
+fn events_db_path() -> std::path::PathBuf {
+    let vault = std::env::var("VAULT_ROOT")
+        .unwrap_or_else(|_| "/THE_VAULT/jarvis".to_string());
+    std::path::PathBuf::from(vault).join("logs").join("events.db")
+}
 
 fn query_recent_events() -> Vec<JarvisEvent> {
-    let Ok(conn) = Connection::open(EVENTS_DB) else {
+    let db_path = events_db_path();
+    let Ok(conn) = Connection::open(&db_path) else {
         return vec![];
     };
+    let _ = conn.execute("PRAGMA query_only = true", []); // FIX-RUST-1
     let Ok(mut stmt) = conn.prepare(
         "SELECT ts, source, event, details FROM events ORDER BY ts DESC LIMIT 50"
     ) else {
@@ -85,8 +91,8 @@ fn get_active_task(events: &[JarvisEvent]) -> Option<String> {
 }
 
 fn get_budget_info() -> BudgetInfo {
-    let root = std::env::var("JARVIS_ROOT").unwrap_or_else(|_| "/home/qwerty/NixOSenv/Jarvis".to_string());
-    let db_path = format!("{}/data/api_usage.db", root);
+    let vault = std::env::var("VAULT_ROOT").unwrap_or_else(|_| "/THE_VAULT/jarvis".to_string());
+    let db_path = std::path::PathBuf::from(vault).join("databases").join("api_usage.db");
     
     let mut info = BudgetInfo {
         tokens_used: 0,
@@ -96,6 +102,7 @@ fn get_budget_info() -> BudgetInfo {
     };
 
     if let Ok(conn) = Connection::open(&db_path) {
+        let _ = conn.execute("PRAGMA query_only = true", []); // FIX-RUST-1
         let today = Utc::now().format("%Y-%m-%d").to_string();
         if let Ok(mut stmt) = conn.prepare("SELECT SUM(prompt_tokens + output_tokens), SUM(cost_usd) FROM api_usage WHERE date(ts) = ?") {
             if let Ok(mut rows) = stmt.query([today]) {

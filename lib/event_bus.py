@@ -54,6 +54,23 @@ def emit(source: str, event: str, details: Optional[Dict] = None, level: str = '
     finally:
         conn.close()
 
+def prune_logs(days: int = 7):
+    """Prunes events older than the specified number of days."""
+    if not os.path.exists(DB_PATH):
+        return
+        
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cursor = conn.execute(
+            "DELETE FROM events WHERE ts < datetime('now', ?)",
+            (f'-{days} days',)
+        )
+        conn.commit()
+        if cursor.rowcount > 0:
+            print(f"[EventBus] Pruned {cursor.rowcount} old events.")
+    finally:
+        conn.close()
+
 def query_today() -> List[Dict]:
     """
     Queries events that occurred today (UTC).
@@ -69,6 +86,11 @@ def query_today() -> List[Dict]:
             "SELECT source, event, details, ts, level FROM events WHERE ts > datetime('now', '-1 day') ORDER BY ts DESC"
         ).fetchall()
         
+        # Occasional pruning (1% chance on query)
+        import random
+        if random.random() < 0.01:
+            prune_logs()
+
         return [
             {
                 'source': r['source'],

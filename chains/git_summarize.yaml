@@ -1,0 +1,27 @@
+id: git_summarize
+description: "Generate a structured git commit message from a diff."
+
+steps:
+  - id: diff_analyzer
+    prompt_template: |
+      Analyze this git diff. Identify:
+      - Files changed and how many lines each
+      - The type of change (feature/fix/refactor/docs/test/chore)
+      - The primary purpose of the change in one sentence
+
+      Diff: {{ git_diff }}
+    model_alias: coder
+    output_key: diff_analysis
+
+  - id: commit_writer
+    prompt_template: |
+      Write a conventional commit message for this change.
+
+      Analysis: {{ diff_analysis }}
+
+      Format: <type>(<scope>): <subject>
+      Body (optional, 72 char wrap): What and why, not how.
+      Rules: subject ≤50 chars, present tense, no period at end.
+      Return ONLY the commit message.
+    model_alias: coder
+    output_key: commit_message

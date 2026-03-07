@@ -28,8 +28,11 @@ async def test_lsp_initialize_clones_context():
     _clone_registry.clear()
     on_initialize(params)
     
-    assert "default" in _clone_registry
-    assert _clone_registry["default"].agent_id.startswith("ide-clone-")
+    assert len(_clone_registry) == 1
+    conn_id = list(_clone_registry.keys())[0]
+    assert conn_id.startswith("test-tok-")
+    assert _clone_registry[conn_id].agent_id.startswith("ide-clone-")
+    assert _clone_registry[conn_id].is_clone is True
 
 @pytest.mark.asyncio
 async def test_lsp_completion_is_incomplete():

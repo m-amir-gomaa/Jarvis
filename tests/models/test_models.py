@@ -35,8 +35,9 @@ async def test_ollama_adapter_generate():
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_resp
-        res = await adapter.generate("qwen", "Hello")
+        res, usage = await adapter.generate("qwen", "Hello")
         assert res == "Local AI Output"
+        assert "prompt_tokens" in usage
 
 @pytest.mark.asyncio
 async def test_anthropic_adapter_not_available_without_key(sm):
@@ -49,30 +50,30 @@ async def test_anthropic_adapter_not_available_without_key(sm):
 async def test_router_selects_correct_adapter():
     ollama = MagicMock(spec=OllamaAdapter)
     ollama.is_available.return_value = True
-    ollama.generate = AsyncMock(return_value="Ollama result")
+    ollama.generate = AsyncMock(return_value=("Ollama result", {"prompt_tokens": 0, "output_tokens": 0}))
     
     anthropic = MagicMock(spec=AnthropicAdapter)
     anthropic.is_available.return_value = True
-    anthropic.generate = AsyncMock(return_value="Anthropic result")
+    anthropic.generate = AsyncMock(return_value=("Anthropic result", {"prompt_tokens": 0, "output_tokens": 0}))
     
     router = ModelRouter(config={}, adapters={"ollama": ollama, "anthropic": anthropic})
     ctx = SecurityContext.default("cli")
     
     # Test local
     ctx.add_grant(CapabilityGrant(capability="model:local", granted_at=datetime.now(timezone.utc), expires_at=None, granted_by="test", scope="task"))
-    res = await router.generate("local/qwen", "Hi", ctx=ctx)
+    res, _ = await router.generate("local/qwen", "Hi", ctx=ctx)
     assert res == "Ollama result"
     
     # Test external
     ctx.add_grant(CapabilityGrant(capability="model:external", granted_at=datetime.now(timezone.utc), expires_at=None, granted_by="test", scope="task"))
-    res = await router.generate("external/anthropic/claude", "Hi", ctx=ctx)
+    res, _ = await router.generate("external/anthropic/claude", "Hi", ctx=ctx)
     assert res == "Anthropic result"
 
 @pytest.mark.asyncio
 async def test_router_fallback_to_local_when_external_fails():
     ollama = MagicMock(spec=OllamaAdapter)
     ollama.is_available.return_value = True
-    ollama.generate = AsyncMock(return_value="Ollama Fallback")
+    ollama.generate = AsyncMock(return_value=("Ollama Fallback", {"prompt_tokens": 0, "output_tokens": 0}))
     
     anthropic = MagicMock(spec=AnthropicAdapter)
     anthropic.is_available.return_value = False # Unavailable
@@ -85,5 +86,5 @@ async def test_router_fallback_to_local_when_external_fails():
     # Also need model:local for the fallback
     ctx.add_grant(CapabilityGrant(capability="model:local", granted_at=datetime.now(timezone.utc), expires_at=None, granted_by="test", scope="task"))
     
-    res = await router.generate("external/anthropic/claude", "Hi", ctx=ctx)
+    res, _ = await router.generate("external/anthropic/claude", "Hi", ctx=ctx)
     assert res == "Ollama Fallback"

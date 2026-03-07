@@ -6,11 +6,14 @@ from typing import Any
 
 from .context import SecurityContext, CapabilityGrant
 
-DB_PATH = Path("/THE_VAULT/jarvis/databases/security_audit.db")
+import os as _os
+_VAULT_ROOT = Path(_os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
+DB_PATH = _VAULT_ROOT / "databases" / "security_audit.db"
 
 class AuditLogger:
     def __init__(self, db_path: Path = DB_PATH):
         self.db_path = db_path
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _init_db(self):
@@ -42,6 +45,8 @@ class AuditLogger:
                     status TEXT DEFAULT 'pending'
                 )
             """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_agent_ts ON capability_events(agent_id, ts)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pending_status_ts ON pending_grants(status, ts)")
             conn.commit()
 
     def record_granted(self, ctx: SecurityContext, grant: CapabilityGrant, reason: str, auto: bool = False):
@@ -53,13 +58,13 @@ class AuditLogger:
             """, (ctx.agent_id, grant.capability, 'granted', reason, grant.granted_by, grant.audit_token, 1 if auto else 0, grant.scope))
             conn.commit()
 
-    def record_denied(self, ctx: SecurityContext, capability: str, reason: str, denial_reason: str):
+    def record_denied(self, ctx: SecurityContext, capability: str, reason: str, denial_reason: str, scope: str = "task"):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 INSERT INTO capability_events 
-                (agent_id, capability, action, reason, denial_reason)
-                VALUES (?, ?, ?, ?, ?)
-            """, (ctx.agent_id, capability, 'denied', reason, denial_reason))
+                (agent_id, capability, action, reason, denial_reason, scope)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (ctx.agent_id, capability, 'denied', reason, denial_reason, scope))
             conn.commit()
 
     def record_pending(self, ctx: SecurityContext, capability: str, reason: str, pending_id: str, scope: str = "task"):

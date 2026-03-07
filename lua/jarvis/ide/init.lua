@@ -5,6 +5,9 @@ function M.setup(opts)
   opts = opts or {}
   -- Core IDE components
   require("jarvis.ide.security").setup(opts.security or {})
+  require("jarvis.ide.lsp").setup(opts.lsp or {})
+  require("jarvis.ide.inline").setup(opts.inline or {})
+  
   -- Register commands
   M._register_commands()
 end
@@ -12,15 +15,18 @@ end
 function M._register_commands()
   local actions = require("jarvis.ide.actions")
   local cmds = {
-    JarvisIDEFix      = function() actions.fix_at_cursor() end,
-    JarvisIDEExplain  = function() actions.explain_selection() end,
-    JarvisIDERefactor = function(args) actions.refactor(args.args) end,
-    JarvisIDEChat     = function() require("jarvis.ide.chat").open() end,
+    JarvisFix      = function() actions.fix() end,
+    JarvisExplain  = function() actions.explain() end,
+    JarvisRefactor = function() actions.refactor() end,
+    JarvisTestGen  = function() actions.test_gen() end,
+    JarvisDocGen   = function() actions.doc_gen() end,
+    JarvisChat     = function() require("jarvis.ide.chat").open() end,
+    JarvisReview   = function() actions.review() end,
+    JarvisCommit   = function() actions.commit() end,
+    JarvisSearch   = function(args) actions.search(args.args) end,
   }
   for name, fn in pairs(cmds) do
-    if vim.fn.exists(":" .. name) == 0 then
-      vim.api.nvim_create_user_command(name, fn, { nargs = "?" })
-    end
+    vim.api.nvim_create_user_command(name, fn, { nargs = "*" })
   end
 end
 

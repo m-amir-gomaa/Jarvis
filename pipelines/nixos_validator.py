@@ -13,14 +13,17 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
+import os as _os
+_JARVIS_ROOT = Path(_os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+if str(_JARVIS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_JARVIS_ROOT))
 from lib.event_bus import emit
 from lib.model_router import route
 from lib.ollama_client import chat, is_healthy
 
-REVIEW_DIR = Path("/home/qwerty/NixOSenv/Jarvis/review")
-NIX_REPO = Path("/home/qwerty/NixOSenv")
-EXPERT_PROMPT_PATH = Path("/home/qwerty/NixOSenv/Jarvis/prompts/nixos/best.txt")
+REVIEW_DIR         = _JARVIS_ROOT / "review"
+NIX_REPO           = _JARVIS_ROOT.parent
+EXPERT_PROMPT_PATH = _JARVIS_ROOT / "prompts" / "nixos" / "best.txt"
 
 DEFAULT_EXPERT = (
     "You are an expert NixOS engineer specializing in flake-based configurations. "

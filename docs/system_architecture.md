@@ -36,12 +36,30 @@ graph TD
         OLLAMA["Ollama (LLM)"]
         SEARXNG["SearXNG (Search)"]
         VG["Voice Gateway (services/voice_gateway.py)"]
+        LSP["Jarvis LSP (services/jarvis_lsp.py)"]
+    end
+
+    subgraph "Security & Permissions"
+        SEC["Security Engine (lib/security/)"]
+        AUDIT[("security_audit.db")]
+    end
+
+    subgraph "Reasoning"
+        ERS["ERS (lib/ers/)"]
+        CHAINS["ERS Chains (.yaml)"]
     end
 
     %% Interactions
+    CLI --> SEC
+    CLI --> LSP
+    SEC --> AUDIT
+    LSP --> SEC
     CLI --> MI
     CLI --> AL
     CLI --> RA
+    RA --> ERS
+    ERS --> CHAINS
+    ERS --> ROUTER
     CLI -- "config nvim|nixos" --> AL
     CLI -- "models|keys|toggle" --> ROUTER
     
@@ -63,6 +81,7 @@ graph TD
     
     CLI --> EDB
     TUI --> EDB
+    TUI --> AUDIT
     VG --> CLI
     CLI --> VG
 ```
@@ -79,6 +98,9 @@ graph TD
 | **Knowledge Manager** | Manages the multi-layered SQLite knowledge base for RAG. |
 | **Model Router** | Maps specific AI tasks (summarize, reason, clean) to the best-fit local LLM. Manages model aliases and keep-alive strategy. |
 | **Voice Gateway** | Translates voice commands to CLI actions via Whisper.cpp. Respects user-toggled preferences. |
+| **Security Engine** | Enforces capability-based least privilege. Includes AuditLogger and GrantManager. |
+| **ERS** | External Reasoning System. Orchestrates multi-step chained reasoning via YAML schemas. |
+| **Jarvis LSP** | The Antigravity IDE bridge. Provides AI features to Neovim via TCP (8002) and OOB security via HTTP (8001). |
 | **The Vault** | High-capacity storage for databases, virtual environments, and intermediate files (Unified with main repo on SSD). |
 
 ## Data Flow: Material Indexing

@@ -26,9 +26,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # Runtime paths
-PROMPTS_DIR = Path("/home/qwerty/NixOSenv/Jarvis/prompts")
-
-sys.path.insert(0, "/home/qwerty/NixOSenv/Jarvis")
+import os as _os
+_JARVIS_ROOT = Path(_os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+PROMPTS_DIR  = _JARVIS_ROOT / "prompts"
+if str(_JARVIS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_JARVIS_ROOT))
 from lib.ollama_client import chat, OllamaError
 from lib.model_router import route
 from lib.event_bus import emit

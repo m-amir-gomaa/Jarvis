@@ -5,7 +5,9 @@ from pathlib import Path
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-SECRETS_PATH = Path("/THE_VAULT/jarvis/secrets/.keyring")
+import os as _os
+_VAULT_ROOT  = Path(_os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
+SECRETS_PATH = _VAULT_ROOT / "secrets" / ".keyring"
 
 class SecretsManager:
     def __init__(self, keyring_path: Path = SECRETS_PATH):

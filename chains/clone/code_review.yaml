@@ -1,0 +1,54 @@
+id: clone_code_review
+description: "Structured code review executed in a child clone context."
+
+steps:
+  - id: syntax_checker
+    batch_group: review_pass
+    prompt_template: |
+      Review this code for syntax issues, obvious bugs, and anti-patterns.
+
+      {{ code }}
+
+      Return findings as a JSON array:
+      [{"line": N, "severity": "error|warn|info", "message": "..."}]
+      Return ONLY the JSON array.
+    model_alias: coder
+    output_key: syntax_findings
+
+  - id: logic_checker
+    batch_group: review_pass
+    prompt_template: |
+      Review this code for logical correctness, edge cases, and algorithmic issues.
+
+      {{ code }}
+
+      Return findings as a JSON array:
+      [{"line": N, "severity": "error|warn|info", "message": "..."}]
+      Return ONLY the JSON array.
+    model_alias: reason
+    output_key: logic_findings
+
+  - id: security_checker
+    batch_group: review_pass
+    prompt_template: |
+      Review this code for security vulnerabilities and unsafe patterns.
+
+      {{ code }}
+
+      Return findings as a JSON array:
+      [{"line": N, "severity": "error|warn|info", "message": "..."}]
+      Return ONLY the JSON array.
+    model_alias: reason
+    output_key: security_findings
+
+  - id: review_report
+    prompt_template: |
+      Combine these code review findings into a structured report.
+
+      Syntax: {{ syntax_findings }}
+      Logic: {{ logic_findings }}
+      Security: {{ security_findings }}
+
+      Format as markdown: Critical Issues, Warnings, Suggestions, Summary.
+    model_alias: reason
+    output_key: review_report

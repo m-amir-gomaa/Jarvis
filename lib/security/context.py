@@ -52,7 +52,7 @@ class CapabilityGrant:
     def is_valid(self) -> bool:
         if self.expires_at is None:
             return True
-        return datetime.utcnow() < self.expires_at
+        return datetime.now(timezone.utc) < self.expires_at
 
 
 @dataclass
@@ -61,6 +61,7 @@ class SecurityContext:
     trust_level: int                  # numeric TrustLevel (0–4)
     grants:      list[CapabilityGrant] = field(default_factory=list)
     parent_ctx:  SecurityContext | None = field(default=None, repr=False)
+    is_clone:    bool = False # FIX-CONTEXT-1
 
     def has(self, cap: str) -> bool:
         return any(g.capability == cap and g.is_valid() for g in self.grants)
@@ -75,7 +76,7 @@ class SecurityContext:
         raise CapabilityDenied(cap, self.agent_id)
 
     def add_grant(self, grant: CapabilityGrant) -> None:
-        if self.agent_id.startswith("clone"):
+        if self.is_clone:
             from .exceptions import TrustLevelError
             assert self.parent_ctx is not None, "Clone must have a parent context"
             if self.trust_level > self.parent_ctx.trust_level:
@@ -99,6 +100,7 @@ class SecurityContext:
             trust_level=child_trust,
             grants=[],
             parent_ctx=self,
+            is_clone=True,
         )
 
     @classmethod

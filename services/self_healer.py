@@ -12,16 +12,20 @@ import sys
 import time
 import subprocess
 import json
+import argparse
+import signal
+import httpx
 from pathlib import Path
 from datetime import datetime, timedelta
 
 BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(BASE_DIR))
-from lib.event_bus import emit, query_today
+from lib.event_bus import emit
 
 # Configuration
 CHECK_INTERVAL = 60  # seconds
 MAX_RESTARTS_PER_HOUR = 3
+LSP_URL = "http://127.0.0.1:8001"
 SERVICES = [
     "jarvis-coding-agent.service",
     "jarvis-git-monitor.service",
@@ -35,13 +39,41 @@ def get_service_status(service_name):
     try:
         res = subprocess.run(
             ["systemctl", "--user", "is-active", service_name],
-            capture_output=True, text=True
+            capture_output=True, text=True, timeout=5
         )
         return res.stdout.strip() == "active"
     except Exception:
         return False
 
-def restart_service(service_name):
+def request_approval(service_name, reason):
+    """Request permission to restart a service via the LSP security bridge."""
+    print(f"[Self-Heal] Requesting OOB approval for {service_name}...")
+    try:
+        # Request OOB grant
+        resp = httpx.post(f"{LSP_URL}/security/request", json={
+            "capability": f"service:restart:{service_name}",
+            "reason": reason,
+            "scope": "task"
+        }, timeout=5.0)
+        data = resp.json()
+        
+        if data.get("granted"):
+            return True
+            
+        pending_id = data.get("pending_id")
+        if not pending_id:
+            print(f"[Self-Heal] Request denied or failed: {data.get('error')}")
+            return False
+            
+        # For the bootstrap phase, we don't block the daemon indefinitely.
+        # We just log that it's pending and return False to prevent autonomous restart.
+        print(f"[Self-Heal] Restart pending approval (ID: {pending_id}). Run 'jarvis approve {pending_id}'.")
+        return False 
+    except Exception as e:
+        print(f"[Self-Heal] LSP bridge unavailable for approval: {e}")
+        return False
+
+def restart_service(service_name, dry_run=False):
     """Attempt to restart a service if within limits."""
     now = datetime.now()
     history = RESTART_HISTORY.get(service_name, [])
@@ -54,37 +86,39 @@ def restart_service(service_name):
         emit("self_healer", "critical_failure", {"service": service_name, "reason": "restart_limit_reached"})
         return False
 
+    # Safety: If it's already failed once this hour, require OOB approval
+    if len(history) >= 1:
+        if not request_approval(service_name, f"Service failed again after recent restart. (History: {len(history)} restat/hr)"):
+            return False
+
+    if dry_run:
+        print(f"[Self-Heal] [DRY-RUN] Would restart {service_name}")
+        return True
+
     print(f"[Self-Heal] Attempting to restart {service_name}...")
     try:
-        subprocess.run(["systemctl", "--user", "restart", service_name], check=True)
+        subprocess.run(["systemctl", "--user", "restart", service_name], check=True, timeout=10)
         RESTART_HISTORY[service_name].append(now)
         emit("self_healer", "service_restarted", {"service": service_name})
         return True
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print(f"[Self-Heal] Failed to restart {service_name}: {e}")
         emit("self_healer", "restart_failed", {"service": service_name, "error": str(e)})
         return False
 
-def check_event_bus_health():
-    """Check if services are emitting events."""
-    # This is a bit more complex, for now we check if any 'started' or activity event
-    # from core services has happened in the last 10 minutes.
-    # If not, and the service is 'active' in systemd, it might be hung.
-    pass
-
 def main():
-    print("[Self-Heal] Daemon started.")
-    emit("self_healer", "started")
+    parser = argparse.ArgumentParser(description="Jarvis Self-Healer Daemon")
+    parser.add_argument("--dry-run", action="store_true", help="Don't actually restart services")
+    args = parser.parse_args()
+
+    print(f"[Self-Heal] Daemon started. (Dry-run: {args.dry_run})")
+    emit("self_healer", "started", {"dry_run": args.dry_run})
     
     while True:
         for service in SERVICES:
             if not get_service_status(service):
                 print(f"[Self-Heal] {service} is DOWN.")
-                restart_service(service)
-            else:
-                # Optionally check if it's hung (no activity in X minutes)
-                # This would require more granular event bus querying
-                pass
+                restart_service(service, dry_run=args.dry_run)
         
         time.sleep(CHECK_INTERVAL)
 
@@ -92,5 +126,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n[Self-Heal] Stopped.")
+        print("\n[Self-Healer] Stopped.")
         emit("self_healer", "stopped")

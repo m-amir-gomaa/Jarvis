@@ -1,0 +1,16 @@
+id: research_and_summarize
+description: "Simple two-step chain for quick topic overview."
+
+steps:
+  - id: research
+    prompt_template: |
+      Tell me about {{ topic }}.
+    model_alias: chat
+    output_key: raw_research
+
+  - id: summarize
+    prompt_template: |
+      Summarize this research in 3 sentences:
+      {{ raw_research }}
+    model_alias: fast
+    output_key: summary

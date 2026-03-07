@@ -59,15 +59,19 @@ class ChainAugmentor:
             else:
                 # Batch group
                 batch_res = await self._run_batch(block, ctx, execution_context)
-                for res in batch_res:
+                batch_halt = False
+                for i, res in enumerate(batch_res):
+                    step = block[i]
                     if res["error"]:
-                        errors.append(res["error"])
+                        errors.append(f"Step {step.id} failed: {res['error']}")
+                        if step.on_failure == "stop":
+                            batch_halt = True
                     if res["output"]:
                         outputs[res["key"]] = res["output"]
                         execution_context[res["key"]] = res["output"]
                 
-                # If any mandatory in batch failed and on_failure == "stop", we might need to break.
-                # Simplification: Only sequential steps trigger hard 'stop' for now.
+                if batch_halt:
+                    return ERSExecutionResult(chain_id=chain.id, success=False, outputs=outputs, errors=errors)
                 
         return ERSExecutionResult(chain_id=chain.id, success=True, outputs=outputs, errors=errors)
 
@@ -97,13 +101,12 @@ class ChainAugmentor:
 
     async def _run_step(self, step: ReasoningStep, ctx: SecurityContext, exec_ctx: dict[str, Any]) -> dict[str, str | None]:
         key = step.output_key or step.id
+        # Isolated child context — created outside try so finally can reference it
+        child_ctx = ctx.child_context(f"ers:{step.id}", trust_ceiling=ctx.trust_level)
         try:
             # Render prompt with Jinja2
             tpl = self.env.from_string(step.prompt_template)
             prompt = tpl.render(**exec_ctx)
-            
-            # Isolated child context
-            child_ctx = ctx.child_context(f"ers:{step.id}", trust_ceiling=ctx.trust_level)
             
             # Request model capability via router
             response = await self.router.generate(
@@ -113,10 +116,16 @@ class ChainAugmentor:
                 max_tokens=step.max_tokens,
                 ctx=child_ctx
             )
-            return {"key": key, "output": response, "error": None}
+            return {"key": key, "output": response[0], "error": None}
         except Exception as e:
             log.error(f"Step {step.id} failed: {e}")
             return {"key": key, "output": None, "error": str(e)}
+        finally:
+            # Revoke all task-scoped grants on the step child context.
+            # Produces audit trail for step-level capability lifecycle.
+            revoked = child_ctx.revoke_task_grants()
+            if revoked:
+                log.debug(f"Step {step.id}: revoked {revoked} task grant(s) from child context")
 
     def _ram_ok(self) -> bool:
         mem = psutil.virtual_memory()

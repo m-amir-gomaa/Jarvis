@@ -2,7 +2,7 @@ import os
 import sqlite3
 from typing import Optional
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import tomllib
 from pathlib import Path
@@ -10,7 +10,8 @@ from pathlib import Path
 # /home/qwerty/NixOSenv/Jarvis/lib/budget_controller.py
 
 JARVIS_ROOT = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
-DB_PATH = JARVIS_ROOT / "data" / "api_usage.db"
+_VAULT_ROOT = Path(os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
+DB_PATH = _VAULT_ROOT / "databases" / "security_audit.db"
 CONFIG_PATH = JARVIS_ROOT / "config" / "budget.toml"
 
 @dataclass
@@ -113,7 +114,7 @@ class BudgetController:
         cost_rates = self.config["model_costs"].get(model, {"input": 0.0, "output": 0.0})
         cost_usd = (prompt_tokens * cost_rates["input"] / 1000.0) + (output_tokens * cost_rates["output"] / 1000.0)
 
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute('''
                 INSERT INTO api_usage (ts, model, task, prompt_tokens, output_tokens, cost_usd, session_id)
@@ -134,7 +135,7 @@ class BudgetController:
 
     def get_daily_summary(self) -> dict:
         """Returns {tokens_used, tokens_remaining, cost_usd, requests_count}"""
-        today = datetime.utcnow().date().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         with sqlite3.connect(DB_PATH) as conn:
             row = conn.execute('''
                 SELECT SUM(prompt_tokens + output_tokens), SUM(cost_usd), COUNT(*)
@@ -155,7 +156,7 @@ class BudgetController:
         }
 
     def _get_monthly_cost(self) -> float:
-        month = datetime.utcnow().strftime("%Y-%m")
+        month = datetime.now(timezone.utc).strftime("%Y-%m")
         with sqlite3.connect(DB_PATH) as conn:
             row = conn.execute('''
                 SELECT SUM(cost_usd)
@@ -166,7 +167,7 @@ class BudgetController:
 
     def start_session(self, session_id: str) -> None:
         """Register a new agent loop session for tracking."""
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute('''
                 INSERT OR IGNORE INTO sessions (session_id, started_at)
@@ -186,7 +187,7 @@ class BudgetController:
 
     def end_session(self, session_id: str) -> None:
         """Finalize session, persist totals to events.db."""
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         total_tokens, total_cost = 0, 0.0
         with sqlite3.connect(DB_PATH) as conn:
             row = conn.execute('SELECT total_tokens, total_cost FROM sessions WHERE session_id = ?', (session_id,)).fetchone()

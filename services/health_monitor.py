@@ -5,7 +5,10 @@ import time
 import subprocess
 from lib.event_bus import emit
 
-PAUSE_FILE = "/home/qwerty/NixOSenv/Jarvis/logs/pause_time.tmp"
+import os as _os
+from pathlib import Path
+_JARVIS_ROOT = Path(_os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+PAUSE_FILE   = _JARVIS_ROOT / "logs" / "pause_time.tmp"
 NOTIFICATION_INTERVAL = 300 # 5 minutes
 
 def check_pause_duration():

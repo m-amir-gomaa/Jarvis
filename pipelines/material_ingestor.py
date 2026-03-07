@@ -11,10 +11,13 @@ from lib.event_bus import emit
 
 # /home/qwerty/NixOSenv/Jarvis/pipelines/material_ingestor.py
 
-BASE_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
-VAULT_DIR = Path("/home/qwerty/NixOSenv/Jarvis")
-DOWNLOADS_DIR = Path("/home/qwerty/Downloads/JarvisMaterials")
-VENV_PY = "/home/qwerty/NixOSenv/Jarvis/.venv/bin/python"
+import os as _os
+_JARVIS_ROOT  = Path(_os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+_VAULT_ROOT   = Path(_os.environ.get("VAULT_ROOT",  "/THE_VAULT/jarvis"))
+BASE_DIR      = _JARVIS_ROOT
+VAULT_DIR     = _VAULT_ROOT
+DOWNLOADS_DIR = Path(_os.environ.get("JARVIS_DOWNLOADS", Path.home() / "Downloads" / "JarvisMaterials"))
+VENV_PY       = str(_VAULT_ROOT / "venv" / "bin" / "python")
 
 def run_command(cmd, input_str=None):
     """Runs a command and handles user confirmation if needed."""
