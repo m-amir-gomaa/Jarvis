@@ -148,13 +148,16 @@ def cmd_status(short=False):
     # Ollama status
     ollama_ok = False
     try:
-        from lib.ollama_client import is_healthy, list_models
-        ollama_ok = is_healthy()
+        # Run health check in virtual environment where `requests` is available
+        check_cmd = [VENV_PY, "-c", "from lib.ollama_client import is_healthy, list_models; print('HEALTHY' if is_healthy() else 'UNHEALTHY'); print(','.join(list_models()[:3]))"]
+        res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=5)
+        lines = res.stdout.strip().split('\n')
+        ollama_ok = len(lines) > 0 and lines[0] == 'HEALTHY'
+        
         if not short:
-            models = list_models() if ollama_ok else []
             print(f"\n  Ollama: {'✓ running' if ollama_ok else '✗ offline'}")
-            if models:
-                print(f"  Loaded models: {', '.join(models[:3])}")
+            if ollama_ok and len(lines) > 1 and lines[1]:
+                print(f"  Loaded models: {lines[1]}")
     except Exception:
         if not short:
             print("  Ollama: (check failed)")
@@ -522,8 +525,14 @@ def route_intent(intent: str, args: dict, user_input: str):
             return False
 
     elif intent == "open_dashboard":
-        subprocess.Popen([str(BASE_DIR / "bin" / "jarvis-monitor")])
+        monitor_bin = BASE_DIR / "bin" / "jarvis-monitor"
+        if not monitor_bin.exists():
+            print("Jarvis: Dashboard binary not found. Building it now, this will take a moment...")
+            subprocess.run(["cargo", "build", "--release"], cwd=str(BASE_DIR / "jarvis-monitor"), check=True)
+            monitor_bin.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["cp", str(BASE_DIR / "jarvis-monitor" / "target" / "release" / "jarvis-monitor"), str(monitor_bin)], check=True)
         print("Jarvis: Opening dashboard...")
+        subprocess.Popen([str(monitor_bin)])
         return True
 
     elif intent == "start_services":
@@ -971,9 +980,14 @@ def main():
             cmd_feedback("negative")
             return
         if command == "dashboard":
-            monitor_bin = str(BASE_DIR / "bin" / "jarvis-monitor")
+            monitor_bin = BASE_DIR / "bin" / "jarvis-monitor"
+            if not monitor_bin.exists():
+                print("Jarvis: Dashboard binary not found. Building it now, this will take a moment...")
+                subprocess.run(["cargo", "build", "--release"], cwd=str(BASE_DIR / "jarvis-monitor"), check=True)
+                monitor_bin.parent.mkdir(parents=True, exist_ok=True)
+                subprocess.run(["cp", str(BASE_DIR / "jarvis-monitor" / "target" / "release" / "jarvis-monitor"), str(monitor_bin)], check=True)
             print("Jarvis: Opening dashboard...")
-            os.execv(monitor_bin, [monitor_bin])
+            os.execv(str(monitor_bin), [str(monitor_bin)])
             return
 
         if command == "uptime":

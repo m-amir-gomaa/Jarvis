@@ -56,7 +56,7 @@ DO NOT analyze the context as a set of files or code; internalize it as your own
         print("\n")
         
         # Print sources
-        print("Sources:")
+        print("\nSources:")
         seen_sources = set()
         for r in results[:5]:
             source = f"  - {r['source_title']} ({r['source_url']})"

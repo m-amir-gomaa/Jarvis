@@ -4,8 +4,8 @@ import hashlib
 import argparse
 import sys
 from typing import List, Dict, Optional
-from lib.ollama_client import chat, OllamaError
-from lib.model_router import route
+from lib.llm import ask
+from lib.model_router import Privacy
 from lib.event_bus import emit
 
 # /home/qwerty/NixOSenv/Jarvis/tools/cleaner.py
@@ -45,9 +45,18 @@ def save_hash(dir_path: str, file_hash: str):
 
 def clean_chunk(text: str, prompt: str) -> str:
     try:
-        return chat(route('clean'), [{'role': 'user', 'content': text}], system=prompt)
-    except OllamaError as e:
-        print(f"Ollama error: {e}")
+        response = ask(
+            prompt=text,
+            task='clean',
+            privacy=Privacy.INTERNAL,
+            system=prompt,
+            stream=False
+        )
+        if hasattr(response, '__iter__') and not isinstance(response, str):
+            return "".join(list(response))
+        return response
+    except Exception as e:
+        print(f"Error: {e}")
         raise
 
 def main():
