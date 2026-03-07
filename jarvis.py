@@ -1170,6 +1170,58 @@ def main():
             log_history(user_input, "health_check", "ok")
             return
 
+        if command == "models":
+            cmd_models()
+            log_history(user_input, "models", "ok")
+            return
+
+        if command == "keys":
+            cmd_keys()
+            log_history(user_input, "keys", "ok")
+            return
+
+        if command == "toggle":
+            if len(sys.argv) > 2 and sys.argv[2] == "voice":
+                cmd_toggle_voice()
+            else:
+                print("Usage: jarvis toggle voice")
+            log_history(user_input, "toggle", "ok")
+            return
+
+        if command == "completion":
+            if len(sys.argv) < 3: return
+            ctype = sys.argv[2]
+            if ctype == "commands":
+                print("\n".join(["start", "stop", "status", "uptime", "pause", "resume", "learn", "index", "query", "inbox", "knowledge", "training", "config", "man", "dashboard", "backup", "archive", "thumbs-up", "thumbs-down", "models", "keys", "toggle", "forget", "sessions", "codebases"]))
+            elif ctype == "categories":
+                from lib.knowledge_manager import KnowledgeManager
+                import sqlite3
+                km = KnowledgeManager()
+                with sqlite3.connect(km.db_path) as conn:
+                    rows = conn.execute("SELECT DISTINCT category FROM chunks").fetchall()
+                    for r in rows: print(r[0])
+            elif ctype == "models":
+                from lib.ollama_client import list_models
+                import tomllib
+                # Local models
+                for m in list_models(): print(m)
+                # Aliases from config
+                conf_path = BASE_DIR / "config" / "models.toml"
+                if conf_path.exists():
+                    with open(conf_path, "rb") as f:
+                        data = tomllib.load(f).get("models", {})
+                        for alias in data.keys(): print(alias)
+            elif ctype == "sessions":
+                from lib.working_memory import WorkingMemory
+                for s in WorkingMemory().list_sessions():
+                    print(s['session_id'])
+            elif ctype == "inbox":
+                from lib.knowledge_manager import KnowledgeManager
+                km = KnowledgeManager()
+                for item in km.get_inbox():
+                    print(item['id'])
+            return
+
         # Natural language routing
         print(f"[Jarvis] Classifying: '{user_input}'...")
         result = classify_intent(user_input)
@@ -1192,8 +1244,9 @@ def main():
         success = route_intent(intent, args, user_input)
         log_history(user_input, intent, "ok" if success else "failed")
     finally:
-        duration = time.time() - start_time
-        print(f"\n[Jarvis] Stats: Response took {duration:.2f}s")
+        if "completion" not in sys.argv:
+            duration = time.time() - start_time
+            print(f"\n[Jarvis] Stats: Response took {duration:.2f}s")
 
 
 if __name__ == "__main__":

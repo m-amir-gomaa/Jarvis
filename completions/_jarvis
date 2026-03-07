@@ -1,44 +1,49 @@
 #compdef jarvis
-
 # Jarvis CLI Zsh Completion Script
-# Source: /home/qwerty/NixOSenv/Jarvis/completions/_jarvis
-# Auto-synced to ~/.zsh/plugins/jarvis-completions/_jarvis via jarvis.py
+# Dynamically powered by 'jarvis completion'
 
 _jarvis() {
     local ret=1
     local context state state_descr line
     typeset -A opt_args
+    
+    # Use JARVIS_ROOT if defined, else fallback to common location
+    local jarvis_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/jarvis.py"
+    if [[ ! -x "$jarvis_bin" ]]; then
+        jarvis_bin="jarvis" # Fallback to PATH
+    fi
+
+    # Helper for fzf selection
+    _jarvis_fzf_choice() {
+        local type=$1
+        local python_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/.venv/bin/python"
+        [[ ! -x "$python_bin" ]] && python_bin="python3"
+        
+        if command -v fzf >/dev/null; then
+            local choice=$($python_bin "$jarvis_bin" completion "$type" | fzf --height 40% --reverse --header "Select $type:")
+            if [[ -n "$choice" ]]; then
+                LBUFFER="${LBUFFER}${choice}"
+            fi
+        else
+            _message "fzf not found, falling back to standard completion"
+            local -a items
+            items=("${(@f)$($python_bin "$jarvis_bin" completion "$type")}")
+            _describe -t items "$type" items
+        fi
+    }
 
     local -a subcmds
-    subcmds=(
-        'start:Start all background services'
-        'stop:Stop all background services'
-        'status:Show service health and model status'
-        'uptime:Show how long each service has been running'
-        'pause:Suspend AI inference (SIGSTOP Ollama)'
-        'resume:Resume AI inference (SIGCONT Ollama)'
-        'learn:Assisted language learning or direct URL/file ingestion'
-        'index:Index the codebase for the coding agent RAG'
-        'query:Ask a question against the knowledge base'
-        'inbox:View and manage the recommended reading queue'
-        'knowledge:Inspect 3-Layer knowledge base entries'
-        'training:Show language competency matrix across all layers'
-        'config:Specialized configuration editing mode (nvim|nixos)'
-        'man:Show the formal jarvis manual page'
-        'dashboard:Open the Rust-based TUI monitor'
-        'backup:Sync code and vault data to /THE_VAULT/JarvisData'
-        'archive:Create a timestamped .tar.gz backup'
-        'thumbs-up:Give positive feedback on the last command'
-        'thumbs-down:Give negative feedback on the last command'
-        'help:Show usage help'
-    )
+    local python_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/.venv/bin/python"
+    [[ ! -x "$python_bin" ]] && python_bin="python3"
+    subcmds=("${(@f)$($python_bin "$jarvis_bin" completion commands | sed 's/$/:Command/')}")
 
     _arguments -C \
         '(-v --version)'{-v,--version}'[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help]' \
         '--short[Short one-line status for Waybar integration]' \
         '1: :->cmds' \
-        '*::arg:->args' && ret=0
+        '2: :->args' \
+        '*::arg:->rest' && ret=0
 
     case $state in
         cmds)
@@ -49,95 +54,35 @@ _jarvis() {
                 learn)
                     _arguments \
                         '--layer[Target knowledge layer]:layer:(1 2 3)' \
-                        '--category[Knowledge category (e.g. rust, nix, python)]:category:' \
+                        '--category[Knowledge category]:category:->categories' \
                         '*:URL or file:_files' && ret=0
-                    ;;
-                config)
-                    local -a config_targets
-                    config_targets=(
-                        'nvim:Specialized Neovim config editing mode'
-                        'nixos:Specialized NixOS config editing mode'
-                    )
-                    _arguments -C \
-                        '1: :->target' \
-                        '*::task:->task' && ret=0
-                    case $state in
-                        target)
-                            _describe -t targets 'config targets' config_targets && ret=0
-                            ;;
-                        task)
-                            _message 'describe the configuration task' && ret=0
-                            ;;
-                    esac
-                    ;;
-                inbox)
-                    local -a inbox_cmds
-                    inbox_cmds=(
-                        'process:Download and ingest a specific inbox item'
-                    )
-                    _arguments -C \
-                        '1: :->inboxcmds' \
-                        '*::arg:->inboxargs' && ret=0
-                    case $state in
-                        inboxcmds)
-                            _describe -t commands 'inbox commands' inbox_cmds && ret=0
-                            ;;
-                        inboxargs)
-                            if [[ $line[1] == "process" ]]; then
-                                local -a items
-                                items=("${(@f)$(sqlite3 /THE_VAULT/jarvis/data/knowledge.db \
-                                    "SELECT id || ':' || title FROM inbox WHERE status = 'pending'" \
-                                    2>/dev/null)}")
-                                _describe -t items 'pending items' items && ret=0
-                            fi
-                            ;;
-                    esac
-                    ;;
-                index)
-                    local -a index_cmds
-                    index_cmds=('list:View currently indexed files')
-                    _arguments -C \
-                        '1: :->indexcmds' \
-                        '*::arg:->indexargs' && ret=0
-                    case $state in
-                        indexcmds)
-                            _describe -t commands 'index commands' index_cmds && ret=0
-                            ;;
-                        indexargs)
-                            _files -/ && ret=0
-                            ;;
-                    esac
-                    ;;
-                knowledge)
-                    local -a knowledge_cmds
-                    knowledge_cmds=(
-                        'list:View existing knowledge entries by layer and category'
-                        'summary:High-level view of trained languages and layers'
-                    )
-                    _arguments -C \
-                        '1: :->knowcmds' && ret=0
-                    if [[ $state == "knowcmds" ]]; then
-                        _describe -t commands 'knowledge commands' knowledge_cmds && ret=0
+                    if [[ $state == "categories" ]]; then
+                        _jarvis_fzf_choice "categories" && ret=0
                     fi
                     ;;
                 query)
-                    _message 'enter a question to query the knowledge base' && ret=0
+                    _jarvis_fzf_choice "categories" && ret=0
                     ;;
-                backup|archive|start|stop|pause|resume|status|uptime|dashboard|man|help)
-                    # No sub-arguments for these commands
-                    ret=0
+                models)
+                    _jarvis_fzf_choice "models" && ret=0
                     ;;
-                thumbs-up|thumbs-down)
-                    ret=0
+                config)
+                    local -a targets=( 'nvim:Neovim' 'nixos:NixOS' )
+                    _describe -t targets 'targets' targets && ret=0
                     ;;
-                training)
-                    ret=0
+                inbox)
+                    local -a inbox_cmds=( 'process:Process item' )
+                    _describe -t commands 'inbox commands' inbox_cmds && ret=0
                     ;;
-                *)
-                    # For natural language queries — complete nothing, just allow free text
-                    _message 'enter a natural language command' && ret=0
+                sessions)
+                    _jarvis_fzf_choice "sessions" && ret=0
                     ;;
             esac
+            ;;
+        rest)
+            if [[ $line[1] == "inbox" && $line[2] == "process" ]]; then
+                _jarvis_fzf_choice "inbox" && ret=0
+            fi
             ;;
     esac
 

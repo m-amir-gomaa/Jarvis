@@ -72,6 +72,10 @@ Lists important environment variables and API keys, masking sensitive values for
 .B toggle voice
 Enables or disables voice command processing by the \fCjarvis-voice-gateway\fR.
 .TP
+.B completion \fITYPE\fR
+Internal command used by shell autocompletion for dynamic data retrieval.
+Supported types: \fIcommands\fR, \fIcategories\fR, \fImodels\fR, \fIsessions\fR, \fIinbox\fR.
+.TP
 .B thumbs-up / thumbs-down
 Provides feedback for the daily optimizer.
 .TP
@@ -127,6 +131,13 @@ Jarvis fetches context using a 3-Layer local structure before hitting the LLM:
 .br
 \fBMechanism:\fR
 When a task dictates domain knowledge (e.g., 'rewrite in Rust'), the \fBKnowledgeManager\fR searches \fCknowledge.db\fR using cosine similarity against the prompt's embedding. High-scoring chunks from the relevant layers are retrieved, formatted, and forcefully injected into the LLM system prompt under a \fI[LOCAL KNOWLEDGE]\fR XML block to prevent hallucinations.
+.SH SHELL AUTOCOMPLETION
+Jarvis provides advanced Zsh autocompletion with \fBfzf\fR integration.
+If \fBfzf\fR is installed, pressing \fBTAB\fR on categories, models, or session IDs will trigger a fuzzy selection interface.
+Assets are automatically synchronized to \fB~/.zsh/plugins/jarvis-completions/\fR.
+.SH ENVIRONMENT
+.IP "\fBJARVIS_ROOT\fR"
+Override the default project directory (/home/qwerty/NixOSenv/Jarvis).
 .SH FILES
 .TP
 .I /home/qwerty/NixOSenv/Jarvis/
