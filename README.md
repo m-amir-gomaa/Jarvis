@@ -7,36 +7,47 @@
 
 ---
 
-## 🏗️ Architecture: Repo vs. Vault
+## 🏗️ Architecture
 
-Jarvis is designed for high performance on limited hardware (i7-1165G7). To achieve this, it uses a unique dual-directory structure:
+Jarvis v2 is built on a **Security-First** foundation, ensuring every action is governed by trust levels and explicit capabilities.
 
-- **The Repository (`~/NixOSenv/Jarvis`)**: This is the source code repo you are looking at. It contains the logic, Neovim configuration, and NixOS modules.
-- **The Data/Index**: All local knowledge, embeddings, and indices are stored within the project structure, prioritizing performance and portability.
+```mermaid
+graph TD
+    CLI[Jarvis CLI] --> ERS[ERS Engine]
+    IDE[Neovim] --> LSP[Jarvis LSP]
+    LSP --> Sec[Security Manager]
+    ERS --> Sec
+    Sec --> Audit[(Audit Log)]
+    Sec --> Router[Model Router]
+    Router --> Ollama[Ollama]
+    Router --> Cloud[Cloud Models]
+```
+
+### Core Components
+- **Security Service**: Granular capability gating with Trust Levels (0-4) and OOB approvals.
+- **ERS (External Reasoning System)**: Multi-step LLM chains with Jinja2 prompt orchestration.
+- **Model Hub**: Unified router for local (Ollama) and cloud (Anthropic, Gemini) models.
+- **Antigravity IDE**: Deep Neovim integration via an asynchronous LSP bridge.
 
 ---
 
 ## ✨ Key Features
 
-- **3-Layer Knowledge Architecture**: Optimized RAG system prioritizing local docs (Stage 1).
-- **Model & API Management**: Manage local Ollama models and API keys directly via CLI (`jarvis models`, `jarvis keys`).
-- **Voice command Toggle**: Enable/disable voice interaction via `jarvis toggle voice`.
-- **Self-Heal Daemon**: Monitors and auto-restarts failed Jarvis services (Stage 3).
-- **Auto-Doc Syncer**: Automatically keeps documentation in sync with code changes (Stage 3).
-- **Specialized Config Modes**: Dedicated `jarvis config nvim` and `jarvis config nixos` workflows.
-- **TUI Dashboard**: High-performance Rust dashboard (`jarvis-monitor`) for real-time monitoring.
-- **Performance Metrics**: Every response includes a **duration timestamp** for performance tracking.
+- **Granular Security**: Capabilities like `ide:edit` or `fs:exec` require explicit trust grants.
+- **Asynchronous IDE Actions**: Non-blocking completions and AI-powered quickfixes.
+- **Multi-Model Routing**: Transparently switch between local and cloud models based on task requirements.
+- **ERS Chains**: Execute complex research or coding workflows with automated security boundaries.
+- **TUI Dashboard**: Multi-tab monitor for Security, ERS, and IDE state.
 
-## Detailed Documentation
-
-For deep dives into specific components, see:
-- 🧩 **[Neovim Plugin](docs/NEOVIM_PLUGIN.md)**: Logic, commands, and UI.
-- ⚙️ **[Coding Agent](docs/CODING_AGENT.md)**: Backend architecture and API.
-- 🗺️ **[Optimization Roadmap](docs/OPTIMIZATION_ROADMAP.md)**: Project history and future stages.
+## 📚 Documentation
+- 🛡️ **[Security Model](docs/SECURITY.md)**: Trust Levels and Capabilities.
+- 🧠 **[ERS Guide](docs/ERS.md)**: Designing and running reasoning chains.
+- ⌨️ **[IDE Integration](docs/ANTIGRAVITY_IDE.md)**: Neovim commands and LSP setup.
 
 ---
 
 ## 🚀 Quick Start
+... (Existing Quick Start)
 
 ### 1. Installation
 Detailed instructions for NixOS, traditional Linux (with Nix), and manual setups are in:

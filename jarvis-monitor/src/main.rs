@@ -84,6 +84,10 @@ where
                         }
                     }
                     KeyCode::Char('e') => app.open_escalation(),
+                    KeyCode::Char('1') => app.active_tab = app::Tab::Dashboard,
+                    KeyCode::Char('2') => app.active_tab = app::Tab::Security,
+                    KeyCode::Char('3') => app.active_tab = app::Tab::ERS,
+                    KeyCode::Char('4') => app.active_tab = app::Tab::IDE,
                     _ => {}
                 }
             }

@@ -59,7 +59,23 @@ migrate-vectors:
 test-semantic:
 	$(PY) tools/test_semantic.py
 
-test-all: test-mvp1 test-mvp2 test-mvp3 test-mvp5 test-mvp7 test-budget test-budget-session test-router test-cloud test-llm test-memory test-tools test-react test-semantic
+test-phase-1:
+	$(PY) -m pytest tests/security/ -v --tb=short
+	@echo "Phase 1 gate: PASSED"
+
+test-phase-2:
+	$(PY) -m pytest tests/ers/ -v --tb=short
+	@echo "Phase 2 gate: PASSED"
+
+test-phase-3:
+	$(PY) -m pytest tests/models/ -v --tb=short
+	@echo "Phase 3 gate: PASSED"
+
+test-phase-4:
+	$(PY) -m pytest tests/ide/ -v --tb=short
+	@echo "Phase 4 gate: PASSED"
+
+test-all: test-phase-1 test-phase-2 test-phase-3 test-phase-4 test-mvp1 test-mvp2 test-mvp3 test-mvp5 test-mvp7 test-budget test-budget-session test-router test-cloud test-llm test-memory test-tools test-react test-semantic
 	@echo "All tests passed"
 
 status:

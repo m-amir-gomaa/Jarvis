@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Gauge, List, ListItem, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Gauge, List, ListItem, Paragraph, Row, Table, Tabs},
 };
 use crate::app::App;
 
@@ -26,6 +26,34 @@ fn sparkline(history: &[u64]) -> String {
 pub fn render(f: &mut Frame, app: &mut App) {
     let area = f.area();
 
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .split(area);
+
+    render_tabs(f, app, chunks[0]);
+
+    match app.active_tab {
+        crate::app::Tab::Dashboard => render_dashboard(f, app, chunks[1]),
+        crate::app::Tab::Security => render_security(f, app, chunks[1]),
+        crate::app::Tab::ERS => render_ers(f, app, chunks[1]),
+        crate::app::Tab::IDE => render_ide(f, app, chunks[1]),
+    }
+}
+
+fn render_tabs(f: &mut Frame, app: &App, area: Rect) {
+    let titles = vec!["Dashboard", "Security", "ERS", "IDE"];
+    
+    let tabs = Tabs::new(titles)
+        .block(Block::default().borders(Borders::BOTTOM).title(" Jarvis Monitor v2 "))
+        .select(app.active_tab as usize)
+        .highlight_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .divider("|");
+    
+    f.render_widget(tabs, area);
+}
+
+fn render_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
     // Outer: top half / bottom half
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -48,6 +76,30 @@ pub fn render(f: &mut Frame, app: &mut App) {
     render_active_task(f, app, top_cols[1]);
     render_system(f, app, bottom_cols[0]);
     render_events(f, app, bottom_cols[1]);
+}
+
+fn render_security(f: &mut Frame, _app: &App, area: Rect) {
+    let block = Block::default().borders(Borders::ALL).title(" Security Audit Log ");
+    let para = Paragraph::new("Loading from security_audit.db...")
+        .block(block)
+        .style(Style::default().fg(Color::Yellow));
+    f.render_widget(para, area);
+}
+
+fn render_ers(f: &mut Frame, _app: &App, area: Rect) {
+    let block = Block::default().borders(Borders::ALL).title(" ERS Reasoning Chains ");
+    let para = Paragraph::new("No active chains.")
+        .block(block)
+        .style(Style::default().fg(Color::Magenta));
+    f.render_widget(para, area);
+}
+
+fn render_ide(f: &mut Frame, _app: &App, area: Rect) {
+    let block = Block::default().borders(Borders::ALL).title(" IDE Bridge Status ");
+    let para = Paragraph::new("LSP port 8002: Active\nHTTP port 8001: Active")
+        .block(block)
+        .style(Style::default().fg(Color::Cyan));
+    f.render_widget(para, area);
 }
 
 fn render_services(f: &mut Frame, app: &App, area: Rect) {

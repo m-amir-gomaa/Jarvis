@@ -2,6 +2,14 @@
 
 use std::process::Command;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tab {
+    Dashboard,
+    Security,
+    ERS,
+    IDE,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ServiceStatus {
     pub name: String,
@@ -50,6 +58,7 @@ pub struct App {
     pub active_task: Option<String>,
     pub scroll_offset: usize,
     pub budget: BudgetInfo,
+    pub active_tab: Tab,
 }
 
 impl App {
@@ -66,6 +75,7 @@ impl App {
             active_task: None,
             scroll_offset: 0,
             budget: BudgetInfo::default(),
+            active_tab: Tab::Dashboard,
         }
     }
 

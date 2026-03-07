@@ -9,9 +9,20 @@ jarvis \- Local AI Assistant with RAG and Duration Tracking
 '\fINATURAL LANGUAGE PROMPT\fR'
 .SH DESCRIPTION
 .B jarvis
-is a powerful local AI agent designed for NixOS. It orchestrates multiple LLMs (Qwen3, Mistral, Qwen2.5-Coder) via Ollama to perform complex coding tasks, technical research, and automated knowledge ingestion. Every response is timestamped with its execution duration.
-.br
-It features a hierarchical 3-Layer Knowledge Architecture that prioritizes local documentation over web searches to achieve high accuracy and sub-2.5 minute latencies on local CPU hardware.
+is a powerful local-first AI orchestrator designed for NixOS. It leverages a granular \fBSecurity Permission System\fR (Trust Levels 0-4) and an \fBExternal Reasoning System (ERS)\fR to perform complex coding, research, and system automation tasks with high-accuracy RAG and sub-2.5 minute latencies.
+.SH KEY ARCHITECTURAL COMPONENTS
+.TP
+.B Security Manager
+Enforces trust levels and gates capabilities (e.g., \fCide:edit\fR, \fCfs:exec\fR). Supports Out-of-Band (OOB) approvals via the TUI.
+.TP
+.B ERS (External Reasoning System)
+Orchestrates multi-step LLM chains with Jinja2-powered dynamic prompts and isolated security boundaries.
+.TP
+.B Model Hub
+A unified router that selects the optimal LLM (Ollama local or Anthropic/Gemini cloud) based on task, privacy, and budget.
+.TP
+.B Antigravity IDE Layer
+Provides deep Neovim integration via an asynchronous LSP bridge with support for AI-powered completions and code actions.
 .SH COMMANDS AND INTERNAL MECHANISMS
 .TP
 .B status
