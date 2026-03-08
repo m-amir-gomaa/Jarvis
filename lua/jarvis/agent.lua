@@ -99,6 +99,23 @@ local function get_selection()
   return text:sub(1, 3000)
 end
 
+-- Helper to get enclosing function/class via tree-sitter
+local function get_treesitter_context()
+  local ok, node = pcall(vim.treesitter.get_node)
+  if not ok or not node then return "" end
+
+  while node do
+    local type = node:type()
+    if type:match("function") or type:match("method") or type:match("class") then
+      local start_row = node:range()
+      local first_line = vim.api.nvim_buf_get_lines(0, start_row, start_row + 1, false)[1] or ""
+      return "Context: Enclosing scope is `" .. vim.trim(first_line) .. "`\n\n"
+    end
+    node = node:parent()
+  end
+  return ""
+end
+
 -- /chat — RAG-augmented question answering
 function M.chat()
   require("jarvis.chat").chat()
@@ -113,13 +130,15 @@ function M.fix()
   end
 
   local code = get_selection()
+  local context = get_treesitter_context()
   local errors = {}
   for _, d in ipairs(diagnostics) do
     table.insert(errors, string.format("Line %d: %s", d.lnum + 1, d.message))
   end
 
   local prompt = string.format(
-    "Fix these errors in the following code:\n\nErrors:\n%s\n\nCode:\n```%s\n%s\n```",
+    "%sFix these errors in the following code:\n\nErrors:\n%s\n\nCode:\n```%s\n%s\n```",
+    context,
     table.concat(errors, "\n"),
     vim.bo.filetype,
     code
@@ -275,12 +294,14 @@ end
 
 function M.explain()
   local code = get_selection()
+  local context = get_treesitter_context()
+  local payload_code = context .. code
   with_spinner("explaining", function()
     local task_id = "explain_" .. os.time()
     last_request_id = task_id
     curl.post(server .. "/explain", {
       headers = { ["Content-Type"] = "application/json" },
-      body = vim.fn.json_encode({ code = code, language = vim.bo.filetype, task_id = task_id }),
+      body = vim.fn.json_encode({ code = payload_code, language = vim.bo.filetype, task_id = task_id }),
       callback = function(res)
         if last_request_id == task_id then last_request_id = nil end
         if res and res.status == 200 then
