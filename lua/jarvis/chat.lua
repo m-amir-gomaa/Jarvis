@@ -7,9 +7,14 @@ local last_request_id = nil
 
 --- RAG-augmented chat with SSE streaming
 --- Opens a floating window and streams tokens from the server.
-function M.chat()
+--- @param extra_context string|nil Optional markdown context to prepend to the query.
+function M.chat(extra_context)
   vim.ui.input({ prompt = "Jarvis chat: " }, function(query)
     if not query or query == "" then return end
+
+    if extra_context and vim.trim(extra_context) ~= "" then
+      query = extra_context .. "\n" .. query
+    end
 
     vim.notify("Jarvis: thinking (RAG chat)...", vim.log.levels.INFO)
 

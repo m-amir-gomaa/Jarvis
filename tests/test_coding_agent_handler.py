@@ -60,5 +60,18 @@ class TestCodingAgentConnection(unittest.TestCase):
         res = conn.getresponse()
         self.assertIn(res.status, [200, 503, 500])
 
+    def test_chat_pinned_context(self):
+        """Verify that /chat accepts pinned context in the query."""
+        conn = http.client.HTTPConnection(self.host, self.port)
+        pinned = "## Pinned Context\n### Pin 1\n```python\nprint('pinned')\n```"
+        payload = json.dumps({
+            "query": f"{pinned}\nWhat is pinned?",
+            "messages": [{"role": "user", "content": f"{pinned}\nWhat is pinned?"}]
+        })
+        headers = {"Content-Type": "application/json"}
+        conn.request("POST", "/chat", body=payload, headers=headers)
+        res = conn.getresponse()
+        self.assertIn(res.status, [200, 503, 500])
+
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@
 
 local M = {}
 local curl = require("plenary.curl")
+local pin = require("jarvis.pin")
 local server = "http://127.0.0.1:7002"
 -- NOTE: The agent relies on the server-side ConfigResolver for hierarchical 
 -- configuration (Global, Workspace, Local). Settings like model aliases 
@@ -127,7 +128,8 @@ end
 
 -- /chat — RAG-augmented question answering
 function M.chat()
-  require("jarvis.chat").chat()
+  local context = pin.get_context_block()
+  require("jarvis.chat").chat(context)
 end
 
 -- /fix — run agent_loop for current buffer error
@@ -146,7 +148,8 @@ function M.fix()
   end
 
   local prompt = string.format(
-    "%sFix these errors in the following code:\n\nErrors:\n%s\n\nCode:\n```%s\n%s\n```",
+    "%s%sFix these errors in the following code:\n\nErrors:\n%s\n\nCode:\n```%s\n%s\n```",
+    pin.get_context_block(),
     context,
     table.concat(errors, "\n"),
     vim.bo.filetype,
@@ -246,6 +249,87 @@ function M.generate_commit()
   end)
 end
 
+--- Show a chronological timeline of Jarvis actions for the current file.
+--- Reads from the local log file logs/system.jsonl.
+function M.diagnostic_timeline()
+  local current_file = vim.api.nvim_buf_get_name(0)
+  if current_file == "" then
+    vim.notify("Jarvis Timeline: No file in current buffer", vim.log.levels.WARN)
+    return
+  end
+
+  local basename = vim.fn.fnamemodify(current_file, ":t")
+  local log_path = vim.fn.getcwd() .. "/logs/system.jsonl"
+  
+  if vim.fn.filereadable(log_path) == 0 then
+    vim.notify("Jarvis Timeline: No log file found at " .. log_path, vim.log.levels.WARN)
+    return
+  end
+
+  local matches = {}
+  -- Pre-allocate an aggressive limit to avoid blocking Neovim CPU for too long
+  local max_lines = 5000 
+  local lines_read = 0
+
+  -- Read log file
+  local f = io.open(log_path, "r")
+  if f then
+    for line in f:lines() do
+      lines_read = lines_read + 1
+      if lines_read > max_lines then break end
+      
+      -- Only bother decoding if it smells like a match
+      if line:find(basename, 1, true) or line:find(current_file, 1, true) then
+        local ok, entry = pcall(vim.fn.json_decode, line)
+        if ok and type(entry) == "table" then
+          -- Formal match check
+          local is_match = false
+          if entry.file and (entry.file == current_file or entry.file:match(basename .. "$")) then
+            is_match = true
+          elseif entry.message and entry.message:find(basename, 1, true) then
+            is_match = true
+          end
+          
+          if is_match then
+            table.insert(matches, entry)
+          end
+        end
+      end
+    end
+    f:close()
+  end
+
+  if #matches == 0 then
+    vim.notify("Jarvis Timeline: No history found for this file.", vim.log.levels.INFO)
+    return
+  end
+
+  -- Sort by timestamp descending
+  table.sort(matches, function(a, b)
+    local tsa = a.ts or ""
+    local tsb = b.ts or ""
+    return tsa > tsb
+  end)
+
+  local markdown = { "# Diagnostic Timeline", "", "File: `" .. basename .. "`", "" }
+  for _, entry in ipairs(matches) do
+    local time = (entry.ts or ""):sub(1, 19):gsub("T", " ")
+    local source = entry.source or "unknown"
+    local level = entry.level or "INFO"
+    local msg = entry.message or ""
+    
+    local header = string.format("### [%s] %s %s", time, level, source)
+    table.insert(markdown, header)
+    table.insert(markdown, msg)
+    if entry.error then
+      table.insert(markdown, "**Error:** `" .. entry.error .. "`")
+    end
+    table.insert(markdown, "")
+  end
+
+  open_response_buf("Diagnostic Timeline", table.concat(markdown, "\n"))
+end
+
 --- Global Web Research via SearXNG
 --- @param query string|nil The search query. If nil, prompts the user for input.
 function M.search(query)
@@ -309,7 +393,7 @@ end
 function M.explain()
   local code = get_selection()
   local context = get_treesitter_context()
-  local payload_code = context .. code
+  local payload_code = pin.get_context_block() .. context .. code
   with_spinner("explaining", function()
     local task_id = "explain_" .. os.time()
     last_request_id = task_id

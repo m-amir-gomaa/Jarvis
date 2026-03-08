@@ -7,6 +7,7 @@ local M = {}
 local agent = require("jarvis.agent")
 local complete = require("jarvis.complete")
 local dap_cfg = require("jarvis.dap")
+local pin = require("jarvis.pin")
 
 M.config = {
   server_url = "http://127.0.0.1:7002",
@@ -28,6 +29,23 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("JarvisSearch",      function(opts) agent.search(opts.args) end, { nargs = "?" })
   vim.api.nvim_create_user_command("JarvisPrefetch",    function() agent.prefetch_for_buffer() end, {})
   vim.api.nvim_create_user_command("JarvisModel",       function() agent.switch_model() end, {})
+  vim.api.nvim_create_user_command("JarvisTimeline",    function() agent.diagnostic_timeline() end, {})
+
+  -- Pin Commands
+  vim.api.nvim_create_user_command("JarvisPin",   function() pin.pin_selection() end, { range = true })
+  vim.api.nvim_create_user_command("JarvisPins",  function() pin.show_pins() end, {})
+  vim.api.nvim_create_user_command("JarvisUnpin", function() pin.unpin_all() end, {})
+
+  -- Inline Refactor
+  vim.api.nvim_create_user_command("JarvisInlineRefactor", function(opts)
+    local lstart = opts.line1 - 1
+    local lend = opts.line2 - 1
+    vim.ui.input({ prompt = "Jarvis Refactor Intent: " }, function(intent)
+      if intent and intent ~= "" then
+        require("jarvis.ide.inline").stream_refactor(0, lstart, lend, intent)
+      end
+    end)
+  end, { range = true })
 
   -- Autocommands for Performance (Prefetching)
   local group = vim.api.nvim_create_augroup("JarvisPerformance", { clear = true })
