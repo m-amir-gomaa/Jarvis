@@ -12,6 +12,8 @@ Usage:
   jarvis start
   jarvis stop
   jarvis pause / resume
+  jarvis log show
+  jarvis snapshot [list|create|restore]
   jarvis thumbs-up / thumbs-down
   jarvis help
   jarvis --version

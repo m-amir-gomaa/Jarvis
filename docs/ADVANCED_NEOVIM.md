@@ -135,4 +135,4 @@ Jarvis V3 supports hierarchical configuration, allowing you to define different 
 
 ---
 
-*For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide.*
+*For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide and the [Man Page](jarvis.1).*

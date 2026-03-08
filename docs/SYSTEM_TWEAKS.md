@@ -152,5 +152,25 @@ See the **[Configuration Guide](CONFIGURATION.md)** for detailed deep-merge rule
 | **Sysctl** | `boot.kernel.sysctl` | Files in `/etc/sysctl.d/` |
 | **Updates** | `nixos-rebuild` | `git pull` + `pip install -r requirements.txt` |
 
+| **Updates** | `nixos-rebuild` | `git pull` + `pip install -r requirements.txt` |
+
+---
+
+## 7. Logging & Snapshot Persistence
+
+Jarvis maintains a structured record of its internal states and AI reasonings.
+
+### System Logs: `logs/system.jsonl`
+Every CLI command, IDE request, and background service heartbeat is appended to this file.
+- **Format**: JSON Lines (JSONL) for simplified ingestion.
+- **Retention**: Currently append-only. Manual rotation is recommended for high-volume environments.
+- **Inspection**: Use `jarvis log show` for a human-readable stream.
+
+### Vault Snapshots: `vault/snapshots/`
+Compressed backups of your entire Jarvis environment.
+- **Engine**: Gzip-compressed tarballs.
+- **Exclusion**: The `snapshots/` folder itself is automatically excluded to prevent infinite recursion.
+- **Workflow**: `jarvis snapshot create "weekly-backup"`
+
 ---
 *Note: Always verify your specific distro's documentation before applying kernel-level changes.*

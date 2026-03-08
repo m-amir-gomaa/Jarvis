@@ -107,4 +107,4 @@ systemctl --user status jarvis-mcp-server
 
 ---
 
-*For detailed technical flags, see the [MCP Integration Guide](MCP_INTEGRATION.md) and the [Man Page](MANPAGE.md).*
+*For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide and the [Man Page](jarvis.1).*
