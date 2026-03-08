@@ -37,7 +37,33 @@ Example Step:
   capabilities: ["file_read"]
 ```
 
-## 3. AI Engineering Resources
+## 3. Safe Refactoring with Speculative Execution
+
+For high-risk code changes, use the Speculative Execution pipeline to ensure zero-risk deployments. For the technical deep-dive, see **[Speculative Execution](SPECULATIVE_EXECUTION.md)**.
+
+### Running a Speculative Refactor
+Developers should use the `run_speculative` utility in `pipelines/speculative_refactor.py` when automating structural changes.
+
+```python
+from pipelines.speculative_refactor import run_speculative
+
+def my_risky_change():
+    # perform file edits here
+    return True
+
+success = run_speculative(
+    task_name="major_rename",
+    refactor_func=my_risky_change,
+    test_cmd="pytest tests/test_core.py"
+)
+```
+
+**Workflow Safety**:
+1. **Never skip `test_cmd`**: Speculative execution is only as strong as your test suite.
+2. **Atomic Changes**: Keep refactor functions focused. Large, multi-component changes are harder to debug even with rollback.
+3. **Event Monitoring**: Listen for `speculative_refactor:rollback_initiated` on the Event Bus to debug failed attempts.
+
+## 4. AI Engineering Resources
 
 To master AI engineering and contribute effectively to Jarvis, we recommend the following resources. You can also see **[Creative Uses](CREATIVE_USES.md)** for real-world examples of Jarvis in action.
 
