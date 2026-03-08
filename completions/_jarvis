@@ -45,7 +45,18 @@ _jarvis() {
                 index)
                     _arguments \
                         '--category[Index category name]:category:' \
+                        '--privacy[Privacy level (0-3)]:level:(0 1 2 3)' \
                         '*:Directory:_files -/' && ret=0
+                    ;;
+                associate)
+                    _arguments \
+                        '1:Action:(list remove)' \
+                        '2:Category:->categories' && ret=0
+                    ;;
+                cap)
+                    _arguments \
+                        '1:Action:(list grant revoke)' \
+                        '2:Capability:->capabilities' && ret=0
                     ;;
                 approve)
                     _arguments \
@@ -56,13 +67,14 @@ _jarvis() {
                     ;;
                 set-key)
                     _arguments \
-                        '1:Provider:(anthropic openai deepseek groq)' \
+                        '1:Provider:(anthropic openai google deepseek groq openrouter cerebras)' \
                         '2:API Key:' && ret=0
                     ;;
                 config)
                     _arguments \
-                        '1:Target:(nvim nixos)' \
-                        '2:Task:' && ret=0
+                        '1:Action:(set get list reset)' \
+                        '2:Key:->config_keys' \
+                        '3:Value:' && ret=0
                     ;;
                 inbox)
                     _arguments \
@@ -88,6 +100,16 @@ _jarvis() {
                     local -a categories
                     categories=("${(@f)$($python_bin "$jarvis_bin" completion categories)}")
                     _describe -t categories 'categories' categories && ret=0
+                    ;;
+                capabilities)
+                    local -a caps
+                    caps=("${(@f)$($python_bin "$jarvis_bin" completion capabilities)}")
+                    _describe -t caps 'capabilities' caps && ret=0
+                    ;;
+                config_keys)
+                    local -a keys
+                    keys=("${(@f)$($python_bin "$jarvis_bin" completion config_keys)}")
+                    _describe -t keys 'config keys' keys && ret=0
                     ;;
                 pending_ids)
                     local -a ids

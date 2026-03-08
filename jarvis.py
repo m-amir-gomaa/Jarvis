@@ -1660,6 +1660,17 @@ def main():
                 audit = AuditLogger()
                 for r in audit.list_pending():
                     print(r['id'])
+            elif ctype == "capabilities":
+                # List core capabilities
+                caps = ["file_read", "file_write", "shell_exec", "network_access", "process_management"]
+                for c in caps: print(c)
+            elif ctype == "config_keys":
+                # List common config keys for completion
+                keys = [
+                    "models.default_local", "models.default_cloud", "models.thinking_model",
+                    "privacy.default_level", "system.voice_enabled", "system.theme"
+                ]
+                for k in keys: print(k)
             return
 
         # Natural language routing
