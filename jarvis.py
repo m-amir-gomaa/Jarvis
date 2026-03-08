@@ -614,37 +614,78 @@ def cmd_backup(archive=False):
 
 # ── Model & API Management ──────────────────────────────────────────────────
 
-def cmd_models():
-    print("=== Jarvis Model Configuration ===")
+def cmd_models(args: list[str]):
+    from lib.prefs_manager import PrefsManager
     from lib.ollama_client import list_models, is_healthy
     import tomllib
     
-    # Local Models
-    if is_healthy():
-        try:
-            local_models = list_models()
-            print(f"\n[Local Ollama] Status: Online")
-            print(f"Available: {', '.join(local_models)}")
-        except Exception as e:
-            print(f"\n[Local Ollama] Error: {e}")
-    else:
-        print(f"\n[Local Ollama] Status: Offline")
-
-    # Aliases
-    config_path = BASE_DIR / "config" / "models.toml"
-    if config_path.exists():
-        with open(config_path, "rb") as f:
-            config = tomllib.load(f)
-            print("\n[Aliases (models.toml)]")
-            for alias, model in config.get("models", {}).items():
-                print(f"  {alias:<10} -> {model}")
+    pm = PrefsManager()
     
-    # Cloud (OpenRouter)
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if key:
-        print(f"\n[Cloud OpenRouter] Status: Configured (Key: {key[:8]}...{key[-4:]})")
-    else:
-        print(f"\n[Cloud OpenRouter] Status: Not Configured")
+    if not args or args[0] == "list":
+        print("=== Jarvis Model Configuration ===")
+        # Local Models
+        if is_healthy():
+            try:
+                local_models = list_models()
+                print(f"\n[Local Ollama] Status: Online")
+                print(f"Available: {', '.join(local_models)}")
+            except Exception as e:
+                print(f"\n[Local Ollama] Error: {e}")
+        else:
+            print(f"\n[Local Ollama] Status: Offline")
+
+        # Aliases
+        config_path = BASE_DIR / "config" / "models.toml"
+        if config_path.exists():
+            with open(config_path, "rb") as f:
+                config = tomllib.load(f)
+                print("\n[Aliases (models.toml)]")
+                for alias, model in config.get("models", {}).items():
+                    print(f"  {alias:<10} -> {model}")
+        
+        # Cloud (OpenRouter)
+        key = os.environ.get("OPENROUTER_API_KEY")
+        if key:
+            print(f"\n[Cloud OpenRouter] Status: Configured")
+        else:
+            print(f"\n[Cloud OpenRouter] Status: Not Configured")
+        return
+
+    sub = args[0]
+    if sub == "active":
+        print("[Jarvis] Current Active Model Mappings:")
+        keys = ["models.default_local", "models.default_cloud", "models.reasoning_model"]
+        for k in keys:
+            val = pm.get(k)
+            # Check if it's a session override (specifically this key or its parents)
+            is_session = False
+            curr = pm.session_overrides
+            for p in k.split("."):
+                if isinstance(curr, dict) and p in curr:
+                    curr = curr[p]
+                    if not isinstance(curr, dict):
+                        is_session = True
+                        break
+                else:
+                    break
+            print(f"  {k:<25} = {val} {'(SESSION OVERRIDE)' if is_session else ''}")
+        return
+
+    if sub == "select" and len(args) > 2:
+        alias = args[1]
+        model = args[2]
+        persistent = "--session" not in args
+        # Valid aliases check
+        if alias not in ["default_local", "default_cloud", "reasoning_model"]:
+            print(f"Invalid alias: {alias}. Use 'default_local', 'default_cloud', or 'reasoning_model'.")
+            return
+        
+        pm.set(f"models.{alias}", model, persistent=persistent)
+        status = "persistently" if persistent else "for the current session"
+        print(f"[Jarvis] Model '{alias}' set to '{model}' {status}.")
+        return
+
+    print("Usage: jarvis models [list|active|select <alias> <model> [--session]]")
 
 
 def cmd_keys():
@@ -901,7 +942,7 @@ def route_intent(intent: str, args: dict, user_input: str):
         ], timeout=600)
 
     elif intent == "manage_models":
-        cmd_models()
+        cmd_models([])
         return True
 
     elif intent == "manage_keys":
@@ -1648,7 +1689,7 @@ def main():
             return
 
         if command == "models":
-            cmd_models()
+            cmd_models(sys.argv[2:])
             log_history(user_input, "models", "ok")
             return
 
@@ -1664,18 +1705,26 @@ def main():
                     from lib.prefs_manager import PrefsManager
                     pm = PrefsManager()
                     if target == "set" and len(sys.argv) > 4:
-                        pm.set(sys.argv[3], sys.argv[4])
-                        print(f"Config set: {sys.argv[3]} = {sys.argv[4]}")
+                        persistent = "--session" not in sys.argv
+                        # Filter out flag from value if present
+                        val = sys.argv[4]
+                        pm.set(sys.argv[3], val, persistent=persistent)
+                        mode = "persistently" if persistent else "session"
+                        print(f"Config set: {sys.argv[3]} = {val} ({mode})")
                     elif target == "get" and len(sys.argv) > 3:
                         print(f"{sys.argv[3]} = {pm.get(sys.argv[3])}")
                     elif target == "list":
                         import json
+                        print("Persistent Prefs:")
                         print(json.dumps(pm.list_all(), indent=2))
+                        if pm.session_overrides:
+                            print("\nSession Overrides:")
+                            print(json.dumps(pm.session_overrides, indent=2))
                     elif target == "reset":
                         pm.reset()
-                        print("Configuration reset to defaults.")
+                        print("Persistent configuration reset to defaults. Session overrides intact.")
                     else:
-                        print("Usage: jarvis config [set|get|list|reset] [key] [value]")
+                        print("Usage: jarvis config [set|get|list|reset] [key] [value] [--session]")
                 else:
                     print(f"Unknown config target: {target}")
             else:

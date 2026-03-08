@@ -41,7 +41,9 @@ class PrefsManager:
     def __init__(self, prefs_path: Path = PREFS_PATH):
         self.prefs_path = prefs_path
         self.prefs_path.parent.mkdir(parents=True, exist_ok=True)
+        self.session_path = VAULT_ROOT / "context" / "session_prefs.json"
         self.prefs = self._load()
+        self.session_overrides = self._load_session()
 
     def _load(self) -> Dict[str, Any]:
         if not self.prefs_path.exists():
@@ -52,6 +54,18 @@ class PrefsManager:
         except Exception as e:
             print(f"[PrefsManager] Error loading prefs: {e}")
             return DEFAULT_PREFS.copy()
+
+    def _load_session(self) -> Dict[str, Any]:
+        """Load session-based overrides from session_prefs.json."""
+        if not self.session_path.exists():
+            return {}
+        try:
+            import json
+            with open(self.session_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[PrefsManager] Error loading session prefs: {e}")
+            return {}
 
     def _dict_to_toml(self, d: Dict[str, Any], indent: int = 0) -> str:
         lines = []
@@ -82,9 +96,33 @@ class PrefsManager:
         except Exception as e:
             print(f"[PrefsManager] Error saving prefs: {e}")
 
+    def _save_session(self):
+        """Save session-based overrides."""
+        try:
+            import json
+            self.session_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.session_path, "w") as f:
+                json.dump(self.session_overrides, f, indent=2)
+        except Exception as e:
+            print(f"[PrefsManager] Error saving session prefs: {e}")
+
     def get(self, key_path: str, default: Any = None) -> Any:
-        """Get a value using dot notation (e.g., 'models.default_local')."""
+        """Get a value using dot notation, checking session overrides first."""
         parts = key_path.split(".")
+        
+        # 1. Check session overrides
+        val = self.session_overrides
+        found = True
+        for p in parts:
+            if isinstance(val, dict) and p in val:
+                val = val[p]
+            else:
+                found = False
+                break
+        if found:
+            return val
+
+        # 2. Check persistent prefs
         val = self.prefs
         for p in parts:
             if isinstance(val, dict) and p in val:
@@ -93,10 +131,11 @@ class PrefsManager:
                 return default
         return val
 
-    def set(self, key_path: str, value: Any):
+    def set(self, key_path: str, value: Any, persistent: bool = True):
         """Set a value using dot notation."""
         parts = key_path.split(".")
-        target = self.prefs
+        
+        target: Dict[str, Any] = self.prefs if persistent else self.session_overrides
         
         for i in range(len(parts) - 1):
             p = parts[i]
@@ -111,7 +150,11 @@ class PrefsManager:
             elif value.isdigit(): value = int(value)
         
         target[parts[-1]] = value
-        self._save()
+        
+        if persistent:
+            self._save()
+        else:
+            self._save_session()
 
     def list_all(self) -> Dict[str, Any]:
         return self.prefs

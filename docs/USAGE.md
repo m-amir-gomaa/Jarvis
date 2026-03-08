@@ -12,10 +12,11 @@ The CLI is the primary orchestration point. Before using it, ensure you have fol
 - `jarvis restart [alias]`: Restart a specific service.
 - `jarvis status [alias]`: Health check (**[Ollama](SYSTEM_TWEAKS.md)**, services, budget, RAG status).
 - `jarvis uptime [alias]`: Show how long a service has been active.
+- `jarvis models [list|active|select]`: Manage AI models and aliases.
 - `jarvis man`: View the technical **[Man Page](jarvis.1)**.
 
 > [!TIP]
-> For a deep dive into service aliases and automated watchdog features, see the **[Service Management Guide](SERVICE_MANAGEMENT.md)**.
+> For a deep dive into service aliases and automated watchdog features, see the **[Service Management Guide](SERVICE_MANAGEMENT.md)**. For model selection and privacy-aware routing, see the **[Model Management Guide](MODEL_MANAGEMENT.md)**.
 
 ### Intelligence Commands
 - `jarvis 'research [topic]'`: Triggers the ERS `research_deep` chain.
@@ -34,7 +35,7 @@ The CLI is the primary orchestration point. Before using it, ensure you have fol
 - `jarvis cap revoke <cap>`: Remove a persistent permission.
 
 ### Configuration & Preferences
-- `jarvis config set <key> <val>`: Override defaults (e.g., `models.default_local`).
+- `jarvis config set <key> <val> [--session]`: Override defaults (e.g., `models.default_local`).
 - `jarvis config get <key>`: View current setting value.
 - `jarvis config list`: Show all active user preferences.
 - `jarvis config reset`: Restore factory sensible defaults.
