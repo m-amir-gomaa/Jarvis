@@ -35,6 +35,10 @@ _jarvis() {
                 'uptime:Show how long each service has been running'
                 'dashboard:Launch the Rust TUI live monitor'
                 'indexer:Control the background knowledge indexer service'
+                'log:Display recent system logs from system.jsonl'
+                'snapshot:Manage vault snapshots (backup/restore)'
+                'mcp:Manage MCP Hub tools and discovery'
+                'project:Manage local project initialization and context'
 
                 # Service management
                 'service:Control individual service units (enable/disable/config)'
@@ -207,6 +211,54 @@ _jarvis() {
                 status)
                     _arguments \
                         '--short[One-line condensed output]' && ret=0
+                    ;;
+                
+                log)
+                    if (( $#line == 1 )); then
+                        _describe -t actions 'log actions' '(show:Display recent logs)' && ret=0
+                    elif [[ $line[2] == "show" ]]; then
+                        _arguments \
+                            '--lines[Number of lines to show]:lines:' && ret=0
+                    fi
+                    ;;
+
+                snapshot)
+                    if (( $#line == 1 )); then
+                        local -a snapshot_actions
+                        snapshot_actions=(
+                            'list:Show all available snapshots'
+                            'create:Create a new snapshot'
+                            'restore:Restore vault from a snapshot'
+                        )
+                        _describe -t actions 'snapshot actions' snapshot_actions && ret=0
+                    elif [[ $line[2] == "create" ]]; then
+                        _arguments '3:Label:' && ret=0
+                    elif [[ $line[2] == "restore" ]]; then
+                         # Dynamic completion for snapshot names
+                        local -a snapshots
+                        snapshots=("${(@f)$($python_bin "$jarvis_bin" completion snapshots 2>/dev/null)}")
+                        _describe -t snapshots 'snapshot' snapshots && ret=0
+                    fi
+                    ;;
+
+                mcp)
+                    if (( $#line == 1 )); then
+                        _describe -t actions 'mcp actions' '(discover:Discover MCP tools)' && ret=0
+                    fi
+                    ;;
+
+                project)
+                    if (( $#line == 1 )); then
+                        local -a project_actions
+                        project_actions=(
+                            'init:Initialize a new project'
+                            'switch:Switch active project context'
+                            'status:Show project status'
+                        )
+                        _describe -t actions 'project actions' project_actions && ret=0
+                    elif [[ $line[2] == "switch" ]]; then
+                        _arguments '3:Project path:_files -/' && ret=0
+                    fi
                     ;;
 
                 models|keys|dashboard|backup|archive|pause|resume|man|training|forget|help|codebases|install_services|install-services|thumbs-up|thumbs-down|pending)

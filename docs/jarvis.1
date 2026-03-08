@@ -68,6 +68,20 @@ Launch the Rust TUI live monitor (\fBjarvis-monitor\fR binary in \fIbin/\fR).
 .TP
 .B indexer
 Control the background knowledge indexer service (watches filesystem for changes and updates FAISS index).
+.SH MCP HUB COMMANDS
+.TP
+.B mcp discover
+Query all enabled MCP servers in \fIconfig/mcp_servers.toml\fR and list available tools and their descriptions.
+.SH PROJECT MANAGEMENT COMMANDS
+.TP
+.B project init
+Initialize a new Jarvis project in the current directory. Creates a \fI.jarvis-project.toml\fR file and associates the directory with a knowledge category.
+.TP
+.B project switch \fIPATH\fR
+Switch the active AI session context to a specific project path.
+.TP
+.B project status
+Show the current project context, association status, and active project metadata.
 .SH SERVICE MANAGEMENT COMMANDS
 .TP
 .B service enable \fIALIAS\fR

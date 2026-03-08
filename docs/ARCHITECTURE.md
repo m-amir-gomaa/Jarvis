@@ -62,11 +62,12 @@ A custom Language Server Protocol (LSP) and FastAPI sidecar.
 - **Tree-sitter Context**: Automatically extracts the enclosing function or class scope using Tree-sitter to provide rich contextual information to the LLM.
 - **Long-Polling**: Enables the IDE to receive security approval notifications asynchronously without blocking the UI thread.
 
-### E. MCP Integration Subsystem (`lib/mcp_client.py`, `services/mcp_server.py`)
-Enables Jarvis to act as both an MCP Host and an MCP Server.
-- **MCP Client**: Dynamically connects to external MCP servers (via stdio) to expand Jarvis's toolset.
-- **MCP Server**: A FastMCP-based server that exposes Jarvis's RAG and Web Search capabilities to other MCP-compatible clients.
-- **Neovim Integration**: `lua/jarvis/mcp.lua` provides a Telescope-based UI for discovering and executing MCP tools.
+### E. RAG Subsystem (`lib/indexing/`, `lib/knowledge_manager.py`)
+Enables content-addressable storage and retrieval of project knowledge.
+- **IngestionWorker**: Intelligence-based chunker using AST (Python) and RegEx (Rust/Lua) to maintain "Multi-dimensional Vector Projection".
+- **FaissIndexManager**: Manages the FAISS vector store and an `aiosqlite` metadata companion.
+- **SemanticSearch**: Executes "Hybrid Retrieval" by combining FAISS vector search with BM25 keyword re-ranking.
+- **KnowledgeManager**: Provides a high-level API for indexing and querying, abstracting the underlying vector operations.
 
 ### F. Configuration Management (`lib/config_resolver.py`)
 The hierarchical configuration layer that provides unified settings across all Jarvis components.

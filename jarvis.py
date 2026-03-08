@@ -747,6 +747,32 @@ def cmd_backup(archive=False):
         cmd.append("--archive")
     
     return subprocess.run(cmd).returncode == 0
+    
+
+def cmd_sync_assets():
+    """Verify and synchronize CLI assets (manpages, completions)."""
+    print("[Jarvis] Synchronizing CLI assets...")
+    
+    # 1. Manpage
+    man_src = BASE_DIR / "docs" / "jarvis.1"
+    if man_src.exists():
+        print(f"  ✓ Manpage found: {man_src}")
+    else:
+        print(f"  ✗ Manpage missing: {man_src}")
+        
+    # 2. Zsh Completion
+    zsh_src = BASE_DIR / "completions" / "_jarvis"
+    if zsh_src.exists():
+        print(f"  ✓ Zsh completion found: {zsh_src}")
+        # Suggest symlinking if not already done
+        zsh_dest = Path.home() / ".zsh" / "completions" / "_jarvis"
+        if not zsh_dest.exists():
+            print(f"  Tip: To enable Zsh completions, symlink {zsh_src} to your $fpath.")
+            print(f"       e.g.: mkdir -p ~/.zsh/completions && ln -s {zsh_src} {zsh_dest}")
+    else:
+        print(f"  ✗ Zsh completion missing: {zsh_src}")
+        
+    print("\n[Jarvis] Assets verified.")
 
 
 # ── Model & API Management ──────────────────────────────────────────────────
@@ -2130,6 +2156,19 @@ def main():
             log_history(user_input, "keys", "ok")
             return
 
+        if command == "sync-assets":
+            cmd_sync_assets()
+            log_history(user_input, "sync_assets", "ok")
+            return
+
+        if command == "thumbs-up":
+            cmd_feedback("thumbs-up")
+            return
+
+        if command == "thumbs-down":
+            cmd_feedback("thumbs-down")
+            return
+
         if command == "toggle":
             if len(sys.argv) > 2 and sys.argv[2] == "voice":
                 cmd_toggle_voice()
@@ -2166,6 +2205,7 @@ def main():
                     "training": "Run Jarvis training pipelines",
                     "config": "Manage preferences or open config files (nvim/nixos)",
                     "cap": "Granular capability and permission management",
+                    "mcp": "Manage MCP Hub tools and discovery",
                     "associate": "Link current directory to a knowledge category",
                     "approve": "Approve a pending OOB capability grant",
                     "deny": "Deny a pending OOB capability grant",
@@ -2182,6 +2222,7 @@ def main():
                     "man": "Show the formal Jarvis man page",
                     "backup": "Create a backup of the codebase to the Vault",
                     "archive": "Create a compressed timestamped archive",
+                    "sync-assets": "Synchronize manpages and shell completions",
                     "thumbs-up": "Give positive feedback on the last AI response",
                     "thumbs-down": "Give negative feedback on the last AI response",
                     "help": "Show usage help and command overview",
@@ -2212,6 +2253,11 @@ def main():
                 from lib.working_memory import WorkingMemory
                 for s in WorkingMemory().list_sessions():
                     print(s['session_id'])
+            elif ctype == "snapshots":
+                from lib.snapshot_manager import SnapshotManager
+                sm = SnapshotManager(_VAULT_ROOT)
+                for s in sm.list_snapshots():
+                    print(s['name'])
             elif ctype == "inbox":
                 from lib.knowledge_manager import KnowledgeManager
                 km = KnowledgeManager()
