@@ -35,12 +35,28 @@ local function open_response_buf(title, content)
     local lines = vim.split(content, "\n", { plain = true })
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     
-    -- Only split if the buffer isn't already visible in a window
+    -- Only open a new window if the buffer isn't already visible
     local win = vim.fn.bufwinid(buf)
     if win == -1 then
-      vim.cmd("botright split")
-      vim.api.nvim_win_set_buf(0, buf)
-      vim.api.nvim_win_set_height(0, 15)
+      local width = math.floor(vim.o.columns * 0.8)
+      local height = math.floor(vim.o.lines * 0.8)
+      local row = math.floor((vim.o.lines - height) / 2)
+      local col = math.floor((vim.o.columns - width) / 2)
+      
+      vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        row = row,
+        col = col,
+        style = "minimal",
+        border = "rounded",
+        title = " " .. title .. " ",
+        title_pos = "center",
+      })
+      -- Easy close via q and Esc
+      vim.api.nvim_buf_set_keymap(buf, "n", "q", ":close<CR>", { noremap = true, silent = true })
+      vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", ":close<CR>", { noremap = true, silent = true })
     end
   end)
 end
