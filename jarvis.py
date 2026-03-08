@@ -1254,6 +1254,11 @@ def cmd_help():
     print("  help                    Show this detailed command reference")
     print("  --version               Show version information")
 
+    print("\nProject & Context:")
+    print("  project init            Initialize a Jarvis project in the current directory")
+    print("  project switch <path>   Switch context to another project directory")
+    print("  project status          Show current project and knowledge associations")
+
     print("\nNatural Language Examples:")
     print("  jarvis 'clean this pdf for notebooklm'")
     print("  jarvis 'research transformer attention mechanisms'")
@@ -1805,6 +1810,81 @@ def main():
             log_history(user_input, "models", "ok")
             return
 
+        if command == "project":
+            if len(sys.argv) < 3:
+                print("Usage: jarvis project [init|switch|status] [args]")
+                return
+            
+            subcmd = sys.argv[2]
+            
+            if subcmd == "init":
+                # Create a simple project marker and associate it
+                proj_file = Path(os.getcwd()) / ".jarvis-project.toml"
+                if proj_file.exists():
+                    print(f"[Jarvis] Project already initialized here: {proj_file}")
+                else:
+                    proj_name = Path(os.getcwd()).name
+                    proj_file.write_text(f'name = "{proj_name}"\n')
+                    print(f"[Jarvis] Initialized project \'{proj_name}\' in {os.getcwd()}")
+                    # Optionally associate to a category named after the project
+                    from lib.knowledge_manager import KnowledgeManager
+                    km = KnowledgeManager()
+                    km.associate_path(os.getcwd(), proj_name)
+                    print(f"[Jarvis] Associated path with knowledge category \'{proj_name}\'")
+                
+            elif subcmd == "switch":
+                if len(sys.argv) < 4:
+                    print("Usage: jarvis project switch <path_or_name>")
+                    return
+                target = sys.argv[3]
+                # Try to resolve path
+                target_path = Path(target).resolve()
+                if target_path.exists() and target_path.is_dir():
+                    # For a CLI tool, changing directory only affects the child process.
+                    # We can set an environment variable or a session config for the active project.
+                    from lib.prefs_manager import PrefsManager
+                    pm = PrefsManager()
+                    pm.set("session.active_project", str(target_path), persistent=False)
+                    print(f"[Jarvis] Switched active project context to: {target_path}")
+                    print("Hint: This context persists for the current AI session.")
+                else:
+                    print(f"[Jarvis] Unknown project path: {target}")
+            
+            elif subcmd == "status":
+                from lib.prefs_manager import PrefsManager
+                pm = PrefsManager()
+                active = pm.get("session.active_project", os.getcwd())
+                print(f"[Jarvis] Project Status:")
+                print(f"  Current Directory: {os.getcwd()}")
+                print(f"  Active Context:    {active}")
+                
+                # Check for project file
+                proj_file = Path(active) / ".jarvis-project.toml"
+                if proj_file.exists():
+                    try:
+                        import tomllib
+                        with open(proj_file, "rb") as f:
+                            data = tomllib.load(f)
+                        print(f"  Project Name:      {data.get('name', 'Unknown')}")
+                    except Exception as e:
+                        print(f"  Project File:      Found but unreadable ({e})")
+                else:
+                    print("  Project File:      None (.jarvis-project.toml)")
+
+                # Check associations
+                try:
+                    from lib.knowledge_manager import KnowledgeManager
+                    km = KnowledgeManager()
+                    assocs = km.get_associations(active)
+                    print(f"  KG Associations:   {', '.join(assocs) if assocs else 'None'}")
+                except Exception:
+                    pass
+            else:
+                print(f"Unknown project command: {subcmd}")
+                print("Usage: jarvis project [init|switch|status] [args]")
+            log_history(user_input, "project", "ok")
+            return
+
         if command == "config":
             if len(sys.argv) > 2:
                 target = sys.argv[2]
@@ -1977,6 +2057,7 @@ def main():
                     "forget": "Remove an item from the knowledge base",
                     "sessions": "List and manage active chat sessions",
                     "codebases": "List all indexed codebases",
+                    "project": "Manage local project initialization and context",
                     "man": "Show the formal Jarvis man page",
                     "backup": "Create a backup of the codebase to the Vault",
                     "archive": "Create a compressed timestamped archive",
