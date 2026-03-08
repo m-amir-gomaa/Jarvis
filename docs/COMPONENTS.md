@@ -21,9 +21,10 @@ This document provides a technical audit of the core Jarvis implementation files
 
 ## 3. Model & LLM Subsystem (`lib/models/`)
 
-- `router.py`: `ModelRouter`. The central dispatcher for model aliases and provider-agnostic generation.
-- `adapters/base.py`: Abstract Base Class for all model providers.
-- `adapters/ollama.py`: Integration with local Ollama API. Standardized 600s timeout for stability.
+- `router.py`: `ModelRouter`. The central dispatcher for model- [lib/model_router.py](file:///home/qwerty/NixOSenv/Jarvis/lib/model_router.py): Policy layer for local vs cloud routing.
+- [lib/prefs_manager.py](file:///home/qwerty/NixOSenv/Jarvis/lib/prefs_manager.py): Persistent user-defined preference overrides.
+- [lib/ollama_client.py](file:///home/qwerty/NixOSenv/Jarvis/lib/ollama_client.py): Core bridge to the local inference engine.
+ Standardized 600s timeout for stability.
 - `adapters/anthropic.py`, `adapters/openai.py`, etc.: Adapters for external cloud providers.
 
 ## 4. Services & Entrypoints

@@ -60,9 +60,12 @@ def route(
 
     INVARIANT-PRIVACY-1: PRIVATE and INTERNAL data never routed to external.
     """
+    from lib.prefs_manager import PrefsManager
+    pm = PrefsManager()
+    
     cfg = _load_models_config()
-    default_local = cfg.get("routing", {}).get("default_local", "qwen3:14b-q4_K_M")
-    default_ext   = cfg.get("routing", {}).get("default_external", "anthropic/claude-haiku")
+    default_local = pm.get("models.default_local", cfg.get("routing", {}).get("default_local", "qwen3:14b-q4_K_M"))
+    default_ext   = pm.get("models.default_external", cfg.get("routing", {}).get("default_external", "anthropic/claude-haiku"))
 
     # INVARIANT-PRIVACY-1 — hard block for private data
     if privacy in (Privacy.PRIVATE, Privacy.INTERNAL):

@@ -1464,6 +1464,90 @@ def main():
             log_history(user_input, "models", "ok")
             return
 
+        if command == "config":
+            if len(sys.argv) > 2:
+                target = sys.argv[2]
+                if target in ("nvim", "nixos"):
+                    if target == "nvim":
+                        os.system("cd ~/.config/nvim && nvim init.lua")
+                    elif target == "nixos":
+                        os.system("cd ~/NixOSenv && nvim configuration.nix")
+                elif target in ("set", "get", "list", "reset"):
+                    from lib.prefs_manager import PrefsManager
+                    pm = PrefsManager()
+                    if target == "set" and len(sys.argv) > 4:
+                        pm.set(sys.argv[3], sys.argv[4])
+                        print(f"Config set: {sys.argv[3]} = {sys.argv[4]}")
+                    elif target == "get" and len(sys.argv) > 3:
+                        print(f"{sys.argv[3]} = {pm.get(sys.argv[3])}")
+                    elif target == "list":
+                        import json
+                        print(json.dumps(pm.list_all(), indent=2))
+                    elif target == "reset":
+                        pm.reset()
+                        print("Configuration reset to defaults.")
+                    else:
+                        print("Usage: jarvis config [set|get|list|reset] [key] [value]")
+                else:
+                    print(f"Unknown config target: {target}")
+            else:
+                print("Usage: jarvis config [nvim|nixos|set|get|list|reset]")
+            log_history(user_input, "config", "ok")
+            return
+
+        if command == "cap":
+            if len(sys.argv) > 2:
+                action = sys.argv[2]
+                if action == "list":
+                    from lib.security.audit import AuditLogger
+                    # Assuming _VAULT_ROOT is defined globally or imported
+                    audit = AuditLogger(_VAULT_ROOT / "databases" / "security_audit.db")
+                    # Simplified list - in reality we'd query the GrantStore
+                    from lib.security.store import GrantStore
+                    store = GrantStore(audit)
+                    # Assuming _CLI_CTX is defined globally or imported
+                    if _CLI_CTX:
+                        print("Active Session Grants:")
+                        for g in _CLI_CTX.grants:
+                            print(f"  - {g.capability} (Scope: {g.scope}, Expires: {g.expires_at})")
+                    else:
+                        print("No active CLI security context.")
+                elif action == "grant" and len(sys.argv) > 3:
+                    cap = sys.argv[3]
+                    # Manual persistent grant
+                    from lib.security.context import CapabilityGrant
+                    from lib.security.store import GrantStore
+                    from lib.security.audit import AuditLogger
+                    from datetime import datetime, timezone
+                    # Assuming _VAULT_ROOT and _secrets are defined globally or imported
+                    audit = AuditLogger(_VAULT_ROOT / "databases" / "security_audit.db")
+                    store = GrantStore(audit)
+                    grant = CapabilityGrant(
+                        capability=cap,
+                        granted_at=datetime.now(timezone.utc),
+                        expires_at=None,
+                        granted_by="manual_cli",
+                        scope="persistent",
+                        audit_token=str(_secrets.token_hex(8))
+                    )
+                    store.save_persistent_grant("cli", grant)
+                    print(f"Persistent grant added: {cap}")
+                elif action == "revoke" and len(sys.argv) > 3:
+                    cap = sys.argv[3]
+                    from lib.security.store import GrantStore
+                    from lib.security.audit import AuditLogger
+                    # Assuming _VAULT_ROOT is defined globally or imported
+                    audit = AuditLogger(_VAULT_ROOT / "databases" / "security_audit.db")
+                    store = GrantStore(audit)
+                    store.revoke_persistent_grant("cli", cap)
+                    print(f"Persistent grant revoked: {cap}")
+                else:
+                    print("Usage: jarvis cap [list|grant|revoke] [capability]")
+            else:
+                print("Usage: jarvis cap [list|grant|revoke] [capability]")
+            log_history(user_input, "cap", "ok")
+            return
+
         if command == "keys":
             cmd_keys()
             log_history(user_input, "keys", "ok")
@@ -1495,7 +1579,8 @@ def main():
                     "inbox": "View and manage the recommended reading queue",
                     "knowledge": "Inspect 3-Layer knowledge base entries",
                     "training": "Show language competency matrix",
-                    "config": "Specialized configuration editing mode (nvim|nixos)",
+                    "config": "Manage user preferences or edit config files",
+                    "cap": "Granular capability and permission management",
                     "man": "Show the formal jarvis manual page",
                     "dashboard": "Open the Rust-based TUI monitor",
                     "backup": "Sync code and vault data to storage",

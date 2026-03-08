@@ -16,11 +16,21 @@ The CLI is the primary orchestration point.
 - `jarvis 'research [topic]'`: Triggers the ERS `research_deep` chain.
 - `jarvis 'summarize my git commits'`: Triggers the ERS `git_summarize` chain.
 - `jarvis 'validate my nixos config'`: Triggers the ERS `nixos_verify` chain.
+- `jarvis index --category [cat] --privacy [level]`: Index codebase with metadata.
 - `jarvis ingest [file]`: Index a document into semantic memory.
 
-### Security Interaction
+### Security & Permissions
 - `jarvis pending`: View out-of-band capability requests.
 - `jarvis approve [id]`: Grant or deny a pending request.
+- `jarvis cap list`: View all active session and persistent grants.
+- `jarvis cap grant <cap>`: Manually add a persistent permission.
+- `jarvis cap revoke <cap>`: Remove a persistent permission.
+
+### Configuration & Preferences
+- `jarvis config set <key> <val>`: Override defaults (e.g., `models.default_local`).
+- `jarvis config get <key>`: View current setting value.
+- `jarvis config list`: Show all active user preferences.
+- `jarvis config reset`: Restore factory sensible defaults.
 
 ## 2. Neovim IDE Integration
 

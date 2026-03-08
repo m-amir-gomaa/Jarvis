@@ -12,13 +12,13 @@ class WorkspaceIndexer:
     def __init__(self):
         self.km = KnowledgeManager()
 
-    def index_directory(self, target_dir: str, category: str):
+    def index_directory(self, target_dir: str, category: str, privacy: str = "internal"):
         target_path = Path(target_dir).absolute()
         if not target_path.exists():
             print(f"[Indexer] Error: {target_dir} not found.")
             return False
 
-        print(f"[Indexer] Scanning {target_path} for category '{category}'...")
+        print(f"[Indexer] Scanning {target_path} for category '{category}' (Privacy: {privacy})...")
         
         # Simple recursive scan
         # For MVP, we only take common text-based source files
@@ -44,7 +44,8 @@ class WorkspaceIndexer:
                         metadata = {
                             "category": category,
                             "rel_path": str(file_path.relative_to(target_path)),
-                            "type": "source_code"
+                            "type": "source_code",
+                            "privacy": privacy
                         }
                         
                         self.km.add_entry(
@@ -67,10 +68,11 @@ def main():
     parser = argparse.ArgumentParser(description="Jarvis Workspace Indexer")
     parser.add_argument("directory", nargs="?", default=".", help="Directory to index (default: current)")
     parser.add_argument("--category", "-c", required=True, help="Domain category name (e.g. 'jarvis_core', 'webapp')")
+    parser.add_argument("--privacy", "-p", choices=['private', 'internal', 'public'], default="internal", help="Privacy level for this codebase (default: internal)")
     args = parser.parse_args()
 
     indexer = WorkspaceIndexer()
-    success = indexer.index_directory(args.directory, args.category)
+    success = indexer.index_directory(args.directory, args.category, args.privacy)
     if not success:
         sys.exit(1)
 
