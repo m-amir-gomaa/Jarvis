@@ -12,9 +12,12 @@ You can now switch the underlying models for specific tasks without restarting N
 Or run the command: `:JarvisModel`
 
 **Workflow**:
-1.  **Select Alias**: Choose which "role" you want to update (e.g., `coder` for refactors, `chat` for queries, `reason` for deep analysis).
-2.  **Select Model**: Choose from discovered local models (via Ollama) or cloud providers.
+1.  **Select**: Choose a task (e.g., `coder`, `researcher`).
+2.  **Pick**: Select a new model (e.g., `claude-3-sonnet`, `deepseek-coder`).
 3.  **Instant Update**: Jarvis updates the mapping in real-time. Subsequent actions will use the new model immediately.
+
+> [!NOTE]
+> **Project Overrides**: If a `.jarvis/config.toml` exists in your project or workspace root, it can define default model aliases for that specific context, which will be automatically loaded by the Neovim agent.
 
 ---
 
@@ -39,7 +42,18 @@ You can query your entire knowledge base (books, docs, other codebases) directly
 
 ---
 
-## 🏗️ 4. Tree-sitter Context Awareness
+## 🛠️ 4. Extending with MCP Tools
+
+Jarvis supports the **Model Context Protocol (MCP)**, allowing you to use specialized tools from external servers (e.g., Google Drive, SQL databases, or custom Python scripts) directly within Neovim.
+
+### Workflow:
+1.  **Configure**: Add your MCP servers to `.jarvis/mcp.toml`.
+2.  **Discover**: Press `<leader>jt` to open the MCP tool picker.
+3.  **Execute**: Select a tool to run it within the current Jarvis session. Jarvis handles the security handshake and result injection.
+
+---
+
+## 🏗️ 5. Tree-sitter Context Awareness
 
 Jarvis is no longer "blind" to your code structure. When you run `/fix` or `/explain`, Jarvis uses Tree-sitter to:
 1.  Identify the enclosing function or class.
@@ -48,7 +62,7 @@ Jarvis is no longer "blind" to your code structure. When you run `/fix` or `/exp
 
 ---
 
-## 🐞 5. Debug Adapter Protocol (DAP) Extensions
+## 🐞 6. Debug Adapter Protocol (DAP) Extensions
 
 Jarvis integrates with `nvim-dap` to provide AI-assisted debugging.
 
@@ -66,7 +80,7 @@ When a debugger stops on an exception or at a breakpoint:
 
 ---
 
-## ⚡ 4. Performance & Resource Control
+## ⚡ 7. Performance & Resource Control
 
 Since Jarvis runs models locally on your CPU/GPU, managing system load is critical for a smooth typing experience.
 
@@ -87,7 +101,7 @@ require('jarvis').setup({
 
 ---
 
-## 🛡️ 5. Least-Privilege Refactoring
+## 🛡️ 8. Least-Privilege Refactoring
 
 When you run `:JarvisRefactor`, look at your **Jarvis Dashboard (`jarvis dashboard`)**.
 - You will see the agent request `ide:edit` and `fs:read` capabilities.
@@ -96,4 +110,29 @@ When you run `:JarvisRefactor`, look at your **Jarvis Dashboard (`jarvis dashboa
 
 ---
 
-*For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide.*
+## 🔍 9. Environment Observability
+
+When troubleshooting an agent's reasoning or connection issues, you can inspect the live system logs directly from the terminal.
+
+### CLI Command: `jarvis log show`
+- **What it shows**: Structured JSON logs from the central `system.jsonl` file.
+- **Filtering**: Use `--lines 50` to see a larger history.
+- **Relevance**: Every MCP tool execution, ERS step, and LLM request is logged here with high fidelity.
+
+---
+
+## 📂 10. Project-Specific Isolation
+
+Jarvis V3 supports hierarchical configuration, allowing you to define different behavior for different codebases.
+
+### Workspace Configuration: `.jarvis/workspace.toml`
+- **Purpose**: Define shared settings for multiple projects within a single directory tree.
+- **Overrides**: Global `~/.config/jarvis/config.toml` is merged with the workspace file, with the latter taking precedence.
+
+### Project Configuration: `.jarvis/config.toml`
+- **Purpose**: Per-project fine-tuning.
+- **Hierarchy**: This is the highest priority configuration file.
+
+---
+
+*For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide and the [Man Page](jarvis.1).*

@@ -92,6 +92,22 @@ Environment=VAULT_ROOT=/THE_VAULT/jarvis
 WantedBy=default.target
 ```
 
+### `jarvis-mcp-server.service`
+```ini
+[Unit]
+Description=Jarvis MCP Server (Exposing Tools)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/NixOSenv/Jarvis/services/mcp_server.py
+Restart=always
+Environment=PYTHONPATH=%h/NixOSenv/Jarvis
+Environment=VAULT_ROOT=/THE_VAULT/jarvis
+
+[Install]
+WantedBy=default.target
+```
+
 ---
 
 ## 4. Security: Ulimit & Permissions
@@ -114,7 +130,20 @@ chmod -R 700 /THE_VAULT/jarvis
 
 ---
 
-## 5. Summary Table (Traditional vs. NixOS)
+## 5. Configuration Hierarchy
+
+Jarvis allows you to fine-tune its behavior per project using its cascading configuration system.
+
+### Resolution Order:
+1.  **Local**: `.jarvis/config.toml` (Project-specific)
+2.  **Workspace**: `<root>/.jarvis/workspace.toml` (Multi-project groups)
+3.  **Global**: `~/.config/jarvis/config.toml` (User defaults)
+
+See the **[Configuration Guide](CONFIGURATION.md)** for detailed deep-merge rules and examples.
+
+---
+
+## 6. Summary Table (Traditional vs. NixOS)
 
 | Feature | NixOS Method | Traditional Linux Method |
 |---------|--------------|--------------------------|
@@ -122,6 +151,26 @@ chmod -R 700 /THE_VAULT/jarvis
 | **Services** | `systemd.user.services` | Manual `.service` files in `~/.config` |
 | **Sysctl** | `boot.kernel.sysctl` | Files in `/etc/sysctl.d/` |
 | **Updates** | `nixos-rebuild` | `git pull` + `pip install -r requirements.txt` |
+
+| **Updates** | `nixos-rebuild` | `git pull` + `pip install -r requirements.txt` |
+
+---
+
+## 7. Logging & Snapshot Persistence
+
+Jarvis maintains a structured record of its internal states and AI reasonings.
+
+### System Logs: `logs/system.jsonl`
+Every CLI command, IDE request, and background service heartbeat is appended to this file.
+- **Format**: JSON Lines (JSONL) for simplified ingestion.
+- **Retention**: Currently append-only. Manual rotation is recommended for high-volume environments.
+- **Inspection**: Use `jarvis log show` for a human-readable stream.
+
+### Vault Snapshots: `vault/snapshots/`
+Compressed backups of your entire Jarvis environment.
+- **Engine**: Gzip-compressed tarballs.
+- **Exclusion**: The `snapshots/` folder itself is automatically excluded to prevent infinite recursion.
+- **Workflow**: `jarvis snapshot create "weekly-backup"`
 
 ---
 *Note: Always verify your specific distro's documentation before applying kernel-level changes.*

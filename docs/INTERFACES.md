@@ -21,6 +21,11 @@ For explicit control, use standard subcommands:
 - `jarvis start / stop`: Manage background daemons.
 - `jarvis pending`: View and approve capability requests.
 - `jarvis associate [cat]`: Link the current directory to a knowledge category.
+- `jarvis log show [--lines N]`: Display recent structured system logs.
+- `jarvis snapshot [list|create|restore]`: Manage point-in-time vault backups.
+
+> [!TIP]
+> **Cascading Configuration**: Jarvis CLI automatically resolves settings from global, workspace, and local `.jarvis/config.toml` files. Use `jarvis status` to see the currently active configuration.
 
 ---
 
@@ -35,6 +40,9 @@ Jarvis lives inside Neovim as a custom LSP server, providing deep context-aware 
 - `<leader>jm`: **Manage Models** — switch AI backends dynamically.
 - `<leader>jf`: **Fix** the error at the cursor (LSP diagnostic integration).
 - `<leader>jc`: **Chat** with Jarvis (streaming RAG chat).
+- `<leader>jt`: **MCP Tools** — Browse and execute external tools via the Telescope picker.
+
+### Debugging Keybindings
 - `<F5>`: **DAP Continue** — start or continue debugging.
 - `<F10>`/`<F11>`: **Step Over/Into** — debug navigation.
 - `b`: **Toggle Breakpoint** — set/unset debug breakpoints.
@@ -94,8 +102,9 @@ On NixOS, Jarvis runs as a set of user-level systemd units. You can monitor them
 systemctl --user status jarvis-health-monitor
 systemctl --user status jarvis-coding-agent
 systemctl --user status jarvis-git-monitor
+systemctl --user status jarvis-mcp-server
 ```
 
 ---
 
-*For detailed technical flags, see the [Man Page](MANPAGE.md).*
+*For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide and the [Man Page](jarvis.1).*

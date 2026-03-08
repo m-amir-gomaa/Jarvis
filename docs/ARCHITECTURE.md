@@ -18,12 +18,18 @@ graph TD
     User --> TUI
     CLI --> Vault
     CLI --> Ollama
+    CLI --> MCP_Client[MCP Client]
     
     Neovim[Neovim IDE] --> LSP
     Neovim --> HTTP
+    Neovim --> MCP_Lua[MCP Telescope]
     LSP --> Ollama
     LSP --> Vault
     HTTP --> Vault
+    
+    MCP_Client --> External_MCP[External MCP Servers]
+    Internal_MCP[Jarvis MCP Server] --> Vault
+    Internal_MCP --> Ollama
     
     TUI --> Vault
 ```
@@ -55,6 +61,22 @@ A custom Language Server Protocol (LSP) and FastAPI sidecar.
 - **SSE Streaming**: Uses Server-Sent Events for real-time token streaming in chat, avoiding UI blocking and providing immediate feedback.
 - **Tree-sitter Context**: Automatically extracts the enclosing function or class scope using Tree-sitter to provide rich contextual information to the LLM.
 - **Long-Polling**: Enables the IDE to receive security approval notifications asynchronously without blocking the UI thread.
+
+### E. MCP Integration Subsystem (`lib/mcp_client.py`, `services/mcp_server.py`)
+Enables Jarvis to act as both an MCP Host and an MCP Server.
+- **MCP Client**: Dynamically connects to external MCP servers (via stdio) to expand Jarvis's toolset.
+- **MCP Server**: A FastMCP-based server that exposes Jarvis's RAG and Web Search capabilities to other MCP-compatible clients.
+- **Neovim Integration**: `lua/jarvis/mcp.lua` provides a Telescope-based UI for discovering and executing MCP tools.
+
+### F. Configuration Management (`lib/config_resolver.py`)
+The hierarchical configuration layer that provides unified settings across all Jarvis components.
+- **Cascading Resolution**: Merges Global, Workspace, and Local configurations with a deep-merge strategy.
+- **Dynamic Overrides**: Enables per-project model aliases and MCP configurations without modifying global state.
+
+### G. System Logging & Snapshots (`lib/logger.py`, `lib/snapshot_manager.py`)
+Provides observability and data durability for the Jarvis environment.
+- **Structured Logging**: Every Jarvis component (CLI, LSP, Services) logs to a central `system.jsonl` file using a standardized JSON schema. This enables easy parsing by the terminal dashboard and external monitoring tools.
+- **Vault Snapshots**: The `SnapshotManager` allows for point-in-time backups of the entire Vault. Snapshots are stored as compressed Gzip tarballs, excluding the `snapshots/` directory itself to prevent recursion.
 
 ## 3. Data Flow & Isolation
 

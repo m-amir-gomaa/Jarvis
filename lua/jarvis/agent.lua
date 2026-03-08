@@ -6,6 +6,9 @@
 local M = {}
 local curl = require("plenary.curl")
 local server = "http://127.0.0.1:7002"
+-- NOTE: The agent relies on the server-side ConfigResolver for hierarchical 
+-- configuration (Global, Workspace, Local). Settings like model aliases 
+-- and MCP endpoints are resolved based on the current project directory.
 
 --- Helper: show spinner while waiting, update buffer when done
 --- @param label string The message to display in the notification
@@ -329,6 +332,8 @@ function M.explain()
 end
 
 -- /index — index the current project
+-- The server uses ConfigResolver to find the project root and resolve 
+-- any custom indexing rules defined in .jarvis/config.toml
 function M.index()
   local root = vim.fn.getcwd()
   vim.notify("Jarvis: indexing " .. root .. " (async)...", vim.log.levels.INFO)
@@ -355,6 +360,7 @@ end
 
 --- Manage model aliases dynamically
 --- Fetches available models from the server and allows the user to switch aliases.
+--- Any changes made here are session-based unless persisted to a .jarvis/config.toml file.
 function M.switch_model()
   curl.get(server .. "/models/list", {
     callback = function(res)

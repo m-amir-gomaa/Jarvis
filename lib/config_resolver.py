@@ -17,13 +17,25 @@ def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
 
 class ConfigResolver:
     """
-    Resolves Jarvis configuration files, including per-project MCP configurations.
+    Resolves Jarvis configuration files hierarchically, supporting global, workspace, and local settings.
+    
+    This resolver implements a cascading strategy where local configurations override workspace 
+    configurations, which in turn override global configurations. It also handles project-specific 
+    MCP (Model Context Protocol) settings and model aliases.
     """
     
     @staticmethod
     def find_project_root(start_path: Optional[os.PathLike] = None) -> Path:
-        """Find the root of the project (where .git or .jarvis is located)."""
-        current = Path(start_path or os.getcwd()).resolve()
+        """
+        Finds the root of the project by searching upwards for a .git or .jarvis directory.
+        
+        Args:
+            start_path: The directory to start the search from. Defaults to the current working directory.
+            
+        Returns:
+            The Path to the project root directory, or the starting directory if no root is found.
+        """
+        current = Path(str(start_path or os.getcwd())).resolve()
         while current != current.parent:
             if (current / ".jarvis").is_dir() or (current / ".git").is_dir():
                 return current
@@ -34,8 +46,13 @@ class ConfigResolver:
     @staticmethod
     def get_mcp_config(start_path: Optional[os.PathLike] = None) -> Dict[str, Any]:
         """
-        Parses .jarvis/mcp.toml from the project root.
-        Returns a dictionary of the configuration, or an empty dict if not found.
+        Parses the project-specific MCP configuration from .jarvis/mcp.toml.
+        
+        Args:
+            start_path: The directory to start searching for the project root from.
+            
+        Returns:
+            A dictionary containing the MCP configuration, or an empty dict if the file is missing or invalid.
         """
         project_root = ConfigResolver.find_project_root(start_path)
         mcp_toml_path = project_root / ".jarvis" / "mcp.toml"
@@ -52,7 +69,15 @@ class ConfigResolver:
 
     @staticmethod
     def get_workspace_root(start_path: Optional[os.PathLike] = None) -> Optional[Path]:
-        """Find the nearest directory containing .jarvis/workspace.toml"""
+        """
+        Finds the nearest directory containing a .jarvis/workspace.toml file.
+        
+        Args:
+            start_path: The directory to start the search from.
+            
+        Returns:
+            The Path to the workspace root, or None if no workspace.toml is found in the parent hierarchy.
+        """
         current = Path(start_path or os.getcwd()).resolve()
         while current != current.parent:
             if (current / ".jarvis" / "workspace.toml").is_file():
@@ -63,12 +88,20 @@ class ConfigResolver:
     @staticmethod
     def get_config(start_path: Optional[os.PathLike] = None) -> Dict[str, Any]:
         """
-        Resolves configuration hierarchically:
-        1. Global config (~/.config/jarvis/config.toml)
-        2. Workspace config (<workspace_root>/.jarvis/workspace.toml)
-        3. Local config (<cwd>/.jarvis/config.toml)
+        Resolves the final configuration by merging settings from multiple levels.
+        
+        Resolution Priority (Highest to Lowest):
+        1. Local: <cwd>/.jarvis/config.toml
+        2. Workspace: <workspace_root>/.jarvis/workspace.toml
+        3. Global: ~/.config/jarvis/config.toml
+        
+        Args:
+            start_path: The directory to resolve the configuration for.
+            
+        Returns:
+            A merged dictionary of all configuration settings.
         """
-        cwd = Path(start_path or os.getcwd()).resolve()
+        cwd = Path(str(start_path or os.getcwd())).resolve()
         config: Dict[str, Any] = {}
 
         # 1. Global config

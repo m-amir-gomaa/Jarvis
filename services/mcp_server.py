@@ -1,3 +1,10 @@
+"""
+Jarvis MCP Server
+
+This module implements a Model Context Protocol (MCP) server using FastMCP.
+It exposes Jarvis's internal capabilities (like RAG search and web search) 
+as tools that can be consumed by any MCP-compatible client.
+"""
 import sys
 import asyncio
 from mcp.server.fastmcp import FastMCP
@@ -9,7 +16,12 @@ mcp = FastMCP("Jarvis MCP Server")
 
 @mcp.tool()
 async def search_rag(query: str) -> str:
-    """Search Jarvis's internal knowledge base (RAG) using the vector store."""
+    """
+    Search Jarvis's internal knowledge base (RAG) using the vector store.
+
+    :param query: The semantic search query string.
+    :return: A formatted string containing the most relevant knowledge matches.
+    """
     km = KnowledgeManager()
     results = await km.search(query_text=query)
     if not results:
@@ -27,7 +39,12 @@ async def search_rag(query: str) -> str:
 
 @mcp.tool()
 async def web_search(query: str) -> str:
-    """Search the web for information using Jarvis tools."""
+    """
+    Search the web for information using Jarvis tools.
+
+    :param query: The search query to look up on the web.
+    :return: The search results or an error message.
+    """
     result = execute("web_search", {"query": query})
     if result.success:
         return result.output

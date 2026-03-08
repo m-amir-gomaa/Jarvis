@@ -1,3 +1,5 @@
+--- Telescope picker for selecting and executing Jarvis MCP tools.
+-- @module jarvis.mcp
 local pickers = require("telescope.pickers")
 local finders = require("telescope.finders")
 local conf = require("telescope.config").values
@@ -6,6 +8,8 @@ local action_state = require("telescope.actions.state")
 
 local M = {}
 
+--- Opens a Telescope picker to select an MCP tool from the Jarvis MCP Server.
+-- @param opts table: Options for the Telescope picker.
 M.select_mcp_tool = function(opts)
   opts = opts or {}
   

@@ -57,6 +57,9 @@ Resume inference by sending SIGCONT to paused Ollama processes.
 .B status [\-\-short]
 Display health of all background services, Ollama load, budget, and session authentication.
 .TP
+.B log show [\-\-lines \fIN\fR]
+Display recent structured system logs from \fIsystem.jsonl\fR. Standardized JSON format enables high-fidelity observability of AI reasonings and MCP tool calls.
+.TP
 .B uptime [\fIALIAS\fR]
 Show how long each service has been running. Optionally filter to one service by alias.
 .TP
@@ -182,6 +185,9 @@ Create a backup of the Jarvis codebase to the Vault.
 .TP
 .B archive
 Create a compressed archive of the codebase for long-term storage.
+.TP
+.B snapshot [list | create [\fILABEL\fR] | restore \fINAME\fR]
+Manage point-in-time backups of the Vault. Snapshots are stored as Gzip-compressed tarballs in \fI/THE_VAULT/jarvis/snapshots/\fR.
 .TP
 .B thumbs-up / thumbs-down
 Rate the last AI response. Rating is appended to \fIlogs/feedback.jsonl\fR.
