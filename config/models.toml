@@ -7,6 +7,9 @@ coder = "qwen2.5-coder:7b-instruct"
 reason = "qwen3:14b-q4_K_M"
 complete = "qwen3:1.7b"
 embed = "nomic-embed-text:latest"
+# Draft model for FIM completions — optimised for sub-200ms latency.
+# Use smallest quantised coder model available locally.
+draft = "qwen2.5-coder:0.5b-instruct"
 
 [model_digests]
 # Run: ollama show <model> --modelfile | grep FROM
@@ -23,3 +26,13 @@ fast     = "local/qwen3:1.7b"
 coder    = "local/qwen2.5-coder:7b-instruct"
 complete = "local/qwen3:1.7b"
 embed    = "local/nomic-embed-text:latest"
+
+[routing]
+default_local    = "qwen3:14b-q4_K_M"
+default_external = "anthropic/claude-haiku"
+# Set confidential = true to hard-block ALL cloud providers for this install.
+# This mirrors the per-workspace .jarvis/config.toml confidential flag but
+# applies globally to every request. INVARIANT-PRIVACY-1 will be asserted
+# unconditionally even for Privacy.PUBLIC tasks.
+confidential = false
+

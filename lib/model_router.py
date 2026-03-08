@@ -110,3 +110,48 @@ def route(
         provider="openrouter",
         reasoning=f"Privacy=PUBLIC, model:external granted, provider enabled",
     )
+
+
+#: Target latency for draft/FIM completions in milliseconds (sub-200ms goal).
+DRAFT_LATENCY_TARGET_MS: int = 200
+
+#: Default draft model — smallest local model optimised for FIM/completion speed.
+#: Override via config/models.toml [models] draft = "..."
+_DEFAULT_DRAFT_MODEL = "qwen2.5-coder:0.5b-instruct"
+
+
+def route_fim_draft(
+    *,
+    privacy: Privacy = Privacy.PRIVATE,
+    ctx=None,
+) -> RouteDecision:
+    """Route a Fill-In-the-Middle (FIM) completion to the fastest local model.
+
+    This is the latency-optimised path for inline code completions.  It always
+    returns a local (Ollama) decision — draft completions must never hit a cloud
+    backend both for privacy and for latency reasons.
+
+    The draft model is resolved in priority order:
+      1. ``config/models.toml`` ``[models] draft``
+      2. ``_DEFAULT_DRAFT_MODEL`` (``qwen2.5-coder:0.5b-instruct``)
+
+    Returns:
+        RouteDecision with ``use_local=True`` and the smallest available model.
+    """
+    cfg = _load_models_config()
+    draft_model = cfg.get("models", {}).get("draft", _DEFAULT_DRAFT_MODEL)
+
+    log.debug(
+        f"FIM-draft route → local/{draft_model} "
+        f"(target <{DRAFT_LATENCY_TARGET_MS}ms, privacy={privacy.value})"
+    )
+    return RouteDecision(
+        use_local=True,
+        model_alias=draft_model,
+        provider="ollama",
+        reasoning=(
+            f"FIM draft mode — always local for latency (<{DRAFT_LATENCY_TARGET_MS}ms) "
+            f"and privacy (INVARIANT-PRIVACY-1)"
+        ),
+    )
+
