@@ -41,6 +41,9 @@ Jarvis lives inside Neovim as a custom LSP server, providing deep context-aware 
 - `<leader>jf`: **Fix** the error at the cursor (LSP diagnostic integration).
 - `<leader>jc`: **Chat** with Jarvis (streaming RAG chat).
 - `<leader>jt`: **MCP Tools** — Browse and execute external tools via the Telescope picker.
+- `:JarvisPin`: **Pin Context** — add selection to persistent agent context.
+- `:JarvisTimeline`: **Show Timeline** — view history for the current file.
+- `:JarvisInlineRefactor`: **Inline Streaming Edit** — refactor code in-place.
 
 ### Debugging Keybindings
 - `<F5>`: **DAP Continue** — start or continue debugging.

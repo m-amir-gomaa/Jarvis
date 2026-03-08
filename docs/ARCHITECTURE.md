@@ -78,6 +78,11 @@ Provides observability and data durability for the Jarvis environment.
 - **Structured Logging**: Every Jarvis component (CLI, LSP, Services) logs to a central `system.jsonl` file using a standardized JSON schema. This enables easy parsing by the terminal dashboard and external monitoring tools.
 - **Vault Snapshots**: The `SnapshotManager` allows for point-in-time backups of the entire Vault. Snapshots are stored as compressed Gzip tarballs, excluding the `snapshots/` directory itself to prevent recursion.
 
+### H. Speculative Execution & Resilience (`pipelines/`, `services/self_healer.py`)
+Jarvis V2 implements a "speculative" workflow for high-risk operations. See **[Speculative Execution](SPECULATIVE_EXECUTION.md)** for details.
+- **Sandbox Pattern**: The `speculative_refactor` pipeline wraps code modifications in a pre-emptive snapshot. If tests fail after the change, the `SnapshotManager` triggers an automatic rollback.
+- **Autonomous Recovery**: The `SelfHealer` service monitors for crash loops. Upon detecting persistent failures (3+ restarts/hour), it interacts with the `SnapshotManager` to revert the system to the latest known-good state, preventing "bricked" deployments during autonomous edits.
+
 ## 3. Data Flow & Isolation
 
 ### Principle of Least Privilege
