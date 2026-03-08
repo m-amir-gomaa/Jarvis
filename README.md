@@ -38,3 +38,5 @@ The **Agentic Intel** upgrade introduces three core pillars of intelligence:
 
 ---
 *Powered by the m-amir-gomaa/Jarvis V3 stack.*
+## ⚖️ License
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
