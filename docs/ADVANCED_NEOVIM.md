@@ -135,4 +135,36 @@ Jarvis V3 supports hierarchical configuration, allowing you to define different 
 
 ---
 
+## 📌 11. Pinned Context Buffers (`:JarvisPin`)
+
+Jarvis allows you to "pin" specific code snippets or entire files to the global context. These pins are automatically injected into every agent prompt, providing persistent background knowledge without needing to repeat yourself.
+
+### Commands:
+- `:JarvisPin`: Pins the current visual selection or the line under the cursor.
+- `:JarvisPins`: Opens a floating window to view and manage all active pins.
+- `:JarvisUnpin`: Clears all active context pins.
+
+---
+
+## ⚡ 12. Streaming Inline Refactor (`:JarvisInlineRefactor`)
+
+For surgical code transformations, `:JarvisInlineRefactor` allows you to modify code in-place using real-time SSE streaming. Unlike standard refactors, you can see the agent's "thought process" as tokens are delivered directly into your buffer.
+
+### Workflow:
+1. Select a block of code in Visual Mode.
+2. Run `:JarvisInlineRefactor`.
+3. Provide a natural language intent (e.g., "Refactor to use async/await").
+4. Jarvis will replace the selection with the new code as it's generated.
+
+---
+
+## 🕰️ 13. Diagnostic Timeline (`:JarvisTimeline`)
+
+The Diagnostic Timeline provides a chronological view of all Jarvis interactions and diagnostic events related to the current file. It parses `logs/system.jsonl` to help you understand the history of fixes and refactors.
+
+### Command:
+- `:JarvisTimeline`: Opens a floating window with the historical log of actions for the active buffer.
+
+---
+
 *For the full list of keybindings, see the [Interaction Interfaces](INTERFACES.md) guide and the [Man Page](jarvis.1).*
