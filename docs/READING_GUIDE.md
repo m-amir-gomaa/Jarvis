@@ -33,6 +33,7 @@ Read the **[Developer Guide](DEVELOPER_GUIDE.md)** first.
 If you're debugging or refactoring a specific subsystem, use these:
 
 - **Security & Permissions**: **[Architecture Guide](ARCHITECTURE.md)** (Sections 2A & 3).
+- **Deep Dive**: **[Technical Internals](DEEP_DIVE.md)** (Low-level audit).
 - **RAG & Search**: **[Knowledge Base & RAG](KNOWLEDGE_BASE.md)**.
 - **Model Selection**: **[Model Overview](MODELS_OVERVIEW.md)**.
 - **Porting**: **[Porting & Decoupling](PORTING_GUIDE.md)** if using Windows or non-Nix Linux.
