@@ -27,12 +27,17 @@ This document provides a technical audit of the core Jarvis implementation files
  Standardized 600s timeout for stability.
 - `adapters/anthropic.py`, `adapters/openai.py`, etc.: Adapters for external cloud providers.
 
-## 4. Services & Entrypoints
+## 4. MCP Subsystem (Model Context Protocol)
+- `lib/mcp_client.py`: Client for consuming external MCP tools.
+- `services/mcp_server.py`: FastMCP server exposing Jarvis capabilities.
+- `lua/jarvis/mcp.lua`: Telescope picker for interacting with MCP tools in Neovim.
+
+## 5. Services & Entrypoints
 
 - `services/coding_agent.py`: The core coding assistant service. Provides endpoints for FIM completion, RAG chat, SSE streaming, error analysis, and model prefetching.
 - `bin/jarvis-monitor`: (Compiled Rust) The terminal dashboard.
 
-## 5. Neovim Integration (`lua/jarvis/`)
+## 6. Neovim Integration (`lua/jarvis/`)
 
 - `agent.lua`: Core interface for Jarvis commands (`/fix`, `/explain`, `/index`, etc.). Implements floating window UX and Tree-sitter context extraction.
 - `chat.lua`: Streaming chat implementation using Server-Sent Events (SSE).
@@ -41,6 +46,7 @@ This document provides a technical audit of the core Jarvis implementation files
 
 ## 6. Configuration & Data
 
+- [lib/config_resolver.py](file:///home/qwerty/NixOSenv/Jarvis/lib/config_resolver.py): Hierarchical configuration resolution (Global, Workspace, Local). Merges TOML configs and detects project context.
 - `config/models.toml`: Defines model aliases and fallback behaviors.
 - `config/security.toml`: Configures trust floors and auto-grant policies.
 - `/THE_VAULT/jarvis/databases/`: Persistent SQLite storage for events, knowledge, and security audits.

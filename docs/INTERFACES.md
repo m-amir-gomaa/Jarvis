@@ -22,6 +22,9 @@ For explicit control, use standard subcommands:
 - `jarvis pending`: View and approve capability requests.
 - `jarvis associate [cat]`: Link the current directory to a knowledge category.
 
+> [!TIP]
+> **Cascading Configuration**: Jarvis CLI automatically resolves settings from global, workspace, and local `.jarvis/config.toml` files. Use `jarvis status` to see the currently active configuration.
+
 ---
 
 ## ⌨️ 2. The Neovim IDE Integration

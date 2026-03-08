@@ -114,7 +114,20 @@ chmod -R 700 /THE_VAULT/jarvis
 
 ---
 
-## 5. Summary Table (Traditional vs. NixOS)
+## 5. Configuration Hierarchy
+
+Jarvis allows you to fine-tune its behavior per project using its cascading configuration system.
+
+### Resolution Order:
+1.  **Local**: `.jarvis/config.toml` (Project-specific)
+2.  **Workspace**: `<root>/.jarvis/workspace.toml` (Multi-project groups)
+3.  **Global**: `~/.config/jarvis/config.toml` (User defaults)
+
+See the **[Configuration Guide](CONFIGURATION.md)** for detailed deep-merge rules and examples.
+
+---
+
+## 6. Summary Table (Traditional vs. NixOS)
 
 | Feature | NixOS Method | Traditional Linux Method |
 |---------|--------------|--------------------------|

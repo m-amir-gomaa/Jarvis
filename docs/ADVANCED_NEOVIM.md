@@ -12,9 +12,10 @@ You can now switch the underlying models for specific tasks without restarting N
 Or run the command: `:JarvisModel`
 
 **Workflow**:
-1.  **Select Alias**: Choose which "role" you want to update (e.g., `coder` for refactors, `chat` for queries, `reason` for deep analysis).
-2.  **Select Model**: Choose from discovered local models (via Ollama) or cloud providers.
 3.  **Instant Update**: Jarvis updates the mapping in real-time. Subsequent actions will use the new model immediately.
+
+> [!NOTE]
+> **Project Overrides**: If a `.jarvis/config.toml` exists in your project or workspace root, it can define default model aliases for that specific context, which will be automatically loaded by the Neovim agent.
 
 ---
 
