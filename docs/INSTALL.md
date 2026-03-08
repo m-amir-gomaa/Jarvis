@@ -112,3 +112,6 @@ If you are on Ubuntu, Fedora, or Arch, use the **Nix Package Manager** to manage
 | `jarvis-context-updater` | Weekly memory consolidation        | Oneshot   |
 
 Run `jarvis start` to launch the recommended suite automatically.
+
+---
+For performance optimizations on traditional (non-NixOS) Linux distributions, see the **[System Tweaks Guide](SYSTEM_TWEAKS.md)**.
