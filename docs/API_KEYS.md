@@ -31,10 +31,47 @@ Jarvis is local-first, but it can leverage external LLMs for enhanced reasoning.
 - **Use Case**: Blazing fast inference speeds.
 - **How to Obtain**:
     1. Visit the [Groq Cloud](https://console.groq.com/).
-    2. Sign up (often provides a free tier for testing).
+    2. Sign up (currently provides a tiered free quota).
     3. Go to **API Keys** and create a key.
 
-## 2. Storing Keys Securely
+### Google Gemini (Gemini 1.5 Pro / Flash)
+- **Use Case**: Large context window (up to 2M tokens) and multimodal tasks.
+- **How to Obtain**:
+    1. Sign in to [Google AI Studio](https://aistudio.google.com/).
+    2. Create a new API Key in the sidebar.
+- **Credit Card**: **NOT REQUIRED** for the free tier.
+
+### OpenRouter (Aggregator)
+- **Use Case**: Unified API to access hundreds of models (Claude, GPT, Llama, etc.).
+- **How to Obtain**:
+    1. Visit [OpenRouter.ai](https://openrouter.ai/).
+    2. Sign up and browse for "free" models (many are 0 cost).
+- **Credit Card**: **NOT REQUIRED** to access free models or use a pre-paid balance.
+
+### Cerebras (Llama 3.1 70B/8B)
+- **Use Case**: Extreme low-latency (Llama 3.1 70B at ~450 tokens/sec).
+- **How to Obtain**:
+    1. Visit [Cerebras Cloud](https://cloud.cerebras.ai/).
+    2. Sign up for a free developer account.
+
+---
+
+## 2. Tier Comparison: Free vs. Paid
+
+| Provider | Free Tier (No CC) | Free Trial (With CC) | Quota / Limits |
+|----------|-------------------|----------------------|----------------|
+| **Google** | Yes (AI Studio) | No | Rate limited (e.g. 15 RPM for 1.5 Pro) |
+| **Groq** | Yes | No | Requests Per Minute (RPM) & Tokens Per Day (TPD) |
+| **OpenRouter** | Yes (Selected models) | No | Depends on the specific model used |
+| **Cerebras** | Yes | No | Generous beta limits |
+| **Anthropic** | No | Optional (Free credits) | Requires per-account verification |
+| **OpenAI** | No | Optional (Free credits) | Depends on account tier |
+| **DeepSeek** | No | No | Pay-as-you-go only (extremely cheap) |
+
+> [!TIP]
+> **Privacy Note**: Most free tiers (especially Google AI Studio's free tier) reserve the right to use your data for training. For sensitive code, stick to **Jarvis Local (Ollama)** or paid tiers with explicit Opt-Out.
+
+## 3. Storing Keys Securely
 
 Jarvis does **not** store keys in environment variables or plain text config files. Instead, it uses the `SecretsManager` to store them in the Vault.
 
@@ -58,7 +95,7 @@ Keys are AES-256 encrypted and stored at:
 
 Only the Jarvis process (and your user) should have access to the Vault.
 
-## 3. Configuring Usage
+## 4. Configuring Usage
 
 Once the keys are set, update your `config/models.toml` to use external providers:
 
