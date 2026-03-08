@@ -34,6 +34,7 @@ _jarvis() {
                 'status:Show health of all services and Ollama'
                 'uptime:Show how long each service has been running'
                 'dashboard:Launch the Rust TUI live monitor'
+                'indexer:Control the background knowledge indexer service'
 
                 # Service management
                 'service:Control individual service units (enable/disable/config)'
@@ -94,6 +95,7 @@ _jarvis() {
                         'voice:Voice gateway'
                         'daily:Daily digest timer'
                         'context:Context updater timer'
+                        'indexer:Background knowledge indexer'
                     )
                     _describe -t aliases 'service alias' svc_aliases && ret=0
                     ;;
@@ -109,7 +111,7 @@ _jarvis() {
                         _describe -t actions 'service actions' svc_actions && ret=0
                     elif (( $#line >= 2 )) && [[ $line[2] == (enable|disable|config) ]]; then
                         local -a svc_names
-                        svc_names=(health git coding healer lsp voice daily context)
+                        svc_names=(health git coding healer lsp voice daily context indexer)
                         _describe -t services 'service' svc_names && ret=0
                     elif (( $#line >= 3 )) && [[ $line[2] == "config" ]]; then
                         local -a props

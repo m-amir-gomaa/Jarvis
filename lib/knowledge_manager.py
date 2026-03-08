@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import asyncio
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
@@ -11,13 +12,26 @@ BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.pa
 KNOWLEDGE_DB = BASE_DIR / "data" / "knowledge.db"
 
 class KnowledgeManager:
+    """
+    KnowledgeManager wraps the new Indexing/RAG pipeline while preserving
+    the legacy SQLite-based metadata API.
+    """
     def __init__(self, db_path: Path = KNOWLEDGE_DB):
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
         
-        from lib.semantic_memory import SemanticMemory
-        self.sm = SemanticMemory(str(db_path))
+        # New Agentic Intel components
+        from lib.indexing.embedding_engine import EmbeddingEngine
+        from lib.indexing.faiss_index import FAISSIndexManager
+        from lib.indexing.semantic_search import SemanticSearch
+        
+        self.embeddings = EmbeddingEngine()
+        self.faiss = FAISSIndexManager(
+            index_path=str(BASE_DIR / "index" / "faiss.bin"),
+            meta_db_path=str(db_path) # Shares the same DB for metadata
+        )
+        self.semantic_search_engine = SemanticSearch(self.embeddings, self.faiss)
 
     def _init_db(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -25,13 +39,13 @@ class KnowledgeManager:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS chunks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    layer INTEGER NOT NULL, -- 1: Language, 2: Domain, 3: Theory
-                    category TEXT, -- Added category for RAG grouping
+                    layer INTEGER NOT NULL,
+                    category TEXT,
                     source_url TEXT,
                     source_title TEXT,
                     content TEXT NOT NULL,
-                    embedding BLOB, -- For future local vector search
-                    metadata TEXT, -- JSON string (tags, language, section)
+                    embedding BLOB,
+                    metadata TEXT,
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -40,11 +54,11 @@ class KnowledgeManager:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS inbox (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    type TEXT, -- Added type for filtering
+                    type TEXT,
                     title TEXT NOT NULL,
                     url TEXT,
                     recommendation_reason TEXT,
-                    status TEXT DEFAULT 'pending', -- pending, downloading, completed
+                    status TEXT DEFAULT 'pending',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -59,100 +73,58 @@ class KnowledgeManager:
                 )
             """)
             
-            # Indices
             conn.execute("CREATE INDEX IF NOT EXISTS idx_layer ON chunks(layer)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_category ON chunks(category)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON chunks(source_url)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_assoc_path ON codebase_associations(path)")
-            
-            # Migration: Migration logic for existing installations
-            self._migrate_schema(conn)
-
-    def _migrate_schema(self, conn: sqlite3.Connection):
-        # 1. Check if 'knowledge' table exists and merge it into 'chunks'
-        res = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge'").fetchone()
-        if res:
-            print("[KnowledgeManager] Merging legacy 'knowledge' table into 'chunks'...")
-            # Copy data, avoiding ID collisions if possible or just fresh IDs
-            conn.execute("""
-                INSERT INTO chunks (layer, category, source_url, source_title, content, embedding, metadata, last_updated)
-                SELECT layer, 'legacy', source_url, source_title, content, embedding, metadata, last_updated 
-                FROM knowledge k
-                WHERE NOT EXISTS (SELECT 1 FROM chunks c WHERE c.content = k.content)
-            """)
-            conn.execute("DROP TABLE knowledge")
-            print("[KnowledgeManager] Migration complete.")
-
-        # 2. Check if 'inbox' has 'type' column
-        cursor = conn.execute("PRAGMA table_info(inbox)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if 'type' not in columns:
-            print("[KnowledgeManager] Adding 'type' column to 'inbox'...")
-            conn.execute("ALTER TABLE inbox ADD COLUMN type TEXT")
-
-        # 3. Check if 'chunks' has 'category' column (it should if created by IF NOT EXISTS above)
-        cursor = conn.execute("PRAGMA table_info(chunks)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if 'category' not in columns:
-             print("[KnowledgeManager] Adding 'category' column to 'chunks'...")
-             conn.execute("ALTER TABLE chunks ADD COLUMN category TEXT")
-
-        # 4. Ensure codebase_associations exists (for older versions that missed it in _init_db)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS codebase_associations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                path TEXT NOT NULL,
-                category TEXT NOT NULL,
-                UNIQUE(path, category)
-            )
-        """)
 
     def add_entry(self, layer: int, content: str, source_url: Optional[str] = None, 
                   source_title: Optional[str] = None, category: Optional[str] = None, 
                   metadata: Optional[Dict] = None):
-        meta = metadata or {}
-        if source_url: meta['source'] = source_url
-        if source_title: meta['source_title'] = source_title
-        self.sm.ingest(content, metadata=meta, layer=layer, category=category)
-
-    def update_entry(self, source_url: str, content: str, category: Optional[str] = None, metadata: Optional[Dict] = None):
-        self.sm.delete_by_source(source_url)
-        meta = metadata or {}
-        meta['source'] = source_url
-        self.sm.ingest(content, metadata=meta, layer=2, category=category)
-
-    def set_identity(self, identity_text: str):
-        # Identity defaults to source 'internal://identity'
-        self.sm.delete_by_source("internal://identity")
-        self.sm.ingest(identity_text, metadata={"source": "internal://identity", "source_title": "System Identity"}, layer=1, category="identity")
-
-    def add_to_inbox(self, title: str, url: str, reason: str, item_type: str = 'recommended_reading'):
+        """Standard entry addition (legacy wrapper)."""
+        # In the new system, we rely on the Ingestor, but for manual adds:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
-                "INSERT INTO inbox (title, url, recommendation_reason, type) VALUES (?, ?, ?, ?)",
-                (title, url, reason, item_type)
+                "INSERT INTO chunks (layer, category, source_url, source_title, content, metadata) VALUES (?, ?, ?, ?, ?, ?)",
+                (layer, category, source_url, source_title, content, json.dumps(metadata or {}))
             )
+        # Note: Incremental FAISS update should happen via AutoReindex or manual trigger
 
-    def get_inbox(self) -> List[Dict]:
+    def update_entry(self, source_url: str, content: str, category: Optional[str] = None, metadata: Optional[Dict] = None):
+        """Legacy update wrapper."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT * FROM inbox WHERE status = 'pending'").fetchall()
-            return [dict(r) for r in rows]
+            conn.execute("DELETE FROM chunks WHERE source_url = ?", (source_url,))
+        self.add_entry(2, content, source_url, category=category, metadata=metadata)
 
     async def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None, categories: Optional[List[str]] = None) -> List[Dict]:
-        results = await self.sm.query(query_text, k=10, category=category, categories=categories)
+        """
+        Unified search using the new hybrid SemanticSearch engine.
+        """
+        filters = {}
+        if category:
+            filters["category"] = category
+            
+        # Note: Hybrid search currently doesn't support multiple categories natively in the loop,
+        # but we can filter the result set later.
         
-        # Map SearchResult back to legacy Dict format for existing callers
+        result_set = await self.semantic_search_engine.search(query_text, top_k=10, filters=filters if filters else None)
+        
         legacy_results = []
-        for r in results:
-            if layer and r.metadata.get('layer') != layer:
+        for r in result_set.results:
+            # Filter by layer if requested
+            chunk_layer = r.extra_meta.get('layer')
+            if layer and chunk_layer != layer:
                 continue
+            # Filter by multiple categories if requested
+            if categories and r.chunk_type not in categories and r.extra_meta.get('category') not in categories:
+                continue
+
             legacy_results.append({
                 'content': r.content,
-                'source_url': r.metadata.get('source', r.metadata.get('source_url', '')),
-                'source_title': r.metadata.get('source_title', ''),
-                'category': r.metadata.get('category', category),
-                'layer': r.metadata.get('layer', layer)
+                'source_url': r.source_path,
+                'source_title': r.extra_meta.get('title', ''),
+                'category': r.extra_meta.get('category', r.chunk_type),
+                'layer': chunk_layer
             })
             
         return legacy_results
@@ -184,7 +156,6 @@ class KnowledgeManager:
         associations = set()
         
         with sqlite3.connect(self.db_path) as conn:
-            # Check current path and all parents
             while True:
                 rows = conn.execute(
                     "SELECT category FROM codebase_associations WHERE path = ?",

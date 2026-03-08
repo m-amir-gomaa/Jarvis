@@ -40,7 +40,7 @@ Emit condensed one-line output for commands that support it (e.g., \fBstatus\fR)
 .B start [\fIALIAS\fR]
 Start background services. With no argument, starts all services enabled in \fIuser_prefs.toml\fR, falling back to health+git. Pass a service alias to start a specific one.
 .br
-Aliases: \fBhealth\fR, \fBgit\fR, \fBcoding\fR, \fBhealer\fR, \fBlsp\fR, \fBvoice\fR, \fBdaily\fR, \fBcontext\fR
+Aliases: \fBhealth\fR, \fBgit\fR, \fBcoding\fR, \fBhealer\fR, \fBlsp\fR, \fBvoice\fR, \fBdaily\fR, \fBcontext\fR, \fBindexer\fR
 .TP
 .B stop [\fIALIAS\fR]
 Stop background services (all or a specific alias).
@@ -62,6 +62,9 @@ Show how long each service has been running. Optionally filter to one service by
 .TP
 .B dashboard
 Launch the Rust TUI live monitor (\fBjarvis-monitor\fR binary in \fIbin/\fR).
+.TP
+.B indexer
+Control the background knowledge indexer service (watches filesystem for changes and updates FAISS index).
 .SH SERVICE MANAGEMENT COMMANDS
 .TP
 .B service enable \fIALIAS\fR
@@ -89,10 +92,10 @@ Equivalent Makefile targets: \fCmake install-services\fR, \fCmake install-servic
 List all registered local (Ollama) and cloud models with their current routing assignments.
 .TP
 .B models active
-Show the currently effective model for each role (default, coding, research, fast). Session overrides are highlighted.
+Show the currently effective model for each role (default, coding, research, fast, thinking). Session overrides are highlighted.
 .TP
 .B models select [\-\-session] \fIROLE\fR \fIMODEL\fR
-Set the active model for a role. Roles: \fBdefault\fR, \fBcoding\fR, \fBresearch\fR, \fBfast\fR.
+Set the active model for a role. Roles: \fBdefault\fR, \fBcoding\fR, \fBresearch\fR, \fBfast\fR, \fBthinking\fR.
 Without \fB\-\-session\fR the change is written to \fIuser_prefs.toml\fR (persistent). With \fB\-\-session\fR the override lasts only until the next shell.
 .SH KNOWLEDGE & RAG COMMANDS
 .TP

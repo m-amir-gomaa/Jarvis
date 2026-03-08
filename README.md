@@ -2,6 +2,12 @@
 
 Jarvis is a heavy-duty, local-first AI orchestration layer designed for developers on NixOS. It provides a principled, capability-based security model and an External Reasoning System (ERS) for complex, multi-step tasks.
 
+## 🧠 Agentic Intel (v3.5)
+The **Agentic Intel** upgrade introduces three core pillars of intelligence:
+- **External Reasoning System (ERS)**: Multi-step async chains with dynamic rerouting and LLM-driven self-correction.
+- **Hybrid RAG Pipeline**: FAISS-powered semantic search across a **3-Layer Knowledge Architecture** (Core, Documentation, Theory).
+- **Hybrid Model Router**: Intelligent routing between local (Ollama) and cloud (OpenRouter/Anthropic) models with cost-aware fallback and security gating.
+
 ## 🚀 Quick Links
 - **[Installation](docs/INSTALL.md)**: Setup, models, and vault configuration.
 - **[Usage Guide](docs/USAGE.md)**: Master the CLI, Neovim actions, and Dashboard TUI.
@@ -29,6 +35,7 @@ Jarvis is a heavy-duty, local-first AI orchestration layer designed for develope
 2. **Strict Security**: Capability-based access control (CBAC). Every file read, shell execution, or network call is gated and audited.
 3. **Low-Latency IDE Bridge**: Dedicated LSP server for Neovim with non-blocking async intelligence.
 4. **Persistent Reasoning**: Multi-step ERS chains for tasks like deep research, git summarization, and NixOS verification.
+5. **Knowledge Synergy**: Continuous background indexing (via `jarvis-indexer`) keeps your local RAG engine synchronized with your codebases.
 
 ## 🛠️ Tech Stack
 - **Backend**: Python 3.12 (Asynchronous, Pydantic, Jinja2).

@@ -1,0 +1,18 @@
+# /home/qwerty/NixOSenv/Jarvis/requirements-v2.txt
+# Core Agentic Intel Dependencies
+pydantic>=2.0.0
+aiosqlite
+aiohttp
+hvac
+psutil
+watchdog
+apscheduler
+faiss-cpu
+sentence-transformers
+numpy
+jinja2
+ruff
+mypy
+pytest
+pytest-asyncio
+pytest-mock

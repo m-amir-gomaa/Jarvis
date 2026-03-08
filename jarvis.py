@@ -185,6 +185,7 @@ SERVICES = [
     "jarvis-voice-gateway",
     "jarvis-daily-digest.timer",
     "jarvis-context-updater.timer",
+    "jarvis-indexer",
 ]
 
 SERVICE_MAP = {
@@ -196,6 +197,7 @@ SERVICE_MAP = {
     "voice": "jarvis-voice-gateway",
     "daily": "jarvis-daily-digest.timer",
     "context": "jarvis-context-updater.timer",
+    "indexer": "jarvis-indexer",
 }
 
 INTENT_PROMPT = """You are an intent classifier for a command-line AI assistant.
@@ -1216,6 +1218,7 @@ def cmd_help():
     print("  knowledge        Inspect 3-Layer knowledge base entries")
     print("  training         Check language competency matrix")
     print("  models           List local models and cloud aliases")
+    print("  indexer          Control the background knowledge indexer service")
     print("  keys             Manage and verify API keys")
     print("  toggle voice     Enable or disable the voice gateway")
     print("  forget           Clear short-term working memory")
@@ -1918,6 +1921,7 @@ def main():
                     "set-key": "Securely store an API key for a provider",
                     "keys": "List and verify all configured API keys",
                     "models": "Manage AI model routing (list/active/select)",
+                    "indexer": "Control the background knowledge indexer service",
                     "toggle": "Toggle system preferences (voice, etc.)",
                     "forget": "Remove an item from the knowledge base",
                     "sessions": "List and manage active chat sessions",

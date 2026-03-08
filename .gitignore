@@ -13,3 +13,5 @@ research/
 whisper-cpp-out/
 test_data/chunks/
 models/whisper/*.bin
+full_dump.txt
+dump_part_*.txt
