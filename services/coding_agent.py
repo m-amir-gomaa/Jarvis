@@ -374,14 +374,14 @@ class JarvisHandler(BaseHTTPRequestHandler):
 
         try:
             response = ask(
+                prompt=messages[-1]["content"] if messages else "",
                 task="chat",
                 privacy=Privacy.PRIVATE,
-                messages=messages,
                 system=system,
                 thinking=False,
             )
             emit("coding_agent", "chat", {"latency_ms": int((time.time() - t0) * 1000), "used_rag": top_score >= 0.65})
-            self._send_json({"response": response, "rag_score": top_score})
+            self._send_json({"response": str(response), "rag_score": top_score})
         except OllamaError as e:
             self._send_json({"error": str(e)}, 503)
 
@@ -455,8 +455,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         system = f"You are a senior {language} engineer. Explain this code concisely in plain English. Focus on what it does, not how it looks."
         messages = [{"role": "user", "content": f"```{language}\n{code[:3000]}\n```"}]
         try:
-            response = ask(task="chat", privacy=Privacy.PRIVATE, messages=messages, system=system, thinking=False)
-            self._send_json({"explanation": response})
+            response = ask(prompt=messages[-1]["content"], task="chat", privacy=Privacy.PRIVATE, system=system, thinking=False)
+            self._send_json({"explanation": str(response)})
         except OllamaError as e:
             self._send_json({"error": str(e)}, 503)
 
@@ -478,8 +478,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         system = "You are a senior engineer. Generate a high-quality, semantic commit message following the Conventional Commits spec. Focus on intent. Max 72 chars per line."
         messages = [{"role": "user", "content": f"Summarize this git diff into a commit message:\n\n{diff[:5000]}"}]
         try:
-            response = ask(task="summarize", privacy=Privacy.PRIVATE, messages=messages, system=system, thinking=False)
-            self._send_json({"summary": response})
+            response = ask(prompt=messages[-1]["content"], task="summarize", privacy=Privacy.PRIVATE, system=system, thinking=False)
+            self._send_json({"summary": str(response)})
             emit("coding_agent", "git_summarize")
         except OllamaError as e:
             self._send_json({"error": str(e)}, 503)
@@ -495,8 +495,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
         messages = [{"role": "user", "content": prompt}]
         
         try:
-            response = ask(task="chat", privacy=Privacy.PRIVATE, messages=messages, system=system, thinking=False)
-            self._send_json({"analysis": response})
+            response = ask(prompt=messages[-1]["content"], task="chat", privacy=Privacy.PRIVATE, system=system, thinking=False)
+            self._send_json({"analysis": str(response)})
             emit("coding_agent", "analyze_error")
         except OllamaError as e:
             self._send_json({"error": str(e)}, 503)
