@@ -1,0 +1,17 @@
+[Unit]
+Description=Jarvis Git Monitor (commit summarizer)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=__VENV_PY__ __JARVIS_ROOT__/services/git_monitor.py
+Restart=on-failure
+RestartSec=30s
+Nice=15
+Environment="PYTHONPATH=__JARVIS_ROOT__"
+Environment="JARVIS_ROOT=__JARVIS_ROOT__"
+Environment="VAULT_ROOT=__VAULT_ROOT__"
+WorkingDirectory=__JARVIS_ROOT__
+
+[Install]
+WantedBy=default.target

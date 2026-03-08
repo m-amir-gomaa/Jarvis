@@ -1,0 +1,13 @@
+[Unit]
+Description=Jarvis Daily Digest (run by timer)
+
+[Service]
+Type=oneshot
+ExecStart=__VENV_PY__ __JARVIS_ROOT__/services/daily_digest.py
+Nice=15
+Environment="PYTHONPATH=__JARVIS_ROOT__"
+Environment="JARVIS_ROOT=__JARVIS_ROOT__"
+Environment="VAULT_ROOT=__VAULT_ROOT__"
+Environment="DISPLAY=:0"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/__UID__/bus"
+WorkingDirectory=__JARVIS_ROOT__

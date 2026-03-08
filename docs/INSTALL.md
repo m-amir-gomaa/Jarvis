@@ -4,12 +4,7 @@ Jarvis is a heavy-duty AI orchestrator. This guide covers everything from standa
 
 ## 1. Quick Start (Procedural)
 
-For users who want to get running quickly on any Linux distribution (see **[System Tweaks](SYSTEM_TWEAKS.md)** for non-NixOS performance):
-
-### Prerequisites
-- **RAM**: 16GB min (Ollama is heavy).
-- **Disk**: 1TB+ (Vault storage).
-- **Ollama**: CPU-only optimized if on Intel i7-1165G7.
+For any Linux distribution, Jarvis auto-detects your platform and installs services correctly.
 
 ### Step 1: Clone & Setup
 ```bash
@@ -24,7 +19,21 @@ sudo mkdir -p /THE_VAULT/jarvis/{databases,logs,context,secrets,backups}
 sudo chown -R $USER:users /THE_VAULT/jarvis
 ```
 
----
+### Step 3: Install Systemd Services
+This step is **platform-aware** — it detects NixOS and provides the appropriate workflow automatically:
+```bash
+# Install service files (traditional Linux only)
+make install-services
+
+# OR: Install AND enable auto-start on login
+make install-services-enable
+
+# Then start them:
+jarvis start
+```
+
+> [!TIP]
+> On **NixOS**, `make install-services` prints guidance and exits. Services are managed by `modules/jarvis.nix`. See [Section 2](#2-declarative-nixos-installation).
 
 ## 2. Declarative NixOS Installation
 
@@ -111,7 +120,18 @@ If you are on Ubuntu, Fedora, or Arch, use the **Nix Package Manager** to manage
 | `jarvis-daily-digest`    | Daily research summary             | Oneshot   |
 | `jarvis-context-updater` | Weekly memory consolidation        | Oneshot   |
 
-Run `jarvis start` to launch the recommended suite automatically. See the **[Usage Guide](USAGE.md)** for first steps.
+Run `jarvis start` to launch services, or `jarvis install_services` for platform-aware installation. See the **[Usage Guide](USAGE.md)** for first steps.
 
 ---
 For performance optimizations on traditional (non-NixOS) Linux distributions, see the **[System Tweaks Guide](SYSTEM_TWEAKS.md)**.
+
+---
+## 6. Service Management Comparison
+
+| Operation | NixOS | Traditional Linux |
+|-----------|-------|-------------------|
+| **Install services** | Edit `modules/jarvis.nix` | `make install-services` |
+| **Enable auto-start** | Declared in `jarvis.nix` | `make install-services-enable` |
+| **Modify unit files** | Edit `jarvis.nix` + rebuild | Drop-in files in `~/.config/systemd/user/` |
+| **Apply changes** | `sudo nixos-rebuild switch` | `systemctl --user daemon-reload` |
+| **Runtime control** | `jarvis start/stop/restart` | `jarvis start/stop/restart` (same!) |

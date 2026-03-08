@@ -259,12 +259,61 @@ def classify_intent(user_input: str) -> dict:
 
 # ── Service Management ────────────────────────────────────────────────────────
 
+def is_nixos() -> bool:
+    """Return True if running on NixOS (services managed immutably by Nix)."""
+    try:
+        if os.path.isfile("/etc/NIXOS"):
+            return True
+        if os.path.isfile("/etc/os-release"):
+            with open("/etc/os-release") as f:
+                content = f.read()
+            if 'ID="nixos"' in content or "ID=nixos" in content:
+                return True
+        # Extra heuristic: nix store is present and managed
+        if os.path.isdir("/nix/store") and os.path.isfile("/run/current-system/nixos-version"):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+IS_NIXOS = is_nixos()  # compute once at startup
+
+
+def _nix_service_hint(operation: str) -> None:
+    """Print a hint when a service-file-altering operation is attempted on NixOS."""
+    print(f"[Jarvis] Warning: '{operation}' modifies systemd unit files directly,")
+    print( "         but on NixOS these files are managed by Nix and are read-only.")
+    print( "         To make persistent changes, edit ~/NixOSenv/modules/jarvis.nix")
+    print( "         and run: sudo nixos-rebuild switch --flake ~/NixOSenv#nixos")
+
+
 def systemctl_user(action: str, service: str) -> bool:
+    """Invoke systemctl --user for runtime state changes (start/stop/restart/status).
+    These always work even on NixOS because we are only controlling a running unit,
+    not modifying the unit file itself.
+    """
+    unit = service if service.endswith((".service", ".timer")) else f"{service}.service"
     result = subprocess.run(
-        ["systemctl", "--user", action, f"{service}.service"],
+        ["systemctl", "--user", action, unit],
         capture_output=True, text=True, timeout=10
     )
     return result.returncode == 0
+
+
+def cmd_install_services():
+    """Install systemd user services from templates (non-NixOS only)."""
+    if IS_NIXOS:
+        print("[Jarvis] Running on NixOS — services are managed via modules/jarvis.nix.")
+        print("         Edit jarvis.nix and run 'sudo nixos-rebuild switch' to modify services.")
+        return
+    install_script = BASE_DIR / "bin" / "install_services.sh"
+    if not install_script.exists():
+        print(f"[Jarvis] Install script not found: {install_script}")
+        return
+    print("[Jarvis] Installing systemd user services...")
+    subprocess.run(["bash", str(install_script)], check=False)
+
 
 
 def cmd_start(svc_alias: str | None = None):
@@ -332,7 +381,14 @@ def cmd_service_config(svc_alias: str, key: str, val: str | None = None):
         if val is None:
             print(f"Usage: jarvis service config {svc_alias} {key} <value>")
             return
-        
+
+        if IS_NIXOS:
+            _nix_service_hint(f"service config {svc_alias} {key}")
+            print(f"\n  Equivalent change in ~/NixOSenv/modules/jarvis.nix:")
+            svc_unit = SERVICE_MAP[svc_alias]
+            print(f"  systemd.user.services.{svc_unit}.serviceConfig.{key} = \"{val}\";")
+            return
+
         svc_unit = SERVICE_MAP[svc_alias]
         dropin_dir = Path(os.path.expanduser("~/.config/systemd/user")) / f"{svc_unit}.service.d"
         dropin_dir.mkdir(parents=True, exist_ok=True)
@@ -1423,6 +1479,10 @@ def main():
                     print("Usage: jarvis service [config|enable|disable] <svc> [key] [val]")
             else:
                 print("Usage: jarvis service [config|enable|disable] <svc> [key] [val]")
+            return
+
+        if command == "install_services" or command == "install-services":
+            cmd_install_services()
             return
 
         if command == "backup":

@@ -1,0 +1,9 @@
+[Unit]
+Description=Jarvis Daily Digest Timer (06:00 daily)
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

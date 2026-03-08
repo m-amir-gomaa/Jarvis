@@ -1,0 +1,19 @@
+[Unit]
+Description=Jarvis Health Monitor (pause warnings, metrics)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=__VENV_PY__ __JARVIS_ROOT__/services/health_monitor.py
+Restart=on-failure
+RestartSec=15s
+Nice=15
+Environment="PYTHONPATH=__JARVIS_ROOT__"
+Environment="JARVIS_ROOT=__JARVIS_ROOT__"
+Environment="VAULT_ROOT=__VAULT_ROOT__"
+Environment="DISPLAY=:0"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/__UID__/bus"
+WorkingDirectory=__JARVIS_ROOT__
+
+[Install]
+WantedBy=default.target

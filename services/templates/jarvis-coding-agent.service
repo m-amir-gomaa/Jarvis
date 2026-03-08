@@ -1,0 +1,18 @@
+[Unit]
+Description=Jarvis Coding Agent HTTP Server (port 7002)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=__VENV_PY__ __JARVIS_ROOT__/services/coding_agent.py
+Restart=on-failure
+RestartSec=10s
+Nice=10
+Environment="PYTHONPATH=__JARVIS_ROOT__"
+Environment="JARVIS_ROOT=__JARVIS_ROOT__"
+Environment="VAULT_ROOT=__VAULT_ROOT__"
+Environment="OLLAMA_NUM_PARALLEL=1"
+WorkingDirectory=__JARVIS_ROOT__
+
+[Install]
+WantedBy=default.target

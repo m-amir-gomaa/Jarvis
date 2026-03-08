@@ -15,6 +15,18 @@ setup:
 	$(VENV)/bin/pip install -r requirements-v2.txt
 	$(VENV)/bin/pip install 'mineru[pipeline]'
 
+install-services:
+	@echo "Detecting platform and installing services..."
+	@bash bin/install_services.sh
+
+install-services-enable:
+	@echo "Detecting platform, installing and enabling services..."
+	@bash bin/install_services.sh --enable
+
+uninstall-services:
+	@echo "Uninstalling services..."
+	@bash bin/install_services.sh --uninstall
+
 rust-build:
 	@echo "Unloading Ollama models to free RAM before Rust build..."
 	ollama stop qwen3:14b-q4_K_M || true
