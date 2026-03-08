@@ -15,35 +15,39 @@ Jarvis relies on several background services (daemons) to provide real-time moni
 | `daily` | Timer that triggers a daily summary of system activities. | `jarvis-daily-digest.timer` |
 | `context` | Periodic update of the project context for the AI. | `jarvis-context-updater.timer` |
 
-## CLI Management
+## Persistent Configuration ⚙️
 
-You can now control individual services instead of the whole suite:
+Jarvis allows you to tune service behavior and persistence directly from the CLI.
 
-- **Start a service**: `jarvis start [alias]` (e.g., `jarvis start lsp`)
-- **Stop a service**: `jarvis stop [alias]`
-- **Restart a service**: `jarvis restart [alias]`
-- **Check status**: `jarvis status [alias]`
-- **Show uptime**: `jarvis uptime [alias]`
+### Enabling/Disabling Services
+By default, `jarvis start` only initializes services marked as enabled in your preferences.
+- **Enable a service**: `jarvis service enable [alias]` (e.g., `jarvis service enable voice`)
+- **Disable a service**: `jarvis service disable [alias]`
 
-## Smart Watchdog 🛡️
+### Tuning Service Properties
+You can override systemd properties (e.g., restart intervals, priority) and application-level thresholds persistently.
 
-The `health` service acts as a Watchdog. If it detects that a service has entered a `failed` state, it will:
-1. Log the failure.
-2. Attempt to restart the service automatically.
-3. Send a system notification (via `notify-send`) to alert you.
+#### Systemd Overrides (Drop-ins)
+These changes create a `jarvis-override.conf` in the service's systemd directory.
+- `jarvis service config [alias] RestartSec 10s`
+- `jarvis service config [alias] Nice 10`
 
-> [!NOTE]
-> The Watchdog will NOT attempt to restart services that were manually stopped using `jarvis stop`.
+#### Application Settings (JSON/TOML)
+Tweak internal service logic without manual file editing.
+- `jarvis service config health ram_threshold_mb 512`
+- `jarvis service config health cpu_threshold_pct 85`
+- `jarvis service config git check_interval_sec 7200`
+
+> [!IMPORTANT]
+> Systemd property changes (like `RestartSec`) trigger an automatic `daemon-reload`. Application settings are picked up by services dynamically on their next check cycle.
 
 ## Eco Mode & Resource Monitoring 🌱
 
-The health monitor tracks system RAM and CPU usage every minute.
+The health monitor tracks system RAM and CPU usage. Thresholds can be customized as shown above.
 
-- **Low RAM Alert**: If available RAM falls below **1GB**, Jarvis sends a critical notification.
-- **High CPU Alert**: If CPU usage exceeds **90%**, Jarvis warns that AI performance may be degraded.
-
-### Future: Auto-Throttling
-We are working on an "Auto-Throttle" feature that will automatically pause non-essential background tasks (like `git-monitor` or `daily-digest`) when system resources are critical.
+- **Low RAM Alert**: Triggers when available RAM < `ram_threshold_mb`.
+- **High CPU Alert**: Triggers when CPU usage > `cpu_threshold_pct`.
+- **Auto-Throttling**: (Planned) Automatically pause `git` or `daily` services during critical resource contention.
 
 ## Troubleshooting
 

@@ -75,8 +75,11 @@ async def main():
     while not stop_event.is_set():
         await check_for_changes()
         try:
+            from lib.prefs_manager import PrefsManager
+            pm = PrefsManager()
+            interval = pm.get("services.git_monitor.check_interval_sec", 3600)
             # Wait for interval OR until stop event is set
-            await asyncio.wait_for(stop_event.wait(), timeout=CHECK_INTERVAL)
+            await asyncio.wait_for(stop_event.wait(), timeout=float(interval))
         except asyncio.TimeoutError:
             pass # Continue loop
 

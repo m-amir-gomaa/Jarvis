@@ -14,10 +14,11 @@ except ImportError:
 # Configuration
 _JARVIS_ROOT = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
 PAUSE_FILE   = _JARVIS_ROOT / "logs" / "pause_time.tmp"
-NOTIFICATION_INTERVAL = 300 # 5 minutes
-RESOURCE_CHECK_INTERVAL = 60 # 1 minute
-RAM_THRESHOLD_MB = 1024 # 1GB
-CPU_THRESHOLD_PCT = 90
+# Default Configuration (Fallback)
+RESOURCE_CHECK_INTERVAL = 60
+DEFAULT_NOTIFICATION_INTERVAL = 300
+DEFAULT_RAM_THRESHOLD_MB = 1024
+DEFAULT_CPU_THRESHOLD_PCT = 90
 
 # Services to monitor (excluding health-monitor itself)
 SERVICES = [
@@ -30,7 +31,7 @@ SERVICES = [
     "jarvis-context-updater.timer",
 ]
 
-def check_pause_duration():
+def check_pause_duration(interval_sec: int):
     """Notify if AI has been paused for a long time."""
     if os.path.exists(PAUSE_FILE):
         try:
@@ -38,9 +39,9 @@ def check_pause_duration():
                 pause_time = int(f.read().strip())
             
             elapsed = time.time() - pause_time
-            if elapsed > NOTIFICATION_INTERVAL:
+            if elapsed > interval_sec:
                 subprocess.run(["notify-send", "-u", "critical", "Jarvis Warning", f"AI has been paused for {int(elapsed/60)} minutes. System idle? Consider resuming."])
-                # Reset time to avoid spamming every second (will notify every 5 mins again)
+                # Reset time to avoid spamming every second (will notify every interval again)
                 with open(PAUSE_FILE, "w") as f:
                     f.write(str(int(time.time())))
                     
@@ -59,7 +60,7 @@ def check_services_watchdog():
         except Exception as e:
             print(f"Watchdog error for {svc}: {e}")
 
-def check_resources():
+def check_resources(ram_thresh_mb: int, cpu_thresh_pct: int):
     """Monitor system RAM and CPU."""
     if not psutil:
         return
@@ -69,13 +70,12 @@ def check_resources():
         cpu = psutil.cpu_percent(interval=1)
         
         # RAM check
-        if mem.available < (RAM_THRESHOLD_MB * 1024 * 1024):
+        if mem.available < (ram_thresh_mb * 1024 * 1024):
             subprocess.run(["notify-send", "-u", "critical", "Jarvis Resource Alert", 
                              f"Low System RAM! {mem.available // (1024*1024)}MB available."])
-            # Note: Auto-throttling logic could be added here (e.g., stop git-monitor)
         
         # CPU check
-        if cpu > CPU_THRESHOLD_PCT:
+        if cpu > cpu_thresh_pct:
             subprocess.run(["notify-send", "Jarvis Resource Alert", 
                              f"High CPU Load ({cpu}%). System performance may be degraded."])
             
@@ -94,9 +94,18 @@ def main():
 
     while True:
         try:
-            check_pause_duration()
+            from lib.prefs_manager import PrefsManager
+            pm = PrefsManager()
+            
+            # Load dynamic config
+            ram_thresh = pm.get("services.health_monitor.ram_threshold_mb", DEFAULT_RAM_THRESHOLD_MB)
+            cpu_thresh = pm.get("services.health_monitor.cpu_threshold_pct", DEFAULT_CPU_THRESHOLD_PCT)
+            notif_interval = pm.get("services.health_monitor.notification_interval_sec", DEFAULT_NOTIFICATION_INTERVAL)
+            
+            # Pass config to checks
+            check_pause_duration(notif_interval)
             check_services_watchdog()
-            check_resources()
+            check_resources(ram_thresh, cpu_thresh)
             
             if has_bus:
                 emit('health_monitor', 'pulse', {'status': 'ok'})

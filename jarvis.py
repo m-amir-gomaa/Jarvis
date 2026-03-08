@@ -268,15 +268,123 @@ def systemctl_user(action: str, service: str) -> bool:
 
 
 def cmd_start(svc_alias: str | None = None):
-    targets = [SERVICE_MAP[svc_alias]] if svc_alias and svc_alias in SERVICE_MAP else SERVICES
-    if svc_alias and svc_alias not in SERVICE_MAP:
-        print(f"Unknown service: {svc_alias}")
-        return
+    from lib.prefs_manager import PrefsManager
+    pm = PrefsManager()
+    enabled = pm.get("services.enabled_services", [])
+    
+    if svc_alias:
+        targets = [SERVICE_MAP[svc_alias]] if svc_alias in SERVICE_MAP else SERVICES
+        if svc_alias not in SERVICE_MAP:
+            print(f"Unknown service: {svc_alias}")
+            return
+    else:
+        # Start only enabled services from PrefsManager
+        targets = [SERVICE_MAP[str(name)] for name in enabled if isinstance(name, str) and name in SERVICE_MAP]
+        if not targets:
+            print("[Jarvis] No services enabled in config. Starting core suite (health, git)...")
+            targets = [SERVICE_MAP["health"], SERVICE_MAP["git"]]
 
-    print(f"[Jarvis] Starting {'service: ' + svc_alias if svc_alias else 'all services'}...")
+    print(f"[Jarvis] Starting {'service: ' + svc_alias if svc_alias else 'enabled services'}...")
     for svc in targets:
         ok = systemctl_user("start", svc)
         print(f"  {svc}: {'✓' if ok else '✗ (failed or not installed)'}")
+
+
+def cmd_service_enable(svc_alias: str):
+    if svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+    from lib.prefs_manager import PrefsManager
+    pm = PrefsManager()
+    enabled = pm.get("services.enabled_services", [])
+    if svc_alias not in enabled:
+        enabled.append(svc_alias)
+        pm.set("services.enabled_services", enabled)
+        print(f"[Jarvis] Service '{svc_alias}' enabled for auto-start.")
+    else:
+        print(f"[Jarvis] Service '{svc_alias}' is already enabled.")
+
+
+def cmd_service_disable(svc_alias: str):
+    if svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+    from lib.prefs_manager import PrefsManager
+    pm = PrefsManager()
+    enabled = pm.get("services.enabled_services", [])
+    if svc_alias in enabled:
+        enabled.remove(svc_alias)
+        pm.set("services.enabled_services", enabled)
+        print(f"[Jarvis] Service '{svc_alias}' disabled.")
+    else:
+        print(f"[Jarvis] Service '{svc_alias}' is already disabled.")
+
+
+def cmd_service_config(svc_alias: str, key: str, val: str | None = None):
+    if svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+    
+    # Systemd properties vs App settings
+    SYSTEMD_PROPS = ["RestartSec", "Nice", "MemoryMax", "CPUQuota"]
+    
+    if key in SYSTEMD_PROPS:
+        if val is None:
+            print(f"Usage: jarvis service config {svc_alias} {key} <value>")
+            return
+        
+        svc_unit = SERVICE_MAP[svc_alias]
+        dropin_dir = Path(os.path.expanduser("~/.config/systemd/user")) / f"{svc_unit}.service.d"
+        dropin_dir.mkdir(parents=True, exist_ok=True)
+        override_file = dropin_dir / "jarvis-override.conf"
+        
+        # Read existing or create new
+        lines = []
+        if override_file.exists():
+            with open(override_file, "r") as f:
+                lines = f.readlines()
+        
+        if "[Service]" not in "".join(lines):
+            lines.append("[Service]\n")
+            
+        found = False
+        new_lines = []
+        for line in lines:
+            if line.startswith(f"{key}="):
+                new_lines.append(f"{key}={val}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        
+        if not found:
+            # Insert after [Service]
+            for i, line in enumerate(new_lines):
+                if "[Service]" in line:
+                    new_lines.insert(i+1, f"{key}={val}\n")
+                    break
+        
+        with open(override_file, "w") as f:
+            f.writelines(new_lines)
+            
+        print(f"[Jarvis] Systemd override applied for {svc_alias}: {key}={val}")
+        print("  Reloading systemd daemon...")
+        subprocess.run(["systemctl", "--user", "daemon-reload"])
+    else:
+        # Application setting
+        from lib.prefs_manager import PrefsManager
+        pm = PrefsManager()
+        # Map simple aliases to their pref sections if needed
+        section = "health_monitor" if svc_alias == "health" else "git_monitor" if svc_alias == "git" else None
+        if not section:
+            print(f"Configuration not supported for service '{svc_alias}' via this command.")
+            return
+            
+        pref_key = f"services.{section}.{key}"
+        if val is None:
+            print(f"{pref_key} = {pm.get(pref_key)}")
+        else:
+            pm.set(pref_key, val)
+            print(f"[Jarvis] Config updated: {pref_key} = {val}")
 
 
 def cmd_stop(svc_alias: str | None = None):
@@ -1256,6 +1364,24 @@ def main():
             svc = sys.argv[2] if len(sys.argv) > 2 else None
             cmd_uptime(svc)
             log_history(user_input, "uptime", "ok")
+            return
+
+        if command == "service":
+            if len(sys.argv) > 2:
+                action = sys.argv[2]
+                if action == "config" and len(sys.argv) > 4:
+                    svc = sys.argv[3]
+                    key = sys.argv[4]
+                    val = sys.argv[5] if len(sys.argv) > 5 else None
+                    cmd_service_config(svc, key, val)
+                elif action == "enable" and len(sys.argv) > 3:
+                    cmd_service_enable(sys.argv[3])
+                elif action == "disable" and len(sys.argv) > 3:
+                    cmd_service_disable(sys.argv[3])
+                else:
+                    print("Usage: jarvis service [config|enable|disable] <svc> [key] [val]")
+            else:
+                print("Usage: jarvis service [config|enable|disable] <svc> [key] [val]")
             return
 
         if command == "backup":

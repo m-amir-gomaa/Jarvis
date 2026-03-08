@@ -1,6 +1,5 @@
 import os
 import tomllib
-import toml
 from pathlib import Path
 from typing import Any, Optional, Dict
 
@@ -22,6 +21,19 @@ DEFAULT_PREFS = {
     },
     "permissions": {
         "manual_approval_required": ["fs:exec", "net:request"],
+    },
+    "services": {
+        "enabled_services": [
+            "health", "git", "coding", "healer", "lsp", "voice"
+        ],
+        "health_monitor": {
+            "ram_threshold_mb": 1024,
+            "cpu_threshold_pct": 90,
+            "notification_interval_sec": 300
+        },
+        "git_monitor": {
+            "check_interval_sec": 3600
+        }
     }
 }
 
@@ -41,10 +53,32 @@ class PrefsManager:
             print(f"[PrefsManager] Error loading prefs: {e}")
             return DEFAULT_PREFS.copy()
 
+    def _dict_to_toml(self, d: Dict[str, Any], indent: int = 0) -> str:
+        lines = []
+        for k, v in d.items():
+            if isinstance(v, dict):
+                lines.append(f"{' ' * indent}[{k}]")
+                lines.append(self._dict_to_toml(v, indent + 2))
+            elif isinstance(v, str):
+                lines.append(f"{' ' * indent}{k} = \"{v}\"")
+            elif isinstance(v, bool):
+                lines.append(f"{' ' * indent}{k} = {'true' if v else 'false'}")
+            else:
+                lines.append(f"{' ' * indent}{k} = {v}")
+        return "\n".join(lines)
+
     def _save(self):
         try:
-            with open(self.prefs_path, "w") as f:
-                toml.dump(self.prefs, f)
+            # Try using the toml library if available for better formatting
+            try:
+                import toml
+                with open(self.prefs_path, "w") as f:
+                    toml.dump(self.prefs, f)
+            except ImportError:
+                # Simple fallback writer
+                content = self._dict_to_toml(self.prefs)
+                with open(self.prefs_path, "w") as f:
+                    f.write(content)
         except Exception as e:
             print(f"[PrefsManager] Error saving prefs: {e}")
 
