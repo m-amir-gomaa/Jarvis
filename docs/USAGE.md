@@ -7,10 +7,15 @@ Jarvis is designed for a multi-interface workflow: CLI for management, Neovim fo
 The CLI is the primary orchestration point. Before using it, ensure you have followed the **[Installation Guide](INSTALL.md)** and configured your **[API Keys](API_KEYS.md)**. For inspiration on what you can achieve, check out **[Creative Uses](CREATIVE_USES.md)**.
 
 ### Management Commands
-- `jarvis start`: Initialize all systemd services.
-- `jarvis stop`: Terminate all services gracefully.
-- `jarvis status`: Health check (**[Ollama](SYSTEM_TWEAKS.md)**, services, budget, RAG status).
+- `jarvis start [alias]`: Initialize all or specific systemd services.
+- `jarvis stop [alias]`: Terminate services gracefully.
+- `jarvis restart [alias]`: Restart a specific service.
+- `jarvis status [alias]`: Health check (**[Ollama](SYSTEM_TWEAKS.md)**, services, budget, RAG status).
+- `jarvis uptime [alias]`: Show how long a service has been active.
 - `jarvis man`: View the technical **[Man Page](jarvis.1)**.
+
+> [!TIP]
+> For a deep dive into service aliases and automated watchdog features, see the **[Service Management Guide](SERVICE_MANAGEMENT.md)**.
 
 ### Intelligence Commands
 - `jarvis 'research [topic]'`: Triggers the ERS `research_deep` chain.

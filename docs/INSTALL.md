@@ -4,7 +4,7 @@ Jarvis is a heavy-duty AI orchestrator. This guide covers everything from standa
 
 ## 1. Quick Start (Procedural)
 
-For users who want to get running quickly on any Linux distribution with the **Nix package manager**:
+For users who want to get running quickly on any Linux distribution (see **[System Tweaks](SYSTEM_TWEAKS.md)** for non-NixOS performance):
 
 ### Prerequisites
 - **RAM**: 16GB min (Ollama is heavy).
@@ -111,7 +111,7 @@ If you are on Ubuntu, Fedora, or Arch, use the **Nix Package Manager** to manage
 | `jarvis-daily-digest`    | Daily research summary             | Oneshot   |
 | `jarvis-context-updater` | Weekly memory consolidation        | Oneshot   |
 
-Run `jarvis start` to launch the recommended suite automatically.
+Run `jarvis start` to launch the recommended suite automatically. See the **[Usage Guide](USAGE.md)** for first steps.
 
 ---
 For performance optimizations on traditional (non-NixOS) Linux distributions, see the **[System Tweaks Guide](SYSTEM_TWEAKS.md)**.

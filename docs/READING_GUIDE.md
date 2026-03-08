@@ -19,7 +19,7 @@ Start with the **[AI Terminology Guide](AI_TERMINOLOGY.md)**.
 ### 3. "I want to master the CLI and IDE"
 Head to the **[Interaction Interfaces Guide](INTERFACES.md)**.
 - **Focus**: Every command point—CLI, Neovim keybindings, TUI, and **Voice commands**.
-- **Expert Path**: The **[Advanced Neovim Guide](ADVANCED_NEOVIM.md)** for dynamic model management.
+- **Expert Path**: The **[Advanced Neovim Guide](ADVANCED_NEOVIM.md)** for dynamic model management and **[Service Management](SERVICE_MANAGEMENT.md)** for watchdog/eco features.
 - **Next Step**: The **[Man Page](jarvis.1)** (run `jarvis man`) for the technical flag reference.
 
 ### 4. "I want to contribute or build new features"

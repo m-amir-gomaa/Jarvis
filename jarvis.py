@@ -181,7 +181,22 @@ SERVICES = [
     "jarvis-git-monitor",
     "jarvis-coding-agent",
     "jarvis-self-healer",
+    "jarvis-lsp",
+    "jarvis-voice-gateway",
+    "jarvis-daily-digest.timer",
+    "jarvis-context-updater.timer",
 ]
+
+SERVICE_MAP = {
+    "health": "jarvis-health-monitor",
+    "git": "jarvis-git-monitor",
+    "coding": "jarvis-coding-agent",
+    "healer": "jarvis-self-healer",
+    "lsp": "jarvis-lsp",
+    "voice": "jarvis-voice-gateway",
+    "daily": "jarvis-daily-digest.timer",
+    "context": "jarvis-context-updater.timer",
+}
 
 INTENT_PROMPT = """You are an intent classifier for a command-line AI assistant.
 Classify the user input into exactly ONE of these intents and respond with valid JSON only.
@@ -252,31 +267,58 @@ def systemctl_user(action: str, service: str) -> bool:
     return result.returncode == 0
 
 
-def cmd_start():
-    print("[Jarvis] Starting all services...")
-    for svc in SERVICES:
+def cmd_start(svc_alias: str | None = None):
+    targets = [SERVICE_MAP[svc_alias]] if svc_alias and svc_alias in SERVICE_MAP else SERVICES
+    if svc_alias and svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+
+    print(f"[Jarvis] Starting {'service: ' + svc_alias if svc_alias else 'all services'}...")
+    for svc in targets:
         ok = systemctl_user("start", svc)
         print(f"  {svc}: {'✓' if ok else '✗ (failed or not installed)'}")
 
 
-def cmd_stop():
-    print("[Jarvis] Stopping all services...")
-    for svc in SERVICES:
+def cmd_stop(svc_alias: str | None = None):
+    targets = [SERVICE_MAP[svc_alias]] if svc_alias and svc_alias in SERVICE_MAP else SERVICES
+    if svc_alias and svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+
+    print(f"[Jarvis] Stopping {'service: ' + svc_alias if svc_alias else 'all services'}...")
+    for svc in targets:
         ok = systemctl_user("stop", svc)
         print(f"  {svc}: {'✓ stopped' if ok else '✗'}")
 
 
-def cmd_status(short=False):
+def cmd_restart(svc_alias: str | None = None):
+    targets = [SERVICE_MAP[svc_alias]] if svc_alias and svc_alias in SERVICE_MAP else SERVICES
+    if svc_alias and svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+
+    print(f"[Jarvis] Restarting {'service: ' + svc_alias if svc_alias else 'all services'}...")
+    for svc in targets:
+        ok = systemctl_user("restart", svc)
+        print(f"  {svc}: {'✓ restarted' if ok else '✗'}")
+
+
+def cmd_status(svc_alias: str | None = None, short=False):
+    targets = [SERVICE_MAP[svc_alias]] if svc_alias and svc_alias in SERVICE_MAP else SERVICES
+    if svc_alias and svc_alias not in SERVICE_MAP:
+        print(f"Unknown service: {svc_alias}")
+        return
+
     if not short:
-        print("[Jarvis] Service Status:")
+        print(f"[Jarvis] Service Status ({'Individual' if svc_alias else 'All'}):")
         print(f"  {'Service':<30} {'State':<12} {'Latency'}")
         print("  " + "-" * 55)
 
     active_count = 0
-    total_count = len(SERVICES)
-    for svc in SERVICES:
+    total_count = len(targets)
+    for svc in targets:
         result = subprocess.run(
-            ["systemctl", "--user", "is-active", f"{svc}.service"],
+            ["systemctl", "--user", "is-active", f"{svc}"],
             capture_output=True, text=True, timeout=5
         )
         state = result.stdout.strip()
@@ -286,6 +328,10 @@ def cmd_status(short=False):
         if not short:
             icon = "●" if state == "active" else "○"
             print(f"  {icon} {svc:<28} {state:<12}")
+
+    # Don't show Ollama/Budget if specific service requested (unless it's 'health')
+    if svc_alias and svc_alias != "health":
+        return
 
     # Ollama status
     ollama_ok = False
@@ -345,13 +391,14 @@ def cmd_status(short=False):
         if "Swap" in line:
             print(f"  {line.strip()}")
 
-def cmd_uptime():
+def cmd_uptime(svc_alias: str | None = None):
+    targets = [SERVICE_MAP[svc_alias]] if svc_alias and svc_alias in SERVICE_MAP else SERVICES
     print("[Jarvis] Service Uptime:")
     print(f"  {'Service':<30} {'Started At'}")
     print("  " + "-" * 55)
-    for svc in SERVICES:
+    for svc in targets:
         res = subprocess.run(
-            ["systemctl", "--user", "show", "-p", "ActiveEnterTimestamp", "--value", f"{svc}.service"],
+            ["systemctl", "--user", "show", "-p", "ActiveEnterTimestamp", "--value", f"{svc}"],
             capture_output=True, text=True, timeout=5
         )
         ts = res.stdout.strip()
@@ -1155,16 +1202,30 @@ def main():
             else:
                 print(f"Jarvis: Manual not found at {man_path}")
             return
-        if command == "--short":
-            cmd_status(short=True)
+        if command == "status":
+            svc = None
+            short = "--short" in sys.argv
+            for i in range(2, len(sys.argv)):
+                if not sys.argv[i].startswith("--"):
+                    svc = sys.argv[i]
+                    break
+            cmd_status(svc, short=short)
+            log_history(user_input, "health_check", "ok")
             return
         if command == "start":
-            cmd_start()
+            svc = sys.argv[2] if len(sys.argv) > 2 else None
+            cmd_start(svc)
             log_history(user_input, "start_services", "ok")
             return
         if command == "stop":
-            cmd_stop()
+            svc = sys.argv[2] if len(sys.argv) > 2 else None
+            cmd_stop(svc)
             log_history(user_input, "stop_services", "ok")
+            return
+        if command == "restart":
+            svc = sys.argv[2] if len(sys.argv) > 2 else None
+            cmd_restart(svc)
+            log_history(user_input, "restart_services", "ok")
             return
         if command == "pause":
             cmd_pause()
@@ -1192,7 +1253,8 @@ def main():
             return
 
         if command == "uptime":
-            cmd_uptime()
+            svc = sys.argv[2] if len(sys.argv) > 2 else None
+            cmd_uptime(svc)
             log_history(user_input, "uptime", "ok")
             return
 

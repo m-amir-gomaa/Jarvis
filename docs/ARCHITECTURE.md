@@ -35,6 +35,7 @@ The foundation of Jarvis. Implements **Capability-Based Access Control (CBAC)**.
 - **SecurityContext**: Tracks an `agent_id`, `trust_level` (0-4), and active `CapabilityGrant` objects.
 - **CapabilityGrantManager**: The gatekeeper. Handles interactive prompts for CLI and OOB (out-of-band) approvals for IDE sessions.
 - **AuditLogger**: Records every grant, denial, and expiration to `security_audit.db`.
+- **Capability Management**: Managed via `jarvis cap` (see **[Usage Guide](USAGE.md)**).
 
 ### B. External Reasoning System (ERS) (`lib/ers/`)
 Provides a pipeline for multi-step intelligence using YAML-defined chains.
@@ -46,6 +47,7 @@ A unified abstraction layer for LLM providers.
 - **ModelRouter**: Resolves human-readable aliases (e.g., `coder`, `reason`) to specific model specs.
 - **Adapters**: Provider-specific logic for Ollama (local) and various cloud APIs (Anthropic, OpenAI, etc.).
 - **Fallback Engine**: Automatically downgrades or upgrades models based on availability and capability floor.
+- **Model Overview**: See **[Models Overview](MODELS_OVERVIEW.md)** for technical specs.
 
 ### D. IDE Bridge (`services/jarvis_lsp.py`)
 A custom Language Server Protocol (LSP) and FastAPI sidecar.

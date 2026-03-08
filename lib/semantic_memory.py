@@ -210,7 +210,7 @@ Text: {content}"""
                         ORDER BY v.distance ASC
                         LIMIT ?
                     """
-                    params = (vector_bytes, search_k, *categories, k)
+                    params = (vector_bytes, search_k) + tuple(categories) + (k,)
                 elif category:
                     sql = """
                         SELECT m.content, m.layer, m.category, m.source, v.distance 

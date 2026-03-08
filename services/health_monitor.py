@@ -1,17 +1,37 @@
 #!/usr/bin/env python3
-# /home/qwerty/NixOSenv/Jarvis/services/health_monitor.py (Updated)
+# /home/qwerty/NixOSenv/Jarvis/services/health_monitor.py (Enhanced with Watchdog & Eco Mode)
 import os
 import time
 import subprocess
-from lib.event_bus import emit
-
-import os as _os
 from pathlib import Path
-_JARVIS_ROOT = Path(_os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
+
+# Try importing psutil for resource monitoring
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+# Configuration
+_JARVIS_ROOT = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
 PAUSE_FILE   = _JARVIS_ROOT / "logs" / "pause_time.tmp"
 NOTIFICATION_INTERVAL = 300 # 5 minutes
+RESOURCE_CHECK_INTERVAL = 60 # 1 minute
+RAM_THRESHOLD_MB = 1024 # 1GB
+CPU_THRESHOLD_PCT = 90
+
+# Services to monitor (excluding health-monitor itself)
+SERVICES = [
+    "jarvis-git-monitor.service",
+    "jarvis-coding-agent.service",
+    "jarvis-self-healer.service",
+    "jarvis-lsp.service",
+    "jarvis-voice-gateway.service",
+    "jarvis-daily-digest.timer",
+    "jarvis-context-updater.timer",
+]
 
 def check_pause_duration():
+    """Notify if AI has been paused for a long time."""
     if os.path.exists(PAUSE_FILE):
         try:
             with open(PAUSE_FILE, "r") as f:
@@ -27,13 +47,64 @@ def check_pause_duration():
         except Exception as e:
             print(f"Error checking pause: {e}")
 
+def check_services_watchdog():
+    """Detect and restart failed services."""
+    for svc in SERVICES:
+        try:
+            result = subprocess.run(["systemctl", "--user", "is-failed", svc], capture_output=True, text=True)
+            if result.stdout.strip() == "failed":
+                print(f"[Watchdog] Service {svc} failed. Attempting restart...")
+                subprocess.run(["systemctl", "--user", "restart", svc])
+                subprocess.run(["notify-send", "Jarvis Watchdog", f"Service {svc} crashed and was restarted."])
+        except Exception as e:
+            print(f"Watchdog error for {svc}: {e}")
+
+def check_resources():
+    """Monitor system RAM and CPU."""
+    if not psutil:
+        return
+
+    try:
+        mem = psutil.virtual_memory()
+        cpu = psutil.cpu_percent(interval=1)
+        
+        # RAM check
+        if mem.available < (RAM_THRESHOLD_MB * 1024 * 1024):
+            subprocess.run(["notify-send", "-u", "critical", "Jarvis Resource Alert", 
+                             f"Low System RAM! {mem.available // (1024*1024)}MB available."])
+            # Note: Auto-throttling logic could be added here (e.g., stop git-monitor)
+        
+        # CPU check
+        if cpu > CPU_THRESHOLD_PCT:
+            subprocess.run(["notify-send", "Jarvis Resource Alert", 
+                             f"High CPU Load ({cpu}%). System performance may be degraded."])
+            
+    except Exception as e:
+        print(f"Resource check error: {e}")
+
 def main():
-    print("Jarvis Health Monitor started...")
+    print("Jarvis Smart Health Monitor started...")
+    
+    # Optional: Initial pulse via event bus if available
+    try:
+        from lib.event_bus import emit
+        has_bus = True
+    except ImportError:
+        has_bus = False
+
     while True:
-        check_pause_duration()
-        # Other health checks (CPU/RAM) would go here
-        emit('health_monitor', 'pulse', {'status': 'ok'})
-        time.sleep(60)
+        try:
+            check_pause_duration()
+            check_services_watchdog()
+            check_resources()
+            
+            if has_bus:
+                emit('health_monitor', 'pulse', {'status': 'ok'})
+                
+        except Exception as e:
+            print(f"Main loop error: {e}")
+            
+        time.sleep(RESOURCE_CHECK_INTERVAL)
 
 if __name__ == "__main__":
     main()
