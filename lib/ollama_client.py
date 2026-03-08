@@ -8,6 +8,10 @@ import asyncio
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
+class OllamaError(Exception):
+    """Custom exception for Ollama API failures."""
+    pass
+
 class OllamaClient:
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = os.environ.get("OLLAMA_BASE_URL", base_url)
@@ -26,7 +30,7 @@ class OllamaClient:
                 response.raise_for_status()
                 return response.json().get("response", "")
         except Exception as e:
-            return f"Ollama error: {e}"
+            raise OllamaError(f"Ollama chat failed: {e}")
 
     def chat(self, prompt: str, model: str | None = None, system: str | None = None) -> str:
         """Synchronous wrapper for chat_async."""
@@ -37,10 +41,49 @@ class OllamaClient:
             asyncio.set_event_loop(loop)
             
         if loop.is_running():
-            import nest_asyncio
-            nest_asyncio.apply()
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+            except ImportError:
+                pass
             
         return loop.run_until_complete(self.chat_async(prompt, model=model, system=system))
+
+    async def generate_async(self, model: str, prompt: str, suffix: str | None = None, system: str | None = None) -> str:
+        url = f"{self.base_url}/api/generate"
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "system": system,
+            "stream": False
+        }
+        if suffix:
+            payload["suffix"] = suffix
+            
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, timeout=300)
+                response.raise_for_status()
+                return response.json().get("response", "")
+        except Exception as e:
+            raise OllamaError(f"Ollama generate failed: {e}")
+
+    def generate(self, model: str, prompt: str, suffix: str | None = None, system: str | None = None) -> str:
+        """Synchronous wrapper for generate_async."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        if loop.is_running():
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+            except ImportError:
+                pass
+            
+        return loop.run_until_complete(self.generate_async(model, prompt, suffix=suffix, system=system))
 
     async def list_models_async(self) -> list[str]:
         try:
@@ -86,6 +129,9 @@ def chat(model: str, messages: list[dict], system: str | None = None, thinking: 
         prompt += f"{role}: {content}\n"
     prompt += "ASSISTANT: "
     return _default_client.chat(prompt, model=model, system=system)
+
+def generate(model_alias: str, prompt: str, suffix: str | None = None, thinking: bool = False) -> str:
+    return _default_client.generate(model_alias, prompt, suffix=suffix)
 
 def is_healthy() -> bool:
     return _default_client.is_healthy()

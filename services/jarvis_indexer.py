@@ -11,8 +11,8 @@ JARVIS_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(JARVIS_ROOT))
 
 from lib.indexing.embedding_engine import EmbeddingEngine
-from lib.indexing.faiss_index import FAISSIndexManager
-from lib.indexing.ingestor import Ingestor
+from lib.indexing.faiss_index import FaissIndexManager
+from lib.indexing.ingestor import IngestionWorker
 from lib.indexing.auto_reindex import AutoReindexTimer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -23,11 +23,15 @@ async def main():
     
     # Initialize components
     embeddings = EmbeddingEngine()
-    faiss_manager = FAISSIndexManager(
-        index_path=str(JARVIS_ROOT / "index" / "faiss.bin"),
-        meta_db_path=str(JARVIS_ROOT / "data" / "knowledge.db")
-    )
-    ingestor = Ingestor()
+    
+    # FaissIndexManager expects an index_dir (it creates faiss.bin and metadata.db inside)
+    index_dir = JARVIS_ROOT / "index"
+    faiss_manager = FaissIndexManager(index_dir=str(index_dir))
+    
+    # CRITICAL: FaissIndexManager needs async initialization
+    await faiss_manager.initialize()
+    
+    ingestor = IngestionWorker()
     
     # Start the Timer (Watchdog + Scheduler)
     # We watch the JARVIS_ROOT/src or the whole JARVIS_ROOT depending on policy.

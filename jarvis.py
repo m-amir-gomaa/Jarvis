@@ -1288,8 +1288,9 @@ def sync_assets():
             safe_copy(src_loader, target_loader)
 
     except Exception as e:
-        # Non-fatal: print a warning rather than silently swallowing errors
-        print(f"[Jarvis] Warning: asset sync failed: {e}", file=sys.stderr)
+        # Non-fatal: print a warning unless it's a common NixOS read-only filesystem error
+        if "[Errno 30]" not in str(e):
+            print(f"[Jarvis] Warning: asset sync failed: {e}", file=sys.stderr)
 
 
 # ── Session Management ────────────────────────────────────────────────────────
