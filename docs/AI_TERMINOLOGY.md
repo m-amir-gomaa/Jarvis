@@ -44,12 +44,15 @@ The art of writing the input to get the best output.
 - **System Prompt**: The "hidden" instructions defining the AI's identity (e.g., "You are a senior NixOS engineer").
 - **User Prompt**: Your specific request.
 
-### Chains (ERS)
-A single LLM call often fails at complex logic. An **ERS Chain** breaks a task into steps.
-1. Step 1: Analyze the error.
-2. Step 2: Search for the fix.
-3. Step 3: Apply the fix.
-- **Dev Analogy**: Like a CI/CD pipeline or a shell script where each command is an AI call.
+### ERS (External Reasoning System) — *The Orchestration Engine*
+A single LLM call is like a **single assembly instruction**. It's fast, but it can't build an OS on its own. **ERS** is the "Operating System" that manages multiple AI calls. It allows Jarvis to perform complex, multi-step logic by treating each AI response as data for the next step.
+
+- **Dev Analogy**: Like a **CI/CD pipeline** (Jenkins/GitHub Actions) or a **State Machine** where each state transition is decided by an AI model.
+- **The Chain Augmentor**: This is the "Linker." It takes the output of `Step 1` (e.g., a file list), injects it into a template for `Step 2` (e.g., "Analyze these files"), and ensures the context remains consistent.
+- **Security Contexts**: Each ERS step runs in its own **Isolated Sandbox**. If `Step 1` needs to read a file, it gets a temporary "Capability" that is automatically revoked before `Step 2` starts.
+- **Workflow Control**: ERS supports `if/else` logic, `retries` on failure, and `parallel execution` (running multiple AI thoughts at once and merging them later).
+
+**Why it matters**: Without ERS, an AI will often "hallucinate" (make stuff up) when faced with a large codebase. ERS forces the AI to **slow down**, verify its own steps, and only proceed when it has the correct data.
 
 ### Quantization
 Large models are huge (hundreds of GBs). Quantization "compresses" them (e.g., from 16-bit to 4-bit) so they fit on your RAM.
