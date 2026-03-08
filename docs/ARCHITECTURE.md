@@ -52,6 +52,8 @@ A unified abstraction layer for LLM providers.
 ### D. IDE Bridge (`services/jarvis_lsp.py`)
 A custom Language Server Protocol (LSP) and FastAPI sidecar.
 - **Session Isolation**: Each Neovim window receives a unique `conn_id` and a child `SecurityContext` cloned from the primary CLI session.
+- **SSE Streaming**: Uses Server-Sent Events for real-time token streaming in chat, avoiding UI blocking and providing immediate feedback.
+- **Tree-sitter Context**: Automatically extracts the enclosing function or class scope using Tree-sitter to provide rich contextual information to the LLM.
 - **Long-Polling**: Enables the IDE to receive security approval notifications asynchronously without blocking the UI thread.
 
 ## 3. Data Flow & Isolation

@@ -5,6 +5,9 @@
 
 local M = {}
 
+--- Setup DAP (Debug Adapter Protocol) configurations
+--- Configures adapters and configurations for Rust and Python.
+--- Sets up key mappings (F5, F10, F11, b) and UI listeners.
 function M.setup()
   local ok_dap, dap = pcall(require, "dap")
   if not ok_dap then
@@ -66,6 +69,74 @@ function M.setup()
     dap.listeners.after.event_initialized["dapui_config"] = function() dapui.open() end
     dap.listeners.before.event_terminated["dapui_config"] = function() dapui.close() end
   end
+
+  vim.api.nvim_create_user_command("JarvisDebugAnalyze", M.analyze_exception, {})
+end
+
+--- Analyze the current exception or stack trace using Jarvis
+--- Fetches the stack trace from the DAP session and sends it to the `/explain` endpoint.
+function M.analyze_exception()
+  local dap = require("dap")
+  local session = dap.session()
+  if not session then
+    vim.notify("Jarvis DAP: No active debug session", vim.log.levels.WARN)
+    return
+  end
+
+  session:request("stackTrace", { threadId = session.stopped_thread_id }, function(err, result)
+    if err or not result or not result.stackFrames then
+      vim.schedule(function() vim.notify("Jarvis DAP: Could not fetch stack trace", vim.log.levels.ERROR) end)
+      return
+    end
+
+    local trace = {}
+    for i, frame in ipairs(result.stackFrames) do
+      table.insert(trace, string.format("Frame %d: %s at %s:%d", i, frame.name, frame.source and frame.source.path or "?", frame.line or 0))
+      if i > 5 then break end
+    end
+
+    local prompt = "Analyze this exception stack trace during debugging:\n\n" .. table.concat(trace, "\n")
+    vim.schedule(function() vim.notify("Jarvis DAP: Analyzing exception...", vim.log.levels.INFO) end)
+    
+    local curl = require("plenary.curl")
+    curl.post("http://127.0.0.1:7002/explain", {
+      headers = { ["Content-Type"] = "application/json" },
+      body = vim.fn.json_encode({ code = prompt, language = "plaintext" }),
+      callback = function(res)
+        vim.schedule(function()
+          if res and res.status == 200 then
+            local data = vim.fn.json_decode(res.body)
+            local buf = vim.api.nvim_create_buf(false, true)
+            vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+            vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+            local lines = vim.split(data.explanation or "(no explanation)", "\n", { plain = true })
+            vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+            
+            local width = math.floor(vim.o.columns * 0.8)
+            local height = math.floor(vim.o.lines * 0.8)
+            local row = math.floor((vim.o.lines - height) / 2)
+            local col = math.floor((vim.o.columns - width) / 2)
+            
+            vim.api.nvim_open_win(buf, true, {
+              relative = "editor",
+              width = width,
+              height = height,
+              row = row,
+              col = col,
+              style = "minimal",
+              border = "rounded",
+              title = " Jarvis DAP Analysis ",
+              title_pos = "center",
+            })
+            vim.api.nvim_buf_set_keymap(buf, "n", "q", ":close<CR>", { noremap = true, silent = true })
+            vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", ":close<CR>", { noremap = true, silent = true })
+          else
+            vim.notify("Jarvis DAP: Analysis failed", vim.log.levels.ERROR)
+          end
+        end)
+      end
+    })
+  end)
 end
 
 return M

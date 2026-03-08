@@ -7,7 +7,9 @@ local M = {}
 local curl = require("plenary.curl")
 local server = "http://127.0.0.1:7002"
 
--- Helper: show spinner while waiting, update buffer when done
+--- Helper: show spinner while waiting, update buffer when done
+--- @param label string The message to display in the notification
+--- @param fn function The function to execute while the spinner is shown
 local function with_spinner(label, fn)
   vim.notify("Jarvis: " .. label .. "...", vim.log.levels.INFO)
   fn()
@@ -16,6 +18,9 @@ end
 -- Helper: write response to a new scratch buffer
 local last_request_id = nil
 
+--- Helper: write response to a new scratch buffer (floating window)
+--- @param title string The title of the floating window
+--- @param content string The markdown content to display
 local function open_response_buf(title, content)
   vim.schedule(function()
     -- Check if buffer already exists by name
@@ -35,12 +40,28 @@ local function open_response_buf(title, content)
     local lines = vim.split(content, "\n", { plain = true })
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     
-    -- Only split if the buffer isn't already visible in a window
+    -- Only open a new window if the buffer isn't already visible
     local win = vim.fn.bufwinid(buf)
     if win == -1 then
-      vim.cmd("botright split")
-      vim.api.nvim_win_set_buf(0, buf)
-      vim.api.nvim_win_set_height(0, 15)
+      local width = math.floor(vim.o.columns * 0.8)
+      local height = math.floor(vim.o.lines * 0.8)
+      local row = math.floor((vim.o.lines - height) / 2)
+      local col = math.floor((vim.o.columns - width) / 2)
+      
+      vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        row = row,
+        col = col,
+        style = "minimal",
+        border = "rounded",
+        title = " " .. title .. " ",
+        title_pos = "center",
+      })
+      -- Easy close via q and Esc
+      vim.api.nvim_buf_set_keymap(buf, "n", "q", ":close<CR>", { noremap = true, silent = true })
+      vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", ":close<CR>", { noremap = true, silent = true })
     end
   end)
 end
@@ -83,32 +104,27 @@ local function get_selection()
   return text:sub(1, 3000)
 end
 
+--- Helper to get enclosing function/class via tree-sitter
+--- @return string Context string describing the current scope or empty if not found
+local function get_treesitter_context()
+  local ok, node = pcall(vim.treesitter.get_node)
+  if not ok or not node then return "" end
+
+  while node do
+    local type = node:type()
+    if type:match("function") or type:match("method") or type:match("class") then
+      local start_row = node:range()
+      local first_line = vim.api.nvim_buf_get_lines(0, start_row, start_row + 1, false)[1] or ""
+      return "Context: Enclosing scope is `" .. vim.trim(first_line) .. "`\n\n"
+    end
+    node = node:parent()
+  end
+  return ""
+end
+
 -- /chat — RAG-augmented question answering
 function M.chat()
-  -- Prompt user for query
-  vim.ui.input({ prompt = "Jarvis chat: " }, function(query)
-    if not query or query == "" then return end
-
-    with_spinner("thinking (RAG chat)", function()
-      local task_id = "chat_" .. os.time()
-      last_request_id = task_id
-      curl.post(server .. "/chat", {
-        headers = { ["Content-Type"] = "application/json" },
-        body = vim.fn.json_encode({ query = query, task_id = task_id }),
-        callback = function(res)
-          if last_request_id == task_id then last_request_id = nil end
-          if res and res.status == 200 then
-            local data = vim.fn.json_decode(res.body)
-            open_response_buf("Jarvis Chat", data.response or "(no response)")
-          else
-            vim.schedule(function()
-              vim.notify("Jarvis: server error or offline", vim.log.levels.ERROR)
-            end)
-          end
-        end,
-      })
-    end)
-  end)
+  require("jarvis.chat").chat()
 end
 
 -- /fix — run agent_loop for current buffer error
@@ -120,13 +136,15 @@ function M.fix()
   end
 
   local code = get_selection()
+  local context = get_treesitter_context()
   local errors = {}
   for _, d in ipairs(diagnostics) do
     table.insert(errors, string.format("Line %d: %s", d.lnum + 1, d.message))
   end
 
   local prompt = string.format(
-    "Fix these errors in the following code:\n\nErrors:\n%s\n\nCode:\n```%s\n%s\n```",
+    "%sFix these errors in the following code:\n\nErrors:\n%s\n\nCode:\n```%s\n%s\n```",
+    context,
     table.concat(errors, "\n"),
     vim.bo.filetype,
     code
@@ -154,7 +172,8 @@ function M.fix()
 end
 
 -- /explain — explain current selection or buffer
--- Explain the diagnostic error under the cursor
+--- Explain the diagnostic error under the cursor
+--- Uses virtual text for the analysis.
 function M.explain_error()
   local line = vim.api.nvim_win_get_cursor(0)[1] - 1
   local diagnostics = vim.diagnostic.get(0, { lnum = line })
@@ -197,7 +216,8 @@ function M.explain_error()
   end)
 end
 
--- Generate a semantic commit message for staged changes
+--- Generate a semantic commit message for staged changes
+--- Uses the `/summarize_git` endpoint on the server.
 function M.generate_commit()
   local diff = vim.fn.system("git diff --staged")
   if diff == "" then
@@ -223,7 +243,8 @@ function M.generate_commit()
   end)
 end
 
--- Global Web Research via SearXNG
+--- Global Web Research via SearXNG
+--- @param query string|nil The search query. If nil, prompts the user for input.
 function M.search(query)
   if not query or query == "" then
     vim.ui.input({ prompt = "Jarvis Search: " }, function(input)
@@ -257,6 +278,8 @@ end
 
 -- Prefetch models to RAM based on context
 local prefetch_lock = {}
+--- Prefetch models to RAM based on context
+--- @param alias string The model alias to prefetch (e.g., "chat", "complete")
 function M.prefetch(alias)
   if prefetch_lock[alias] then return end
   prefetch_lock[alias] = true
@@ -282,12 +305,14 @@ end
 
 function M.explain()
   local code = get_selection()
+  local context = get_treesitter_context()
+  local payload_code = context .. code
   with_spinner("explaining", function()
     local task_id = "explain_" .. os.time()
     last_request_id = task_id
     curl.post(server .. "/explain", {
       headers = { ["Content-Type"] = "application/json" },
-      body = vim.fn.json_encode({ code = code, language = vim.bo.filetype, task_id = task_id }),
+      body = vim.fn.json_encode({ code = payload_code, language = vim.bo.filetype, task_id = task_id }),
       callback = function(res)
         if last_request_id == task_id then last_request_id = nil end
         if res and res.status == 200 then
@@ -328,7 +353,8 @@ function M.index()
   })
 end
 
--- Manage model aliases dynamically
+--- Manage model aliases dynamically
+--- Fetches available models from the server and allows the user to switch aliases.
 function M.switch_model()
   curl.get(server .. "/models/list", {
     callback = function(res)

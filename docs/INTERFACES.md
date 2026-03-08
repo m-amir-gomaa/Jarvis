@@ -34,7 +34,10 @@ Jarvis lives inside Neovim as a custom LSP server, providing deep context-aware 
 - `<leader>jr`: **Refactor** the selected code with least-privilege security.
 - `<leader>jm`: **Manage Models** — switch AI backends dynamically.
 - `<leader>jf`: **Fix** the error at the cursor (LSP diagnostic integration).
-- `<leader>jc`: **Chat** with Jarvis in a dedicated sidebar.
+- `<leader>jc`: **Chat** with Jarvis (streaming RAG chat).
+- `<F5>`: **DAP Continue** — start or continue debugging.
+- `<F10>`/`<F11>`: **Step Over/Into** — debug navigation.
+- `b`: **Toggle Breakpoint** — set/unset debug breakpoints.
 
 ### Inline Completion
 Jarvis provides ghost-text completions (like GitHub Copilot) powered by your local `qwen2.5-coder` model.

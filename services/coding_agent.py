@@ -505,7 +505,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
     def _handle_summarize_git(self, data: dict, t0: float):
-        """Generate a semantic commit message from a git diff."""
+        """
+        Generate a semantic commit message from a git diff.
+        
+        Endpoint: POST /summarize_git
+        Expects: {"diff": "..."}
+        Returns: {"summary": "..."}
+        """
         diff = data.get("diff", "")
         if not diff:
             self._send_json({"error": "no diff provided"}, 400)
@@ -521,7 +527,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, 503)
 
     def _handle_analyze_error(self, data: dict, t0: float):
-        """Analyze a compiler error and suggest a fix."""
+        """
+        Analyze a compiler error and suggest a fix.
+        
+        Endpoint: POST /analyze_error
+        Expects: {"error": "...", "context": "...", "language": "..."}
+        Returns: {"analysis": "..."}
+        """
         error = data.get("error", "")
         context = data.get("context", "")
         language = data.get("language", "")
@@ -538,7 +550,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, 503)
 
     def _handle_research_manual(self, data: dict):
-        """Invoke research_agent.py for a quick web search."""
+        """
+        Invoke research_agent.py for a quick web search.
+        
+        Endpoint: POST /research_manual
+        Expects: {"query": "..."}
+        Returns: {"status": "...", "query": "...", "file": "..."}
+        """
         query = data.get("query", "")
         if not query:
             self._send_json({"error": "no query provided"}, 400)
@@ -570,7 +588,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, 500)
 
     def _handle_prefetch(self, data: dict):
-        """Prefetch a model into memory."""
+        """
+        Prefetch a model into memory to reduce first-token latency.
+        
+        Endpoint: POST /prefetch
+        Expects: {"model_alias": "..."}
+        Returns: {"status": "...", "model": "..."}
+        """
         alias = data.get("model_alias", "chat")
         decision = route(alias, privacy=Privacy.PRIVATE)
         if decision.backend != 'local':

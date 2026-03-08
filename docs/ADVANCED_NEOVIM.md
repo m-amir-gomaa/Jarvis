@@ -1,6 +1,6 @@
 # 🚀 Advanced Neovim Coding with Jarvis
 
-This guide explains how to leverage Jarvis V3 to its maximum potential within the Neovim environment.
+Jarvis V3 brings high-performance, asynchronous intelligence directly into your editor. This guide covers the advanced features enabled on the `feature/advanced-neovim` branch.
 
 ---
 
@@ -34,8 +34,35 @@ Instead of asking Jarvis generic questions, use your LSP diagnostics as a techni
 You can query your entire knowledge base (books, docs, other codebases) directly from Neovim.
 
 ### Commands:
-- `:JarvisChat`: Opens a prompt for a high-level question. Jarvis will search your semantic memory before answering.
-- `:JarvisSearch [query]`: Performs a technical search and can even open the most relevant local documentation file for you.
+- `:JarvisChat`: Opens a prompt for a high-level question. Uses **SSE Streaming** for real-time token delivery without blocking the editor.
+- `:JarvisSearch [query]`: Performs a technical search via SearXNG and can even open the most relevant local documentation file.
+
+---
+
+## 🏗️ 4. Tree-sitter Context Awareness
+
+Jarvis is no longer "blind" to your code structure. When you run `/fix` or `/explain`, Jarvis uses Tree-sitter to:
+1.  Identify the enclosing function or class.
+2.  Prepend the scope definition (signature) to the prompt.
+3.  Provide context-aware suggestions that understand the structural hierarchy of your code.
+
+---
+
+## 🐞 5. Debug Adapter Protocol (DAP) Extensions
+
+Jarvis integrates with `nvim-dap` to provide AI-assisted debugging.
+
+### AI Exception Analysis: `:JarvisDebugAnalyze`
+When a debugger stops on an exception or at a breakpoint:
+1.  Run `:JarvisDebugAnalyze`.
+2.  Jarvis fetches the current stack trace from the DAP session.
+3.  The agent analyzes the trace and explains the root cause in a floating window.
+
+### Keybindings:
+- `F5`: Continue
+- `F10`: Step Over
+- `F11`: Step Into
+- `b`: Toggle Breakpoint
 
 ---
 
