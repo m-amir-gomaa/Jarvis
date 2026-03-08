@@ -1,6 +1,6 @@
-.TH JARVIS 1 "March 2026" "0.1.0" "Jarvis User Manual"
+.TH JARVIS 1 "March 2026" "0.3.0" "Jarvis User Manual"
 .SH NAME
-jarvis \- Local AI Assistant with RAG and Duration Tracking
+jarvis \- Local-First AI Orchestrator with Strict Security and ERS
 .SH SYNOPSIS
 .B jarvis
 [\fIOPTIONS\fR] [\fICOMMAND\fR]
@@ -9,159 +9,87 @@ jarvis \- Local AI Assistant with RAG and Duration Tracking
 '\fINATURAL LANGUAGE PROMPT\fR'
 .SH DESCRIPTION
 .B jarvis
-is a powerful local-first AI orchestrator designed for NixOS. It leverages a granular \fBSecurity Permission System\fR (Trust Levels 0-4) and an \fBExternal Reasoning System (ERS)\fR to perform complex coding, research, and system automation tasks with high-accuracy RAG and sub-2.5 minute latencies.
+is a heavy-duty local-first AI orchestrator designed for NixOS. It implements a principled, **Capability-Based Access Control (CBAC)** security model (Trust Levels 0-4) and an **External Reasoning System (ERS)** for multi-step tasks. Since V3, **Shadow Mode** is disabled; every sensitive action (filesystem, network, subprocess) is strictly gated and requires explicit user approval unless auto-granted.
 .SH KEY ARCHITECTURAL COMPONENTS
 .TP
 .B Security Manager
-Enforces trust levels and gates capabilities (e.g., \fCide:edit\fR, \fCfs:exec\fR). Supports Out-of-Band (OOB) approvals via the TUI.
+The core gatekeeper. Enforces trust ceilings and handles interactive/OOB approvals. Tracks session identification via tokens stored in the Vault.
 .TP
 .B ERS (External Reasoning System)
-Orchestrates multi-step LLM chains with Jinja2-powered dynamic prompts and isolated security boundaries.
+Executes complex workloads via YAML-defined chains. Each step runs in an isolated child security context with auto-revocation of temporary grants.
 .TP
 .B Model Hub
-A unified router that selects the optimal LLM (Ollama local or Anthropic/Gemini cloud) based on task, privacy, and budget.
+A unified router for local (Ollama) and cloud models. Standardized 600s timeouts ensure stability for CPU-bound inference.
 .TP
 .B Antigravity IDE Layer
-Provides deep Neovim integration via an asynchronous LSP bridge with support for AI-powered completions and code actions.
-.SH COMMANDS AND INTERNAL MECHANISMS
+Custom LSP bridge for Neovim providing asynchronous code actions (Explain, Fix, Refactor) with session-level isolation.
+.SH COMMANDS
 .TP
 .B status
-Displays the health of all Jarvis background services and Ollama models.
-.br
-\fBMechanism:\fR Executes \fCsystemctl --user is-active\fR on the systemd units (e.g., \fCjarvis-health-monitor\fR, \fCjarvis-coding-agent\fR) and polls the Ollama REST API to verify loaded models. Note: \fCjarvis-ingest\fR is now deprecated in favor of explicit commands.
+Displays the health of all Jarvis background services (systemd), Ollama load status, current budget, and session authentication status.
 .TP
 .B start / stop
-Starts or stops all background daemon services.
-.br
-\fBMechanism:\fR Wraps \fCsystemctl --user start/stop\fR for Jarvis targets.
+Starts or stops all background services (Ingest, Health, Coding Agent).
 .TP
 .B pause / resume
-Temporarily suspends or continues AI inference.
-.br
-\fBMechanism:\fR Sends \fBSIGSTOP\fR or \fBSIGCONT\fR to the Ollama process, freezing memory state while freeing CPU.
+Suspends or continues AI inference by sending SIGSTOP/SIGCONT to the Ollama process.
 .TP
-.B inbox [process \fIID\fR]
-Manages the researcher's queue. If \fBprocess\fR is called with an \fIID\fR, Jarvis retrieves the document and performs an isolated ingestion.
-.br
-\fBMechanism:\fR Interfaces via \fBKnowledgeManager\fR with SQLite \fCknowledge.db\fR. Ingestion creates a unique category (\fCpdf_doc_<ID>\fR) in Layer 3 to prevent domain mixing.
+.B pending
+Lists all active out-of-band (OOB) capability requests from IDE or remote sessions.
 .TP
-.B learn \fIURL/FILE\fR [--layer \fI1-3\fR] [--category \fINAME\fR]
-Explicitly ingests a local file (PDF, MD, DOCX) or a URL into the knowledge base.
-.br
-\fBMechanism:\fR Local PDFs are processed via \fBMinerU\fR (magic-pdf) for high-fidelity markdown extraction before being chunked and embedded into the 3-Layer knowledge store (\fBchunks\fR table).
+.B approve \fIID\fR
+Grants a pending capability request. Use \fBdeny \fIID\fR to reject.
 .TP
-.B knowledge [list|summary]
-Inspects knowledge base entries. \fBlist\fR shows all chunks; \fBsummary\fR provides a high-level view of trained languages and tools.
+.B set-key \fIPROVIDER\fR \fIKEY\fR
+Securely stores an encrypted API key in the Vault's keyring using AES-256. Supported providers: \fCanthropic\fR, \fCopenai\fR, \fCdeepseek\fR, \fCgroq\fR.
 .TP
-.B training
-Displays a status grid of language competency (✓/✗) across the 3-Layer knowledge architecture.
+.B ingest \fIURL/FILE\fR
+Indexes documents into the RAG knowledge base. PDFs are processed via MinerU for high-fidelity markdown extraction.
 .TP
-.B config nvim|nixos "\fITASK\fR"
-Enters a specialized configuration editing mode for Neovim (Lua) or NixOS (Nix modules). 
-.br
-\fBMechanism:\fR Launches the \fBagent_loop.py\fR with context-specific roles (\fCnvim_config\fR or \fCnixos_config\fR) and deep reference to the respective indexed codebases.
-.TP
-.B index [\fIDIR\fR] --category \fINAME\fR
-Indexes a local codebase for the **Coding Agent**.
-.br
-\fBMechanism:\fR Scans the directory and stores file contents in the \fBchunks\fR table (Layer 2) under the specified category.
-.TP
-.B query "\fIQUESTION\fR" [--category \fINAME\fR]
-Performs a Retrieval-Augmented Generation (RAG) query against the knowledge base.
-.br
-\fBMechanism:\fR Executes the \fBquery_knowledge\fR pipeline. It retrieves relevant context from the \fBchunks\fR table using lexical search and generates an answer using the local LLM.
+.B query "\fIQUESTION\fR"
+Performs a RAG search against the Vault databases to provide contextually aware answers.
 .TP
 .B dashboard
-Opens the recompiled Rust TUI (\fCjarvis-monitor\fR) with optimized contrast and precise task labeling for real-time monitoring of active research and ingestion tasks.
+Launches the Rust TUI monitor with live views for Security Audits, ERS chain progress, and IDE session state.
 .TP
-.B models
-Displays a list of available local Ollama models, configured aliases, and the status of cloud providers.
+.B backup / archive
+Creates backups or compressed archives of the Jarvis codebase and the entire \fC/THE_VAULT/\fR directory.
+.SH ERS INTENTS
+When provided with natural language, Jarvis routes to specific ERS chains:
 .TP
-.B keys
-Lists important environment variables and API keys, masking sensitive values for privacy.
+.I 'research ...'
+Triggers \fCresearch_deep.yaml\fR for extensive web and local analysis.
 .TP
-.B toggle voice
-Enables or disables voice command processing by the \fCjarvis-voice-gateway\fR.
+.I 'summarize git ...'
+Triggers \fCgit_summarize.yaml\fR to generate human-readable changelogs.
 .TP
-.B completion \fITYPE\fR
-Internal command used by shell autocompletion for dynamic data retrieval.
-Supported types: \fIcommands\fR, \fIcategories\fR, \fImodels\fR, \fIsessions\fR, \fIinbox\fR.
-.TP
-.B thumbs-up / thumbs-down
-Provides feedback for the daily optimizer.
-.TP
-.B identity "\fIMESSAGE\fR"
-Queries Jarvis about his own name, version, and capabilities.
-.br
-\fBMechanism:\fR Performs a RAG query on the \fCidentity\fR category in Layer 1.
-.TP
-.B self_improve "\fITASK\fR"
-Initiates an autonomous loop for Jarvis to improve his own codebase or documentation.
-.br
-\fBMechanism:\fR Launches the \fBagent_loop.py\fR orchestrator with the \fCcoding\fR role.
-.TP
-.B user_profile "\fIPREFERENCE/PLAN\fR"
-Manages user-specific preferences and long-term planning data.
-.br
-\fBMechanism:\fR Stores input in the \fCuser_profile\fR category of the knowledge base.
-.TP
-.B backup
-Syncs the Jarvis codebase and vault data to \fC/THE_VAULT/JarvisData\fR using \fCrsync\fR.
-.br
-\fBMechanism:\fR Executes \fCbin/backup.sh\fR in sync mode, maintaining a mirrored copy of the system without build artifacts or git history.
-.TP
-.B archive
-Creates a timestamped \fC.tar.gz\fR archive of the codebase and vault data in \fC~/Backups/Jarvis\fR.
-.br
-\fBMechanism:\fR Executes \fCbin/backup.sh --archive\fR. This performs a clean stage-and-compress operation with precise exclusion rules. Provides a guided restoration command upon completion.
-.TP
-.B ingest_materials "\fITOPIC\fR"
-Researches coding materials, converts multi-format documents, and indexes them by programming language.
-.br
-\fBMechanism:\fR Orchestrates \fCresearch_agent.py\fR, \fCdoc_converter.py\fR (MinerU), and \fCdoc_learner.py\fR. Monitoring wait loop at \fC~/Downloads/JarvisMaterials\fR.
-.SH DETERMINISTIC EXECUTION
-To ensure reliability, Jarvis core subcommands (\fBstatus\fR, \fBstart\fR, \fBstop\fR, \fBpause\fR, \fBresume\fR, \fBlearn\fR, \fBindex\fR, \fBknowledge\fR, \fBinbox\fR, \fBdashboard\fR, \fBbackup\fR, \fBarchive\fR, \fBmodels\fR, \fBkeys\fR, \fBtoggle\fR) \fBbypass\fR the natural language intent classifier. They execute immediately based on parsed arguments.
-.SH NATURAL LANGUAGE ROUTING MECHANISM
-When a free-text prompt is provided:
-.IP 1.
-The \fBjarvis.py\fR entrypoint parses the arguments and passes the string to the \fCclassify_intent\fR function.
-.IP 2.
-A fast intent classification model (Qwen 7B) or identity-layer RAG fallback classifies the prompt into an intent (\fBlearn\fR, \fBcode\fR, \fBresearch\fR, \fBidentity\fR, \fBself_improve\fR, \fBuser_profile\fR, \fBingest_materials\fR, \fBbackup\fR, \fBarchive\fR).
-.IP 3.
-The \fBroute_intent\fR function dispatches the prompt, performing safety checks for high-risk operations (modifying indexes or identity) which require explicit user confirmation (y/N).
-.IP 4.
-The prompt is passed to the specialized pipeline (e.g., \fCcoding_agent.py\fR, \fCmaterial_ingestor.py\fR).
-.SH HIERARCHICAL KNOWLEDGE PIPELINE (RAG)
-Jarvis fetches context using a 3-Layer local structure before hitting the LLM:
-.IP \(bu 2
-\fBLayer 1 (Language)\fR: Core syntax and standard library docs.
-.IP \(bu 2
-\fBLayer 2 (Domain)\fR: Framework-specific guides and community docs.
-.IP \(bu 2
-\fBLayer 3 (Theory)\fR: Deep conceptual books and problem-class theory.
-.br
-\fBMechanism:\fR
-When a task dictates domain knowledge (e.g., 'rewrite in Rust'), the \fBKnowledgeManager\fR searches \fCknowledge.db\fR using cosine similarity against the prompt's embedding. High-scoring chunks from the relevant layers are retrieved, formatted, and forcefully injected into the LLM system prompt under a \fI[LOCAL KNOWLEDGE]\fR XML block to prevent hallucinations.
-.SH SHELL AUTOCOMPLETION
-Jarvis provides advanced Zsh autocompletion with \fBfzf\fR integration.
-If \fBfzf\fR is installed, pressing \fBTAB\fR on categories, models, or session IDs will trigger a fuzzy selection interface.
-Assets are automatically synchronized to \fB~/.zsh/plugins/jarvis-completions/\fR.
+.I 'validate nixos ...'
+Triggers \fCnixos_verify.yaml\fR to check configuration sanity using local models.
 .SH ENVIRONMENT
 .IP "\fBJARVIS_ROOT\fR"
-Override the default project directory (/home/qwerty/NixOSenv/Jarvis).
+Override the default project directory.
+.IP "\fBVAULT_ROOT\fR"
+Override the secure data storage root (Default: /THE_VAULT/jarvis).
 .SH FILES
 .TP
-.I /home/qwerty/NixOSenv/Jarvis/
-Base directory for all Jarvis data and logic.
+.I /THE_VAULT/jarvis/databases/security_audit.db
+Central audit trail and pending grant storage.
 .TP
-.I /home/qwerty/NixOSenv/Jarvis/data/knowledge.db
-SQLite database for the 3-Layer Knowledge Base and Embeddings.
+.I /THE_VAULT/jarvis/databases/knowledge.db
+RAG knowledge base and embeddings.
 .TP
-.I /home/qwerty/NixOSenv/Jarvis/logs/events.db
-Daily activity log and episodic memory.
+.I /THE_VAULT/jarvis/context/active_session_token
+The source of truth for session authentication.
+.SH SECURITY PROTOCOL
+Capabilities (e.g., \fCfile_read\fR, \fCshell_exec\fR) are requested dynamically. If not auto-granted by a trust level:
+.IP 1.
+The process raises \fCCapabilityPending\fR.
+.IP 2.
+The user is notified via CLI (Interactive) or long-polling (OOB).
+.IP 3.
+The task pauses until \fBjarvis approve\fR is executed.
 .SH SEE ALSO
 .BR ollama (1),
-.BR searxng (1),
 .BR nix (1)
 .SH AUTHOR
 Created by Antigravity AI for the Jarvis Project.
