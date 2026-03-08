@@ -71,7 +71,22 @@ Jarvis is local-first, but it can leverage external LLMs for enhanced reasoning.
 > [!TIP]
 > **Privacy Note**: Most free tiers (especially Google AI Studio's free tier) reserve the right to use your data for training. For sensitive code, stick to **Jarvis Local (Ollama)** or paid tiers with explicit Opt-Out.
 
-## 3. Storing Keys Securely
+## 3. Confidential Routing (v2)
+
+Jarvis v2 includes a "Hard Assert" mechanism for highly sensitive environments where cloud leakage must be mathematically impossible.
+
+### The `confidential` Tag
+When working in a workspace with the `confidential = true` setting in `.jarvis/config.toml`, Jarvis:
+1. **Hard-Blocks Clouds**: All requests to Anthropic, OpenAI, or OpenRouter are blocked at the source.
+2. **Local Enforcement**: Even if a "PUBLIC" privacy level is requested by a tool, the system forces a local-only routing decision.
+3. **Auditability**: All blocked cloud attempts are logged as security events.
+
+### Use Cases:
+- Proprietary algorithms or trade secrets.
+- Regulated data (HIPAA, GDPR, etc.).
+- Offline or air-gapped development.
+
+## 4. Storing Keys Securely
 
 Jarvis does **not** store keys in environment variables or plain text config files. Instead, it uses the `SecretsManager` to store them in the Vault.
 
