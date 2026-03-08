@@ -555,7 +555,7 @@ def main():
 
     print(f"[Coding Agent] Starting multi-threaded on http://localhost:{PORT}")
     emit("coding_agent", "started", {"port": PORT})
-    server = ThreadingHTTPServer(("localhost", PORT), JarvisHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), JarvisHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

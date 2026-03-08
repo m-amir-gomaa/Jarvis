@@ -5,7 +5,7 @@
 local M = {}
 local curl = require("plenary.curl")
 local debounce_timer = nil
-local server = "http://localhost:7002"
+local server = "http://127.0.0.1:7002"
 
 -- FIM completion source compatible with blink.cmp
 M.source = {}

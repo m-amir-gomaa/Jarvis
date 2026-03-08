@@ -9,7 +9,7 @@ local complete = require("jarvis.complete")
 local dap_cfg = require("jarvis.dap")
 
 M.config = {
-  server_url = "http://localhost:7002",
+  server_url = "http://127.0.0.1:7002",
   fim_debounce_ms = 800,  -- Raised from 300ms — CPU inference is slow
   enabled = true,
 }

@@ -5,7 +5,7 @@
 
 local M = {}
 local curl = require("plenary.curl")
-local server = "http://localhost:7002"
+local server = "http://127.0.0.1:7002"
 
 -- Helper: show spinner while waiting, update buffer when done
 local function with_spinner(label, fn)
