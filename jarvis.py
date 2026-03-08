@@ -1289,7 +1289,10 @@ def sync_assets():
 
     except Exception as e:
         # Non-fatal: print a warning unless it's a common NixOS read-only filesystem error
-        if "[Errno 30]" not in str(e):
+        # Errno 30 is Read-only file system
+        # Errno 13 is Permission denied
+        is_nixos_immutable = IS_NIXOS and ("[Errno 30]" in str(e) or "[Errno 13]" in str(e))
+        if not is_nixos_immutable:
             print(f"[Jarvis] Warning: asset sync failed: {e}", file=sys.stderr)
 
 
