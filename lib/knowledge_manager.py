@@ -49,10 +49,21 @@ class KnowledgeManager:
                 )
             """)
             
+            # codebase_associations table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS codebase_associations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    UNIQUE(path, category)
+                )
+            """)
+            
             # Indices
             conn.execute("CREATE INDEX IF NOT EXISTS idx_layer ON chunks(layer)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_category ON chunks(category)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON chunks(source_url)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_assoc_path ON codebase_associations(path)")
             
             # Migration: Migration logic for existing installations
             self._migrate_schema(conn)
@@ -86,6 +97,16 @@ class KnowledgeManager:
              print("[KnowledgeManager] Adding 'category' column to 'chunks'...")
              conn.execute("ALTER TABLE chunks ADD COLUMN category TEXT")
 
+        # 4. Ensure codebase_associations exists (for older versions that missed it in _init_db)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS codebase_associations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL,
+                category TEXT NOT NULL,
+                UNIQUE(path, category)
+            )
+        """)
+
     def add_entry(self, layer: int, content: str, source_url: Optional[str] = None, 
                   source_title: Optional[str] = None, category: Optional[str] = None, 
                   metadata: Optional[Dict] = None):
@@ -118,8 +139,8 @@ class KnowledgeManager:
             rows = conn.execute("SELECT * FROM inbox WHERE status = 'pending'").fetchall()
             return [dict(r) for r in rows]
 
-    async def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None) -> List[Dict]:
-        results = await self.sm.query(query_text, k=10, category=category)
+    async def search(self, query_text: str, layer: Optional[int] = None, category: Optional[str] = None, categories: Optional[List[str]] = None) -> List[Dict]:
+        results = await self.sm.query(query_text, k=10, category=category, categories=categories)
         
         # Map SearchResult back to legacy Dict format for existing callers
         legacy_results = []
@@ -135,3 +156,45 @@ class KnowledgeManager:
             })
             
         return legacy_results
+
+    def associate_path(self, path: str, category: str):
+        abs_path = str(Path(path).resolve())
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO codebase_associations (path, category) VALUES (?, ?)",
+                (abs_path, category)
+            )
+
+    def unassociate_path(self, path: str, category: Optional[str] = None):
+        abs_path = str(Path(path).resolve())
+        with sqlite3.connect(self.db_path) as conn:
+            if category:
+                conn.execute(
+                    "DELETE FROM codebase_associations WHERE path = ? AND category = ?",
+                    (abs_path, category)
+                )
+            else:
+                conn.execute(
+                    "DELETE FROM codebase_associations WHERE path = ?",
+                    (abs_path,)
+                )
+
+    def get_associations(self, path: str) -> List[str]:
+        current_path = Path(path).resolve()
+        associations = set()
+        
+        with sqlite3.connect(self.db_path) as conn:
+            # Check current path and all parents
+            while True:
+                rows = conn.execute(
+                    "SELECT category FROM codebase_associations WHERE path = ?",
+                    (str(current_path),)
+                ).fetchall()
+                for row in rows:
+                    associations.add(row[0])
+                
+                if current_path == current_path.parent:
+                    break
+                current_path = current_path.parent
+                
+        return list(associations)

@@ -182,7 +182,7 @@ Text: {content}"""
                 emit('semantic_memory', 'ingest_error', {'error': str(e), 'chunk': i})
                 print(f"[SemanticMemory] Error ingesting chunk {i}: {e}")
 
-    async def query(self, query_text: str, k: int = 5, category: Optional[str] = None, use_hybrid: bool = True) -> List[SearchResult]:
+    async def query(self, query_text: str, k: int = 5, category: Optional[str] = None, categories: Optional[List[str]] = None, use_hybrid: bool = True) -> List[SearchResult]:
         """
         Native vector similarity search utilizing the fast vec0 backend.
         """
@@ -198,9 +198,20 @@ Text: {content}"""
                 # Native KNN search via sqlite-vec
                 # FIX: If category filter is used, we must search deeper (larger k) 
                 # to ensure we don't miss matches after filtering.
-                search_k = k * 10 if category else k
+                search_k = k * 10 if (category or categories) else k
                 
-                if category:
+                if categories:
+                    placeholders = ",".join("?" for _ in categories)
+                    sql = f"""
+                        SELECT m.content, m.layer, m.category, m.source, v.distance 
+                        FROM vec_chunks v
+                        JOIN chunk_metadata m ON v.rowid = m.rowid
+                        WHERE v.embedding MATCH ? AND v.k = ? AND m.category IN ({placeholders})
+                        ORDER BY v.distance ASC
+                        LIMIT ?
+                    """
+                    params = (vector_bytes, search_k, *categories, k)
+                elif category:
                     sql = """
                         SELECT m.content, m.layer, m.category, m.source, v.distance 
                         FROM vec_chunks v

@@ -11,8 +11,13 @@ async def query_knowledge(query: str, category: str = None):
     km = KnowledgeManager()
     print(f"[RAG] Searching knowledge base for: '{query}'...")
     
-    # 1. Retrieval
-    results = await km.search(query, category=category)
+    # 1. Retrieval (Automatic Context Injection)
+    import os
+    associations = km.get_associations(os.getcwd())
+    if associations:
+        print(f"[RAG] Using associated categories: {', '.join(associations)}")
+    
+    results = await km.search(query, category=category, categories=associations if associations else None)
     if not results:
         # Try a broader search if no direct match
         words = query.split()

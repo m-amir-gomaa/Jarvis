@@ -1548,6 +1548,33 @@ def main():
             log_history(user_input, "cap", "ok")
             return
 
+        if command == "associate":
+            from lib.knowledge_manager import KnowledgeManager
+            km = KnowledgeManager()
+            if len(sys.argv) > 2:
+                sub = sys.argv[2]
+                if sub == "list":
+                    assocs = km.get_associations(os.getcwd())
+                    if assocs:
+                        print(f"Associations for {os.getcwd()}:")
+                        for a in assocs:
+                            print(f"  - {a}")
+                    else:
+                        print(f"No associations found for {os.getcwd()}")
+                elif sub == "remove" and len(sys.argv) > 3:
+                    cat = sys.argv[3]
+                    km.unassociate_path(os.getcwd(), cat)
+                    print(f"Removed association: {os.getcwd()} -> {cat}")
+                else:
+                    # Default: treat as adding an association
+                    cat = sub
+                    km.associate_path(os.getcwd(), cat)
+                    print(f"Associated {os.getcwd()} with category: {cat}")
+            else:
+                print("Usage: jarvis associate [category | list | remove <category>]")
+            log_history(user_input, "associate", "ok")
+            return
+
         if command == "keys":
             cmd_keys()
             log_history(user_input, "keys", "ok")
@@ -1581,6 +1608,7 @@ def main():
                     "training": "Show language competency matrix",
                     "config": "Manage user preferences or edit config files",
                     "cap": "Granular capability and permission management",
+                    "associate": "Link current directory to a knowledge category",
                     "man": "Show the formal jarvis manual page",
                     "dashboard": "Open the Rust-based TUI monitor",
                     "backup": "Sync code and vault data to storage",
