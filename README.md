@@ -15,6 +15,7 @@ Jarvis is a heavy-duty, local-first AI orchestration layer designed for develope
 - **[Knowledge Base & RAG](docs/KNOWLEDGE_BASE.md)**: Deep technicals on indexing and retrieval.
 - **[Model Comparison](docs/MODELS_OVERVIEW.md)**: Local vs. Cloud (Technical deep-dive).
 - **[Porting & Decoupling](docs/PORTING_GUIDE.md)**: Windows, other distros, and IDE agnosticism.
+- **[Man Page](docs/MANPAGE.md)**: Technical reference for all CLI commands.
 - **[System Tweaks](docs/SYSTEM_TWEAKS.md)**: Performance for non-NixOS Linux.
 
 ## 🏛️ Core Principles

@@ -34,26 +34,47 @@ Starts or stops all background services (Ingest, Health, Coding Agent).
 .B pause / resume
 Suspends or continues AI inference by sending SIGSTOP/SIGCONT to the Ollama process.
 .TP
+.B uptime
+Shows how long each background service has been running.
+.TP
 .B pending
 Lists all active out-of-band (OOB) capability requests from IDE or remote sessions.
 .TP
 .B approve \fIID\fR
 Grants a pending capability request. Use \fBdeny \fIID\fR to reject.
 .TP
+.B cap [list|grant|revoke] [\fICAP\fR]
+Granular capability management. \fBgrant\fR adds a persistent permission; \fBrevoke\fR removes it.
+.TP
+.B associate [\fICATEGORY\fR | list | remove \fICATEGORY\fR]
+Links the current directory to a knowledge category for context-aware RAG.
+.TP
+.B config [set|get|list|reset] [\fIKEY\fR] [\fIVAL\fR]
+Manage user preferences (e.g., \fCmodels.default_local\fR). \fBreset\fR restores factory defaults.
+.TP
 .B set-key \fIPROVIDER\fR \fIKEY\fR
-Securely stores an encrypted API key in the Vault's keyring using AES-256. Supported providers: \fCanthropic\fR, \fCopenai\fR, \fCdeepseek\fR, \fCgroq\fR.
+Securely stores an encrypted API key in the Vault. Supported: \fCanthropic\fR, \fCopenai\fR, \fCgoogle\fR, \fCdeepseek\fR, \fCgroq\fR, \fCopenrouter\fR.
+.TP
+.B keys
+List and verify the status of all configured API keys.
+.TP
+.B index [\fIOPTIONS\fR]
+Indexes the current codebase for the coding agent. Supports \fB--category\fR and \fB--privacy\fR [0-3] flags.
 .TP
 .B ingest \fIURL/FILE\fR
-Indexes documents into the RAG knowledge base. PDFs are processed via MinerU for high-fidelity markdown extraction.
+Indexes documents into the RAG knowledge base. 
+.TP
+.B learn \fI[TOPIC | URL]\fR
+Assisted language learning or direct ingestion with metadata.
 .TP
 .B query "\fIQUESTION\fR"
-Performs a RAG search against the Vault databases to provide contextually aware answers.
+Performs a RAG search against the Vault databases. Automatically uses associations from the current directory.
 .TP
 .B dashboard
-Launches the Rust TUI monitor with live views for Security Audits, ERS chain progress, and IDE session state.
+Launches the Rust TUI monitor.
 .TP
 .B backup / archive
-Creates backups or compressed archives of the Jarvis codebase and the entire \fC/THE_VAULT/\fR directory.
+Creates backups or compressed archives of the Jarvis codebase and Vault.
 .SH ERS INTENTS
 When provided with natural language, Jarvis routes to specific ERS chains:
 .TP

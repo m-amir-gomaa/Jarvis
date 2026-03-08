@@ -18,6 +18,8 @@ The CLI is the primary orchestration point. Before using it, ensure you have fol
 - `jarvis 'validate my nixos config'`: Triggers the ERS `nixos_verify` chain.
 - `jarvis index --category [cat] --privacy [level]`: Index codebase with metadata.
 - `jarvis ingest [file]`: Index a document into semantic memory.
+- `jarvis associate [category]`: Link current directory to a knowledge category.
+- `jarvis associate list`: View active directory associations.
 
 ### Security & Permissions
 - `jarvis pending`: View out-of-band capability requests.
