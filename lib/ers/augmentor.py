@@ -104,10 +104,25 @@ class ChainAugmentor:
         # Isolated child context — created outside try so finally can reference it
         child_ctx = ctx.child_context(f"ers:{step.id}", trust_ceiling=ctx.trust_level)
         try:
+            # ── MCP tool branch ───────────────────────────────────────────────
+            if step.mcp_tool is not None:
+                ref = step.mcp_tool
+                # Render each argument value as a Jinja2 template
+                rendered_args: dict[str, Any] = {}
+                for arg_key, arg_tpl in ref.arguments.items():
+                    tpl = self.env.from_string(arg_tpl)
+                    rendered_args[arg_key] = tpl.render(**exec_ctx)
+
+                from lib.mcp_client import MCPHub
+                hub = MCPHub()
+                output = await hub.call(ref.server, ref.tool, rendered_args)
+                return {"key": key, "output": output, "error": None}
+
+            # ── LLM branch (original path) ────────────────────────────────────
             # Render prompt with Jinja2
             tpl = self.env.from_string(step.prompt_template)
             prompt = tpl.render(**exec_ctx)
-            
+
             # Request model capability via router
             response = await self.router.generate(
                 model_alias=step.model_alias,
@@ -129,6 +144,7 @@ class ChainAugmentor:
             revoked = child_ctx.revoke_task_grants()
             if revoked:
                 log.debug(f"Step {step.id}: revoked {revoked} task grant(s) from child context")
+
 
     def _ram_ok(self) -> bool:
         mem = psutil.virtual_memory()
