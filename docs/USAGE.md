@@ -27,6 +27,13 @@ The CLI is the primary orchestration point. Before using it, ensure you have fol
 - `jarvis associate [category]`: Link current directory to a knowledge category.
 - `jarvis associate list`: View active directory associations.
 
+### 4. NotebookLM Preparation
+- `python tools/chunker.py [file]`: Split documents for context management.
+- `python tools/cleaner.py [manifest]`: Strip noise and prep for NotebookLM.
+
+> [!TIP]
+> For the full NotebookLM preparation workflow, see the **[NotebookLM Cleaning Guide](NOTEBOOK_CLEANING.md)**.
+
 ### Security & Permissions
 - `jarvis pending`: View out-of-band capability requests.
 - `jarvis approve [id]`: Grant or deny a pending request.
