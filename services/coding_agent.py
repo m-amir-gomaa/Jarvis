@@ -264,6 +264,8 @@ def index_codebase(root: str) -> dict:
 # ── Request Handler ───────────────────────────────────────────────────────────
 
 class JarvisHandler(BaseHTTPRequestHandler):
+    _session_model = None  # Shared across threads for this daemon instance
+
 
     def log_message(self, format, *args):
         pass  # suppress default httpd logs
@@ -290,7 +292,36 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 con.close()
             except Exception:
                 pass
-            self._send_json({"status": "ok", "ollama": is_healthy(), "chunks_indexed": chunk_count})
+            self._send_json({
+                "status": "ok",
+                "ollama": is_healthy(),
+                "chunks_indexed": chunk_count,
+                "active_model": self._session_model or "default"
+            })
+        elif self.path == "/models":
+            # List available models
+            try:
+                from lib.ollama_client import list_models
+                local = list_models()
+            except Exception:
+                local = []
+            
+            # Plus common cloud aliases from models.toml
+            cfg_path = JARVIS_ROOT / "config" / "models.toml"
+            cloud = []
+            if cfg_path.exists():
+                try:
+                    import tomllib
+                    cfg = tomllib.loads(cfg_path.read_text())
+                    cloud = list(cfg.get("models", {}).keys())
+                except Exception:
+                    pass
+            
+            self._send_json({
+                "local": local,
+                "cloud": cloud,
+                "active": self._session_model or "default"
+            })
         else:
             self._send_json({"error": "not found"}, 404)
 
@@ -318,6 +349,10 @@ class JarvisHandler(BaseHTTPRequestHandler):
             self._handle_research_manual(data)
         elif self.path == "/prefetch":
             self._handle_prefetch(data)
+        elif self.path == "/set_model":
+            model = data.get("model")
+            JarvisHandler._session_model = model if model != "default" else None
+            self._send_json({"status": "updated", "model": JarvisHandler._session_model or "default"})
         else:
             self._send_json({"error": "unknown endpoint"}, 404)
 
@@ -348,7 +383,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         try:
             # CRITICAL: suffix parameter required. Without it, Ollama does regular completion.
             result = generate(
-                model_alias=route("complete", privacy=Privacy.PRIVATE).model_alias,
+                model_alias=self._session_model or route("complete", privacy=Privacy.PRIVATE).model_alias,
                 prompt=prefix,
                 suffix=suffix,   # ← THIS IS REQUIRED FOR FIM
                 thinking=False,
@@ -379,6 +414,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
                 privacy=Privacy.PRIVATE,
                 system=system,
                 thinking=False,
+                model=self._session_model
             )
             emit("coding_agent", "chat", {"latency_ms": int((time.time() - t0) * 1000), "used_rag": top_score >= 0.65})
             self._send_json({"response": str(response), "rag_score": top_score})
@@ -455,7 +491,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         system = f"You are a senior {language} engineer. Explain this code concisely in plain English. Focus on what it does, not how it looks."
         messages = [{"role": "user", "content": f"```{language}\n{code[:3000]}\n```"}]
         try:
-            response = ask(prompt=messages[-1]["content"], task="chat", privacy=Privacy.PRIVATE, system=system, thinking=False)
+            response = ask(prompt=messages[-1]["content"], task="chat", privacy=Privacy.PRIVATE, system=system, thinking=False, model=self._session_model)
             self._send_json({"explanation": str(response)})
         except OllamaError as e:
             self._send_json({"error": str(e)}, 503)
