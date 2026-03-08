@@ -743,7 +743,16 @@ def cmd_models(args: list[str]):
         print(f"[Jarvis] Model '{alias}' set to '{model}' {status}.")
         return
 
-    print("Usage: jarvis models [list|active|select <alias> <model> [--session]]")
+    usage = (
+        "Usage:\n"
+        "  jarvis models list                      - List all available local and cloud models\n"
+        "  jarvis models active                    - Show currently mapped model roles (default_local, etc.)\n"
+        "  jarvis models select <role> <model> [--session]  - Map a role to a specific model\n"
+        "\n"
+        "Roles: default_local, default_cloud, reasoning_model, thinking_model, fast_model, coding_model\n"
+        "Hint: Use 'jarvis config set models.<role> <model>' for advanced persistent configuration."
+    )
+    print(usage)
 
 
 def cmd_keys():
@@ -762,6 +771,8 @@ def cmd_keys():
             print(f"  {var:<20}: {masked}")
         else:
             print(f"  {var:<20}: {val}")
+    
+    print("\nHint: Use 'jarvis set-key <provider> <key>' to securely store persistent API keys.")
 
 
 # ── Preferences & Toggles ─────────────────────────────────────────────────────
@@ -1201,39 +1212,55 @@ def route_intent(intent: str, args: dict, user_input: str):
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 def cmd_help():
-    print("Jarvis — Local AI Assistant")
+    print("Jarvis — Local AI Assistant (Agentic Intel v3.5)")
     print("\nUsage: jarvis '<natural language command>'")
-    print("       jarvis <subcommand>")
-    print("\nSubcommands:")
-    print("  status           Show all service health + Ollama state")
-    print("  start            Start all daemons (systemctl --user)")
-    print("  stop             Stop all daemons")
-    print("  pause            Suspend Ollama to free CPU (SIGSTOP)")
-    print("  resume           Resume Ollama (SIGCONT)")
-    print("  uptime           Show how long services have been running")
-    print("  learn <topic>    Assisted language learning for a new language")
-    print("  index <root>     Index the codebase for the coding agent RAG")
-    print("  query <msg>      Ask a question against the knowledge base")
-    print("  inbox            View and manage recommended reading queue")
-    print("  knowledge        Inspect 3-Layer knowledge base entries")
-    print("  training         Check language competency matrix")
-    print("  models           List local models and cloud aliases")
-    print("  indexer          Control the background knowledge indexer service")
-    print("  keys             Manage and verify API keys")
-    print("  toggle voice     Enable or disable the voice gateway")
-    print("  forget           Clear short-term working memory")
-    print("  sessions         List and manage active chat sessions")
-    print("  codebases        List indexed codebases")
-    print("  config nvim      Specialized Neovim config editing mode")
-    print("  config nixos     Specialized NixOS config editing mode")
-    print("  man              Show the formal jarvis manual page")
-    print("  dashboard        Open the Rust-based TUI monitor")
-    print("  backup           Sync code and vault data to /THE_VAULT")
-    print("  archive          Create timestamped .tar.gz in ~/Backups")
-    print("  thumbs-up        Rate last command positively")
-    print("  thumbs-down      Rate last command negatively")
-    print("  help             Show this help")
-    print("  --version        Show version")
+    print("       jarvis <subcommand> [args] [--flags]")
+    
+    print("\nCore Service Management:")
+    print("  status [--short]         Show health of all 9+ Jarvis daemons and LLM backends")
+    print("  start [svc]             Start all or a specific service (systemctl --user)")
+    print("  stop [svc]              Stop all or a specific service")
+    print("  restart [svc]           Restart all or a specific service")
+    print("  uptime [svc]            Show service residency time and timestamps")
+    print("  dashboard               Open the real-time Rust TUI monitor (Visual Mode)")
+    
+    print("\nKnowledge & RAG Pipeline:")
+    print("  index <path>            Index a codebase for RAG (supports .c, .py, .rs, .nix, etc.)")
+    print("  learn <topic|url|file>  Ingest materials or start assisted language learning")
+    print("  query <question>        Ask a question against your private knowledge base")
+    print("  knowledge [list|summary] Inspect the 3-Layer knowledge graph structure")
+    print("  training                Check language competency and RAG coverage matrix")
+    print("  associate <category>     Link the current directory to a knowledge domain")
+    print("  inbox [process <ID>]    Manage recently ingested but unindexed documents")
+    
+    print("\nAI Model & API Management:")
+    print("  models [list|active]    Manage local (Ollama) and cloud (OpenRouter) models")
+    print("  keys                    Show configured API keys and environment status")
+    print("  set-key <prov> <key>    Securely store an API key (Vault integration)")
+    print("  config [nvim|nixos]     Open specialized editor modes for system configuration")
+    print("  config [set|get|list]   Manage persistent user preferences and session overrides")
+    
+    print("\nSecurity & Capabilities:")
+    print("  cap [list|grant|revoke] Manage granular agent capabilities (file_read, networking, etc.)")
+    print("  pending                 List pending capability approval requests from agents")
+    print("  approve <ID>            Authorize a blocked agent capability request")
+    
+    print("\nMisc & Feedback:")
+    print("  man                     Open the formal comprehensive manual page")
+    print("  backup | archive        Create data backups or compressed vault snapshots")
+    print("  thumbs-up / down        Provide feedback on the last AI response (Reinforcement)")
+    print("  forget                  Clear short-term working memory / context")
+    print("  sessions                List and manage active conversational threads")
+    print("  help                    Show this detailed command reference")
+    print("  --version               Show version information")
+
+    print("\nNatural Language Examples:")
+    print("  jarvis 'clean this pdf for notebooklm'")
+    print("  jarvis 'research transformer attention mechanisms'")
+    print("  jarvis 'write a nix module for postgresql'")
+    print("  jarvis 'fix the syntax error in my lua config'")
+    
+    print("\nHint: Most commands support autocomplete! Type 'jarvis <TAB>' in Zsh to see options.")
     print("\nNatural Language Examples:")
     print("  jarvis 'clean this pdf for notebooklm'")
     print("  jarvis 'research transformer attention mechanisms'")
@@ -1422,21 +1449,26 @@ def main():
                     svc = sys.argv[i]
                     break
             cmd_status(svc, short=short)
+            if not short:
+                print("\nHint: Use 'jarvis dashboard' for a live, interactive TUI monitor.")
             log_history(user_input, "health_check", "ok")
             return
         if command == "start":
             svc = sys.argv[2] if len(sys.argv) > 2 else None
             cmd_start(svc)
+            print(f"Hint: Run 'jarvis status {svc or ''}' to verify the service is running.")
             log_history(user_input, "start_services", "ok")
             return
         if command == "stop":
             svc = sys.argv[2] if len(sys.argv) > 2 else None
             cmd_stop(svc)
+            print(f"Hint: Run 'jarvis status {svc or ''}' to verify the service has stopped.")
             log_history(user_input, "stop_services", "ok")
             return
         if command == "restart":
             svc = sys.argv[2] if len(sys.argv) > 2 else None
             cmd_restart(svc)
+            print(f"Hint: Run 'jarvis status {svc or ''}' to verify the restart was successful.")
             log_history(user_input, "restart_services", "ok")
             return
         if command == "pause":
@@ -1467,6 +1499,7 @@ def main():
         if command == "uptime":
             svc = sys.argv[2] if len(sys.argv) > 2 else None
             cmd_uptime(svc)
+            print("Hint: Checking uptime is useful for debugging service crashes.")
             log_history(user_input, "uptime", "ok")
             return
 
@@ -1522,6 +1555,8 @@ def main():
             
             env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
             res = subprocess.run(cmd, env=env)
+            if res.returncode == 0:
+                print("Hint: Use 'jarvis inbox' to see documents queued for processing.")
             log_history(user_input, "learn_explicit", "ok" if res.returncode == 0 else "failed")
             return
         
@@ -1531,6 +1566,8 @@ def main():
             env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
             print(f"[Jarvis] Indexing Codebase for Coding Agent...")
             res = subprocess.run(cmd, env=env)
+            if res.returncode == 0:
+                print("Hint: Use 'jarvis query <question>' to test the retrieval of your code.")
             log_history(user_input, "index_explicit", "ok" if res.returncode == 0 else "failed")
             return
             
@@ -1575,6 +1612,7 @@ def main():
                         print(f"  {lang:<20} {r['layers']}")
             else:
                 print("Usage: jarvis knowledge [list|summary]")
+            print("\nHint: Use 'jarvis training' to see your actual competency matrix across languages.")
             return
 
         if command == "training":
@@ -1595,6 +1633,7 @@ def main():
                         count = conn.execute("SELECT COUNT(*) FROM chunks WHERE layer = ? AND category = ?", (layer, lang + suffix)).fetchone()[0]
                         status.append("✓" if count > 0 else "✗")
                     print(f"  {lang:<12} {status[0]:<10} {status[1]:<10} {status[2]:<10}")
+            print("\nHint: Run 'jarvis learn <topic>' to improve competency in a specific area.")
             return
 
         if command == "config":
@@ -1663,6 +1702,7 @@ def main():
                     for item in items:
                         itype = item.get('type') or "None"
                         print(f"  {item['id']:<4} {itype:<20} {item['title']}")
+                print("\nHint: Use 'jarvis inbox process <ID>' to ingest a document into the knowledge base.")
             return
 
         if command == "approve":
@@ -1725,6 +1765,7 @@ def main():
             for r in rows:
                 print(f"  {r['id']:<10} {r['agent_id']:<20} {r['capability']:<25} {r['reason']}")
             print(f"\n  Run: jarvis approve <id>")
+            print("\nHint: Agents request capabilities when they need to perform risky actions.")
             return
 
         if command == "set-key":
@@ -1736,6 +1777,7 @@ def main():
             sm = SecretsManager()
             sm.set(provider, key)
             print(f"[Jarvis] API key for '{provider}' securely stored.")
+            print("\nHint: Use 'jarvis keys' to verify all stored and environment-based keys.")
             log_history(user_input, "set_key", "ok")
             return
 
@@ -1747,6 +1789,8 @@ def main():
             cmd = [str(BASE_DIR / ".venv" / "bin" / "python"), str(BASE_DIR / "pipelines" / "query_knowledge.py"), query]
             env = {**os.environ, "PYTHONPATH": str(BASE_DIR)}
             res = subprocess.run(cmd, env=env)
+            if res.returncode == 0:
+                print("\nHint: Use 'jarvis knowledge list' to see all categories and layers.")
             log_history(user_input, "query_explicit", "ok" if res.returncode == 0 else "failed")
             return
         if command == "status":
@@ -1849,6 +1893,7 @@ def main():
                     print("Usage: jarvis cap [list|grant|revoke] [capability]")
             else:
                 print("Usage: jarvis cap [list|grant|revoke] [capability]")
+            print("\nHint: Use 'jarvis pending' to see if any agents are currently blocked by missing capabilities.")
             log_history(user_input, "cap", "ok")
             return
 
@@ -1876,6 +1921,7 @@ def main():
                     print(f"Associated {os.getcwd()} with category: {cat}")
             else:
                 print("Usage: jarvis associate [category | list | remove <category>]")
+            print("\nHint: Associating a directory helps Jarvis focus its knowledge search on relevant topics.")
             log_history(user_input, "associate", "ok")
             return
 
