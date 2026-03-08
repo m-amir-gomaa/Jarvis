@@ -63,7 +63,7 @@ Associations are stored in a dedicated table `codebase_associations`.
 
 ---
 
-## 🔌 4. Antigravity IDE Layer (LSP Bridge)
+## 🔌 4. Antigravity-like IDE Layer (LSP Bridge)
 
 The Neovim integration works via a custom LSP implementation (`jarvis_lsp.py`) and a sidecar HTTP server.
 

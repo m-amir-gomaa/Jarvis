@@ -32,7 +32,7 @@ Jarvis V3 is heavily optimized for NixOS, but its core logic is standard Python.
 
 ## 2. Decoupling from Neovim
 
-Jarvis is designed to be "IDE-agnostic at heart" but currently has a strong "Antigravity" Neovim layer.
+Jarvis is designed to be "IDE-agnostic at heart" but currently has a strong "Antigravity-like" Neovim layer.
 
 ### A. The LSP Bridge
 - The `services/jarvis_lsp.py` is a standard Language Server. Any IDE with an LSP client (VS Code, Emacs, JetBrains) can technically connect to it.
@@ -56,7 +56,7 @@ We welcome Pull Requests that:
 1. Replace `os.system()` calls with `subprocess.run(shell=False)`.
 2. Abstract machine-specific identifiers.
 3. Add `Dockerfile` support for containerized execution.
-4. Implement a VS Code Extension that replicates the Antigravity features.
+4. Implement a VS Code Extension that replicates the Antigravity-like features.
 
 ---
 *For technical questions, please consult [docs/ARCHITECTURE.md](ARCHITECTURE.md).*
