@@ -1,0 +1,8 @@
+- **Phase**: Execution (B1 complete)
+- **Active Branch**: `feature/advanced-neovim`
+- **Task Checklist**:
+   - [x] B1. SSE Streaming
+   - [ ] B2. Floating Window UX
+   - [ ] B3. Tree-sitter Context
+   - [ ] B4. DAP Enhancements
+- **Current Blockers/Failing Tests**: 

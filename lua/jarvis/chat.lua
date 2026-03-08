@@ -1,0 +1,65 @@
+-- lua/jarvis/chat.lua
+local M = {}
+local curl = require("plenary.curl")
+local server = "http://127.0.0.1:7002"
+
+local last_request_id = nil
+
+function M.chat()
+  vim.ui.input({ prompt = "Jarvis chat: " }, function(query)
+    if not query or query == "" then return end
+
+    vim.notify("Jarvis: thinking (RAG chat)...", vim.log.levels.INFO)
+
+    local task_id = "chat_" .. os.time()
+    last_request_id = task_id
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(buf, "Jarvis Chat " .. task_id)
+    vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+    vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "# Jarvis Chat", "", "**You:** " .. query, "", "**Jarvis:**", "" })
+    
+    vim.cmd("botright split")
+    vim.api.nvim_win_set_buf(0, buf)
+    vim.api.nvim_win_set_height(0, 15)
+    
+    local ns = vim.api.nvim_create_namespace("jarvis_chat")
+    local row = vim.api.nvim_buf_line_count(buf) - 1
+    local mark_id = vim.api.nvim_buf_set_extmark(buf, ns, row, 0, { right_gravity = false })
+
+    curl.post(server .. "/chat", {
+      headers = {
+        ["Content-Type"] = "application/json",
+        ["Accept"] = "text/event-stream"
+      },
+      body = vim.fn.json_encode({ query = query, task_id = task_id, stream = true }),
+      stream = vim.schedule_wrap(function(err, chunk, _)
+        if err or not chunk then return end
+        if not vim.api.nvim_buf_is_valid(buf) then return end
+        
+        for line in chunk:gmatch("[^\r\n]+") do
+          if vim.startswith(line, "data: ") then
+            local data_str = line:sub(7)
+            if data_str ~= "[DONE]" then
+              local ok, data = pcall(vim.fn.json_decode, data_str)
+              if ok and data.token then
+                local mark = vim.api.nvim_buf_get_extmark_by_id(buf, ns, mark_id, {details = false})
+                if mark and #mark > 0 then
+                  local r, c = mark[1], mark[2]
+                  local lines = vim.split(data.token, "\n", { plain = true })
+                  vim.api.nvim_buf_set_text(buf, r, c, r, c, lines)
+                end
+              end
+            end
+          end
+        end
+      end),
+      callback = function(res)
+        if last_request_id == task_id then last_request_id = nil end
+      end,
+    })
+  end)
+end
+
+return M

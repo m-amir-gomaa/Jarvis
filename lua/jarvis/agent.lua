@@ -85,30 +85,7 @@ end
 
 -- /chat — RAG-augmented question answering
 function M.chat()
-  -- Prompt user for query
-  vim.ui.input({ prompt = "Jarvis chat: " }, function(query)
-    if not query or query == "" then return end
-
-    with_spinner("thinking (RAG chat)", function()
-      local task_id = "chat_" .. os.time()
-      last_request_id = task_id
-      curl.post(server .. "/chat", {
-        headers = { ["Content-Type"] = "application/json" },
-        body = vim.fn.json_encode({ query = query, task_id = task_id }),
-        callback = function(res)
-          if last_request_id == task_id then last_request_id = nil end
-          if res and res.status == 200 then
-            local data = vim.fn.json_decode(res.body)
-            open_response_buf("Jarvis Chat", data.response or "(no response)")
-          else
-            vim.schedule(function()
-              vim.notify("Jarvis: server error or offline", vim.log.levels.ERROR)
-            end)
-          end
-        end,
-      })
-    end)
-  end)
+  require("jarvis.chat").chat()
 end
 
 -- /fix — run agent_loop for current buffer error
