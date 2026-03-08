@@ -17,8 +17,8 @@ Start with the **[AI Terminology Guide](AI_TERMINOLOGY.md)**.
 - **Next Step**: **[Creative Uses](CREATIVE_USES.md)** to see what's possible.
 
 ### 3. "I want to master the CLI and IDE"
-Head to the **[Usage Guide](USAGE.md)**.
-- **Focus**: Command references, Neovim keybindings, and TUI shortcuts.
+Head to the **[Interaction Interfaces Guide](INTERFACES.md)**.
+- **Focus**: Every command point—CLI, Neovim keybindings, TUI, and **Voice commands**.
 - **Next Step**: The **[Man Page](jarvis.1)** (run `jarvis man`) for the technical flag reference.
 
 ### 4. "I want to contribute or build new features"

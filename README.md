@@ -5,6 +5,7 @@ Jarvis is a heavy-duty, local-first AI orchestration layer designed for develope
 ## 🚀 Quick Links
 - **[Installation](docs/INSTALL.md)**: Setup, models, and vault configuration.
 - **[Usage Guide](docs/USAGE.md)**: Master the CLI, Neovim actions, and Dashboard TUI.
+- **[Interaction Interfaces](docs/INTERFACES.md)**: Every way to talk to Jarvis (CLI, IDE, TUI, Voice).
 - **[Architecture](docs/ARCHITECTURE.md)**: Deep dive into the security and reasoning engines.
 - **[Component Reference](docs/COMPONENTS.md)**: File-by-file technical audit.
 - **[API Key Guide](docs/API_KEYS.md)**: Obtaining and securing external model keys.
