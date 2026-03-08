@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 BASE_DIR = Path(os.environ.get("JARVIS_ROOT", Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(BASE_DIR))
 from lib.event_bus import emit
+from lib.snapshot_manager import SnapshotManager
 
 # Configuration
 CHECK_INTERVAL = 60  # seconds
@@ -73,6 +74,38 @@ def request_approval(service_name, reason):
         print(f"[Self-Heal] LSP bridge unavailable for approval: {e}")
         return False
 
+def _attempt_snapshot_rollback(service_name: str) -> bool:
+    """
+    Attempt to restore the most recent available snapshot.
+    Called when a service has exceeded the restart limit after a config change.
+    
+    Args:
+        service_name: The service that triggered the rollback (for logging).
+    
+    Returns:
+        True if a snapshot was restored, False otherwise.
+    """
+    sm = SnapshotManager(BASE_DIR)
+    snapshots = sm.list_snapshots()
+    if not snapshots:
+        print(f"[Self-Heal] No snapshots available for rollback.")
+        emit("self_healer", "rollback_failed", {"service": service_name, "reason": "no_snapshots"})
+        return False
+    
+    latest = snapshots[0]  # list_snapshots returns sorted descending by time
+    snapshot_name = latest["name"]
+    print(f"[Self-Heal] Attempting rollback to snapshot: {snapshot_name}")
+    emit("self_healer", "rollback_initiated", {"service": service_name, "snapshot": snapshot_name})
+    
+    if sm.restore_snapshot(snapshot_name):
+        print(f"[Self-Heal] Rollback successful. Restart {service_name} to apply.")
+        emit("self_healer", "rollback_success", {"service": service_name, "snapshot": snapshot_name})
+        return True
+    else:
+        print(f"[Self-Heal] Rollback failed: snapshot {snapshot_name} not found.")
+        emit("self_healer", "rollback_failed", {"service": service_name, "snapshot": snapshot_name})
+        return False
+
 def restart_service(service_name, dry_run=False):
     """Attempt to restart a service if within limits."""
     now = datetime.now()
@@ -82,8 +115,9 @@ def restart_service(service_name, dry_run=False):
     RESTART_HISTORY[service_name] = history
 
     if len(history) >= MAX_RESTARTS_PER_HOUR:
-        print(f"[Self-Heal] CRITICAL: Max restarts reached for {service_name}. Manual intervention required.")
+        print(f"[Self-Heal] CRITICAL: Max restarts reached for {service_name}. Attempting snapshot rollback...")
         emit("self_healer", "critical_failure", {"service": service_name, "reason": "restart_limit_reached"})
+        _attempt_snapshot_rollback(service_name)
         return False
 
     # Safety: If it's already failed once this hour, require OOB approval

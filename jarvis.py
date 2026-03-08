@@ -1897,6 +1897,38 @@ def main():
             log_history(user_input, "models", "ok")
             return
 
+        if command == "mcp":
+            if len(sys.argv) < 3:
+                print("Usage: jarvis mcp [discover]")
+                return
+            subcmd = sys.argv[2]
+            if subcmd == "discover":
+                import asyncio
+                from lib.mcp_client import MCPHub
+                print("[Jarvis] Connecting to MCP Hub servers...")
+                hub = MCPHub()
+                
+                if not hub.servers:
+                    print("  No enabled MCP servers found in config/mcp_servers.toml.")
+                    return
+                
+                async def run_discovery():
+                    results = await hub.discover_all()
+                    for server_id, tools in results.items():
+                        print(f"\nServer: {server_id} ({len(tools)} tools)")
+                        print("-" * 50)
+                        for t in tools:
+                            desc = (t.description[:60] + "...") if len(t.description) > 60 else t.description
+                            print(f"  {t.name:<25} | {desc}")
+                
+                asyncio.run(run_discovery())
+                print("\nHint: Discovered tools can be referenced in ERS chains.")
+            else:
+                print(f"Unknown mcp command: {subcmd}")
+                print("Usage: jarvis mcp [discover]")
+            log_history(user_input, "mcp", "ok")
+            return
+
         if command == "project":
             if len(sys.argv) < 3:
                 print("Usage: jarvis project [init|switch|status] [args]")

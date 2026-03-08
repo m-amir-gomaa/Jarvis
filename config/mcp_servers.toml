@@ -1,0 +1,38 @@
+# config/mcp_servers.toml
+# ─────────────────────────────────────────────────────────────────────────────
+# MCP Server Definitions for Jarvis Tool Hub
+#
+# Each [[servers]] entry defines an external MCP server that Jarvis can
+# connect to, discover tools from, and invoke those tools from ERS chains.
+#
+# Fields:
+#   id       = Unique identifier used in ERS chain step definitions (mcp_tool.server)
+#   name     = Human-readable display name
+#   url      = SSE or stdio endpoint URL (sse://, stdio+cmd://)
+#   type     = "sse" | "stdio"
+#   command  = (stdio only) Shell command to launch the MCP server process
+#   enabled  = Whether to include this server in discovery (default: true)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[servers]]
+id      = "jarvis-internal"
+name    = "Jarvis Internal MCP Server"
+type    = "sse"
+url     = "http://127.0.0.1:8000/sse"
+enabled = true
+
+# Example: an external memory/search MCP server
+# [[servers]]
+# id      = "perplexity"
+# name    = "Perplexity Search"
+# type    = "sse"
+# url     = "https://mcp.perplexity.ai/sse"
+# enabled = false
+
+# Example: a local stdio-based MCP tool server
+# [[servers]]
+# id      = "file-manager"
+# name    = "Local File Manager MCP"
+# type    = "stdio"
+# command = "python3 /opt/mcp-servers/file-manager/server.py"
+# enabled = false

@@ -38,6 +38,32 @@ async def search_rag(query: str) -> str:
     return "\n\n---\n\n".join(output)
 
 @mcp.tool()
+async def search_episodic_memory(query: str, limit: int = 10) -> str:
+    """
+    Search Jarvis's episodic memory (event log) for recent activities or context.
+
+    :param query: The search query string.
+    :param limit: Maximum number of events to return.
+    :return: A formatted string of matching events.
+    """
+    from lib.episodic_memory import search_memory
+    events = search_memory(query, limit)
+    if not events:
+        return "No recent episodic memory found matching the query."
+        
+    parts = ["## Episodic Memory Results"]
+    for e in events:
+        parts.append(f"- [{e['ts']}] {e['source']}: {e['event']} ({e['details']})")
+    
+    return "\n".join(parts)
+
+@mcp.resource("memory://episodic/recent")
+def get_recent_episodic_context() -> str:
+    """Read-only resource containing the most recent AI/system episodic context."""
+    from lib.episodic_memory import get_session_context
+    return get_session_context()
+
+@mcp.tool()
 async def web_search(query: str) -> str:
     """
     Search the web for information using Jarvis tools.
