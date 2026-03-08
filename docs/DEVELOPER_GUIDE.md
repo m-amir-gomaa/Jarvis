@@ -17,8 +17,8 @@ To maintain the quality and security of Jarvis, all contributions must follow th
 - **Validation**: `make test-all` must pass on your local NixOS machine.
 
 ### Documentation
-- Update `BOOTSTRAP_V3.md` for major architectural changes.
 - Ensure all new components are documented in `docs/COMPONENTS.md`.
+- Read the **[AI Terminology Guide](AI_TERMINOLOGY.md)** to understand the core concepts.
 
 ## 2. Tutorial: Creating an ERS Chain
 
