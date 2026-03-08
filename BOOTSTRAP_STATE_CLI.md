@@ -1,0 +1,8 @@
+- **Phase**: Initialization
+- **Active Branch**: `feature/cli-expansions`
+- **Task Checklist**:
+   - [ ] C1. `jarvis project` cmds
+   - [ ] C2. Structured Logging
+   - [ ] C3. `jarvis snapshot`
+   - [ ] C4. `jarvis budget` enhancements
+- **Current Blockers/Failing Tests**: 
