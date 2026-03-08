@@ -7,13 +7,18 @@ Jarvis is designed for a multi-interface workflow: CLI for management, Neovim fo
 The CLI is the primary orchestration point. Before using it, ensure you have followed the **[Installation Guide](INSTALL.md)** and configured your **[API Keys](API_KEYS.md)**. For inspiration on what you can achieve, check out **[Creative Uses](CREATIVE_USES.md)**.
 
 ### Management Commands
-- `jarvis start [alias]`: Initialize all or specific systemd services.
-- `jarvis stop [alias]`: Terminate services gracefully.
+- `jarvis start [alias]`: Start all or a specific service.
+- `jarvis stop [alias]`: Stop all or a specific service.
 - `jarvis restart [alias]`: Restart a specific service.
-- `jarvis status [alias]`: Health check (**[Ollama](SYSTEM_TWEAKS.md)**, services, budget, RAG status).
+- `jarvis status [--short]`: Health check (Ollama, services, budget, RAG).
 - `jarvis uptime [alias]`: Show how long a service has been active.
-- `jarvis models [list|active|select]`: Manage AI models and aliases.
+- `jarvis service enable <alias>`: Mark a service for auto-start.
+- `jarvis service disable <alias>`: Unmark a service from auto-start.
+- `jarvis service config <alias> <key> [val]`: Read or write a service property (RestartSec, Nice, MemoryMax, CPUQuota). On NixOS, prints the equivalent `jarvis.nix` snippet.
+- `jarvis install_services [--enable]`: Install portable systemd unit files (non-NixOS). On NixOS, prints setup guidance. Equivalent to `make install-services`.
+- `jarvis models [list|active|select]`: Manage AI models and routing aliases.
 - `jarvis man`: View the technical **[Man Page](jarvis.1)**.
+- `jarvis dashboard`: Launch the Rust TUI live monitor.
 
 > [!TIP]
 > For a deep dive into service aliases and automated watchdog features, see the **[Service Management Guide](SERVICE_MANAGEMENT.md)**. For model selection and privacy-aware routing, see the **[Model Management Guide](MODEL_MANAGEMENT.md)**.

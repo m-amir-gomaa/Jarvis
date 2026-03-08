@@ -1,132 +1,250 @@
 #compdef jarvis
-# Jarvis CLI Zsh Completion Script v3
-# Dynamically powered by 'jarvis completion'
+# Jarvis CLI Zsh Completion Script v4
+# Handles all commands, subcommands, flags, and dynamic completions
 
 _jarvis() {
     local ret=1
     local context state state_descr line
     typeset -A opt_args
-    
-    # Use JARVIS_ROOT if defined, else fallback to common location
-    local jarvis_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/jarvis.py"
-    if [[ ! -x "$jarvis_bin" ]]; then
-        jarvis_bin="jarvis" # Fallback to PATH
-    fi
-    
-    local python_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/.venv/bin/python"
+
+    local jarvis_root="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}"
+    local jarvis_bin="$jarvis_root/jarvis.py"
+    [[ ! -f "$jarvis_bin" ]] && jarvis_bin="jarvis"
+
+    local python_bin="$jarvis_root/.venv/bin/python"
     [[ ! -x "$python_bin" ]] && python_bin="python3"
 
     _arguments -C \
         '(-v --version)'{-v,--version}'[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help]' \
-        '--short[Short one-line status for status command]' \
+        '--short[Short one-line status output]' \
         '1: :->cmds' \
         '*:: :->args' && ret=0
 
     case $state in
         cmds)
             local -a subcmds
-            subcmds=("${(@f)$($python_bin "$jarvis_bin" completion commands)}")
+            subcmds=(
+                # Lifecycle
+                'start:Start background services (or a specific service alias)'
+                'stop:Stop background services (or a specific service alias)'
+                'restart:Restart background services (or a specific service alias)'
+                'pause:Suspend Ollama inference (SIGSTOP)'
+                'resume:Resume Ollama inference (SIGCONT)'
+                'status:Show health of all services and Ollama'
+                'uptime:Show how long each service has been running'
+                'dashboard:Launch the Rust TUI live monitor'
+
+                # Service management
+                'service:Control individual service units (enable/disable/config)'
+                'install_services:Install systemd user services (non-NixOS only)'
+                'install-services:Alias for install_services'
+
+                # Knowledge & RAG
+                'learn:Assisted learning or direct document ingestion'
+                'ingest:Index a URL or file into the RAG knowledge base'
+                'index:Index the current codebase for the coding agent'
+                'query:RAG search against the Vault databases'
+                'associate:Link current directory to a knowledge category'
+                'knowledge:Manage the knowledge graph'
+                'inbox:Manage the document inbox queue'
+
+                # AI Models & Config
+                'models:Manage and select AI models (list/active/select)'
+                'config:Manage user preferences and open config files'
+                'set-key:Store an encrypted API key in the Vault'
+                'keys:List and verify all configured API keys'
+                'toggle:Toggle a runtime feature (e.g., voice)'
+
+                # Security & Capabilities
+                'cap:Manage capabilities (list/grant/revoke)'
+                'approve:Approve a pending OOB capability request'
+                'deny:Deny a pending OOB capability request'
+                'pending:List active pending capability requests'
+
+                # Sessions & Memory
+                'sessions:View recent interaction sessions'
+                'codebases:List registered codebases'
+                'forget:Delete an item from the knowledge base'
+                'training:Run Jarvis training pipelines'
+
+                # Dev tools
+                'backup:Create a backup of the Jarvis codebase'
+                'archive:Create a compressed archive for long-term storage'
+                'thumbs-up:Rate the last AI response positively'
+                'thumbs-down:Rate the last AI response negatively'
+                'man:Open the Jarvis man page'
+                'help:Show help and command overview'
+                '--budget-status:Show current API usage budget'
+                '--version:Print version information'
+            )
             _describe -t commands 'jarvis commands' subcmds && ret=0
             ;;
+
         args)
             case $line[1] in
+                start|stop|restart|uptime)
+                    local -a svc_aliases
+                    svc_aliases=(
+                        'health:Health monitor daemon'
+                        'git:Git commit summarizer'
+                        'coding:Coding agent HTTP server'
+                        'healer:Self-healing daemon'
+                        'lsp:LSP sidecar'
+                        'voice:Voice gateway'
+                        'daily:Daily digest timer'
+                        'context:Context updater timer'
+                    )
+                    _describe -t aliases 'service alias' svc_aliases && ret=0
+                    ;;
+
+                service)
+                    if (( $#line == 1 )); then
+                        local -a svc_actions
+                        svc_actions=(
+                            'enable:Enable a service for auto-start'
+                            'disable:Disable a service from auto-start'
+                            'config:Set a systemd property override for a service'
+                        )
+                        _describe -t actions 'service actions' svc_actions && ret=0
+                    elif (( $#line >= 2 )) && [[ $line[2] == (enable|disable|config) ]]; then
+                        local -a svc_names
+                        svc_names=(health git coding healer lsp voice daily context)
+                        _describe -t services 'service' svc_names && ret=0
+                    elif (( $#line >= 3 )) && [[ $line[2] == "config" ]]; then
+                        local -a props
+                        props=(RestartSec Nice MemoryMax CPUQuota)
+                        _describe -t props 'systemd property' props && ret=0
+                    fi
+                    ;;
+
+                models)
+                    if (( $#line == 1 )); then
+                        local -a model_actions
+                        model_actions=(
+                            'list:List all available local and cloud models'
+                            'active:Show currently effective model for each role'
+                            'select:Select a model for a specific role'
+                        )
+                        _describe -t actions 'models actions' model_actions && ret=0
+                    elif [[ $line[2] == "select" ]]; then
+                        _arguments \
+                            '--session[Apply change for this session only]' \
+                            '3:Role:(default coding research fast)' \
+                            '4:Model name:' && ret=0
+                    fi
+                    ;;
+
                 learn|ingest)
                     _arguments \
                         '--layer[Target knowledge layer]:layer:(1 2 3)' \
                         '--category[Knowledge category]:category:->categories' \
                         '*:URL or file:_files' && ret=0
                     ;;
+
                 query)
                     _arguments \
                         '--category[Filter by category]:category:->categories' \
                         '*:Question:' && ret=0
                     ;;
+
                 index)
                     _arguments \
                         '--category[Index category name]:category:' \
                         '--privacy[Privacy level (0-3)]:level:(0 1 2 3)' \
                         '*:Directory:_files -/' && ret=0
                     ;;
+
                 associate)
                     _arguments \
                         '1:Action:(list remove)' \
                         '2:Category:->categories' && ret=0
                     ;;
+
                 cap)
                     _arguments \
                         '1:Action:(list grant revoke)' \
                         '2:Capability:->capabilities' && ret=0
                     ;;
-                approve)
+
+                approve|deny)
                     _arguments \
                         '1:ID:->pending_ids' && ret=0
                     ;;
-                pending)
-                    # No extra args
-                    ;;
+
                 set-key)
                     _arguments \
                         '1:Provider:(anthropic openai google deepseek groq openrouter cerebras)' \
                         '2:API Key:' && ret=0
                     ;;
+
                 config)
                     _arguments \
-                        '1:Action:(set get list reset)' \
+                        '1:Action:(set get list reset nvim nixos)' \
                         '2:Key:->config_keys' \
-                        '3:Value:' && ret=0
+                        '3:Value:' \
+                        '--session[Set preference for current session only]' && ret=0
                     ;;
+
                 inbox)
                     _arguments \
                         '1:Action:(process list)' \
                         '*:: :->inbox_args' && ret=0
                     ;;
+
                 toggle)
                     _arguments \
                         '1:Setting:(voice)' && ret=0
                     ;;
+
                 sessions)
                     _arguments \
                         '1:Session ID:->sessions' && ret=0
                     ;;
-                models|keys|status|dashboard|backup|archive|uptime|pause|resume|man|training|forget|help)
-                    # Simple or no args
+
+                status)
+                    _arguments \
+                        '--short[One-line condensed output]' && ret=0
+                    ;;
+
+                models|keys|dashboard|backup|archive|pause|resume|man|training|forget|help|codebases|install_services|install-services|thumbs-up|thumbs-down|pending)
+                    # No additional args needed
                     ;;
             esac
-            
-            # Handle dynamic categories/ids/sessions
+
+            # Dynamic completions
             case $state in
                 categories)
                     local -a categories
-                    categories=("${(@f)$($python_bin "$jarvis_bin" completion categories)}")
+                    categories=("${(@f)$($python_bin "$jarvis_bin" completion categories 2>/dev/null)}")
                     _describe -t categories 'categories' categories && ret=0
                     ;;
                 capabilities)
                     local -a caps
-                    caps=("${(@f)$($python_bin "$jarvis_bin" completion capabilities)}")
+                    caps=("${(@f)$($python_bin "$jarvis_bin" completion capabilities 2>/dev/null)}")
                     _describe -t caps 'capabilities' caps && ret=0
                     ;;
                 config_keys)
                     local -a keys
-                    keys=("${(@f)$($python_bin "$jarvis_bin" completion config_keys)}")
+                    keys=("${(@f)$($python_bin "$jarvis_bin" completion config_keys 2>/dev/null)}")
                     _describe -t keys 'config keys' keys && ret=0
                     ;;
                 pending_ids)
                     local -a ids
-                    ids=("${(@f)$($python_bin "$jarvis_bin" completion pending_ids)}")
+                    ids=("${(@f)$($python_bin "$jarvis_bin" completion pending_ids 2>/dev/null)}")
                     _describe -t ids 'pending IDs' ids && ret=0
                     ;;
                 sessions)
                     local -a sessions
-                    sessions=("${(@f)$($python_bin "$jarvis_bin" completion sessions)}")
+                    sessions=("${(@f)$($python_bin "$jarvis_bin" completion sessions 2>/dev/null)}")
                     _describe -t sessions 'sessions' sessions && ret=0
                     ;;
             esac
-            
-            # Handle nested inbox process
+
+            # Inbox item IDs for inbox process <ID>
             if [[ $line[1] == "inbox" && $line[2] == "process" ]]; then
                 local -a inbox_ids
-                inbox_ids=("${(@f)$($python_bin "$jarvis_bin" completion inbox)}")
+                inbox_ids=("${(@f)$($python_bin "$jarvis_bin" completion inbox 2>/dev/null)}")
                 _describe -t ids 'inbox IDs' inbox_ids && ret=0
             fi
             ;;

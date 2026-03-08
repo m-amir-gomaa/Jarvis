@@ -1,97 +1,222 @@
-.TH JARVIS 1 "March 2026" "0.3.0" "Jarvis User Manual"
+.TH JARVIS 1 "March 2026" "0.4.0" "Jarvis User Manual"
 .SH NAME
-jarvis \- Local-First AI Orchestrator with Strict Security and ERS
+jarvis \- Local-First AI Orchestrator with NixOS/Generic-Linux Service Management, ERS, and CBAC Security
 .SH SYNOPSIS
 .B jarvis
-[\fIOPTIONS\fR] [\fICOMMAND\fR]
+[\fIOPTIONS\fR] [\fICOMMAND\fR [\fIARGS\fR...]]
 .br
 .B jarvis
-'\fINATURAL LANGUAGE PROMPT\fR'
+\'\fINATURAL LANGUAGE PROMPT\fR\'
 .SH DESCRIPTION
 .B jarvis
-is a heavy-duty local-first AI orchestrator designed for NixOS. It implements a principled, **Capability-Based Access Control (CBAC)** security model (Trust Levels 0-4) and an **External Reasoning System (ERS)** for multi-step tasks. Since V3, **Shadow Mode** is disabled; every sensitive action (filesystem, network, subprocess) is strictly gated and requires explicit user approval unless auto-granted.
+is a heavy-duty local-first AI orchestrator.
+It implements a \fBCapability-Based Access Control (CBAC)\fR security model (Trust Levels 0\-4) and an \fBExternal Reasoning System (ERS)\fR for multi-step tasks.
+Service management is fully cross-platform: on NixOS services are declared in \fImodules/jarvis.nix\fR and managed declaratively; on traditional Linux, systemd user services are installed from portable templates via \fBmake install-services\fR.
 .SH KEY ARCHITECTURAL COMPONENTS
 .TP
 .B Security Manager
-The core gatekeeper. Enforces trust ceilings and handles interactive/OOB approvals. Tracks session identification via tokens stored in the Vault.
+Enforces trust ceilings, handles interactive and OOB capability approvals, and audits all sensitive operations.
 .TP
 .B ERS (External Reasoning System)
 Executes complex workloads via YAML-defined chains. Each step runs in an isolated child security context with auto-revocation of temporary grants.
 .TP
 .B Model Hub
-A unified router for local (Ollama) and cloud models. Standardized 600s timeouts ensure stability for CPU-bound inference.
+Unified router for local (Ollama) and cloud models. Supports persistent and session-scoped overrides via \fBjarvis models select\fR.
 .TP
 .B Antigravity IDE Layer
-Custom LSP bridge for Neovim providing asynchronous code actions (Explain, Fix, Refactor) with session-level isolation.
-.SH COMMANDS
+Custom LSP bridge for Neovim providing asynchronous code actions with session-level isolation. Manage models directly from Neovim with \fB<leader>jm\fR.
+.SH GLOBAL OPTIONS
 .TP
-.B status
-Displays the health of all Jarvis background services (systemd), Ollama load status, current budget, and session authentication status.
+.B \-v, \-\-version
+Print version information.
 .TP
-.B start / stop
-Starts or stops all background services (Ingest, Health, Coding Agent).
+.B \-h, \-\-help
+Show a help summary.
 .TP
-.B pause / resume
-Suspends or continues AI inference by sending SIGSTOP/SIGCONT to the Ollama process.
+.B \-\-short
+Emit condensed one-line output for commands that support it (e.g., \fBstatus\fR).
+.SH SERVICE LIFECYCLE COMMANDS
 .TP
-.B uptime
-Shows how long each background service has been running.
+.B start [\fIALIAS\fR]
+Start background services. With no argument, starts all services enabled in \fIuser_prefs.toml\fR, falling back to health+git. Pass a service alias to start a specific one.
+.br
+Aliases: \fBhealth\fR, \fBgit\fR, \fBcoding\fR, \fBhealer\fR, \fBlsp\fR, \fBvoice\fR, \fBdaily\fR, \fBcontext\fR
 .TP
-.B pending
-Lists all active out-of-band (OOB) capability requests from IDE or remote sessions.
+.B stop [\fIALIAS\fR]
+Stop background services (all or a specific alias).
 .TP
-.B approve \fIID\fR
-Grants a pending capability request. Use \fBdeny \fIID\fR to reject.
+.B restart [\fIALIAS\fR]
+Restart background services (all or a specific alias). Equivalent to stop then start.
 .TP
-.B cap [list|grant|revoke] [\fICAP\fR]
-Granular capability management. \fBgrant\fR adds a persistent permission; \fBrevoke\fR removes it.
+.B pause
+Suspend AI inference by sending SIGSTOP to all Ollama processes. Frees CPU for other tasks.
 .TP
-.B associate [\fICATEGORY\fR | list | remove \fICATEGORY\fR]
-Links the current directory to a knowledge category for context-aware RAG.
+.B resume
+Resume inference by sending SIGCONT to paused Ollama processes.
 .TP
-.B config [set|get|list|reset] [\fIKEY\fR] [\fIVAL\fR]
-Manage user preferences (e.g., \fCmodels.default_local\fR). \fBreset\fR restores factory defaults.
+.B status [\-\-short]
+Display health of all background services, Ollama load, budget, and session authentication.
 .TP
-.B set-key \fIPROVIDER\fR \fIKEY\fR
-Securely stores an encrypted API key in the Vault. Supported: \fCanthropic\fR, \fCopenai\fR, \fCgoogle\fR, \fCdeepseek\fR, \fCgroq\fR, \fCopenrouter\fR.
-.TP
-.B keys
-List and verify the status of all configured API keys.
-.TP
-.B index [\fIOPTIONS\fR]
-Indexes the current codebase for the coding agent. Supports \fB--category\fR and \fB--privacy\fR [0-3] flags.
-.TP
-.B ingest \fIURL/FILE\fR
-Indexes documents into the RAG knowledge base. 
-.TP
-.B learn \fI[TOPIC | URL]\fR
-Assisted language learning or direct ingestion with metadata.
-.TP
-.B query "\fIQUESTION\fR"
-Performs a RAG search against the Vault databases. Automatically uses associations from the current directory.
+.B uptime [\fIALIAS\fR]
+Show how long each service has been running. Optionally filter to one service by alias.
 .TP
 .B dashboard
-Launches the Rust TUI monitor.
+Launch the Rust TUI live monitor (\fBjarvis-monitor\fR binary in \fIbin/\fR).
+.SH SERVICE MANAGEMENT COMMANDS
 .TP
-.B backup / archive
-Creates backups or compressed archives of the Jarvis codebase and Vault.
-.SH ERS INTENTS
-When provided with natural language, Jarvis routes to specific ERS chains:
+.B service enable \fIALIAS\fR
+Mark a service alias for auto-start when running \fBjarvis start\fR without arguments. Persisted to \fIuser_prefs.toml\fR.
+.TP
+.B service disable \fIALIAS\fR
+Remove a service alias from the auto-start list.
+.TP
+.B service config \fIALIAS\fR \fIKEY\fR [\fIVAL\fR]
+Read or write a systemd service property. Supported properties: \fBRestartSec\fR, \fBNice\fR, \fBMemoryMax\fR, \fBCPUQuota\fR.
+.br
+On \fBNixOS\fR this prints the equivalent \fIjarvis.nix\fR stanza and exits \(em unit files are read-only and managed by Nix.
+.br
+On \fBtraditional Linux\fR a drop-in override file is written to \fI~/.config/systemd/user/<unit>.service.d/jarvis-override.conf\fR and the daemon is reloaded.
+.TP
+.B install_services [\-\-enable] [\-\-uninstall]
+Install portable systemd user service and timer files from \fIservices/templates/\fR. Paths and UIDs are substituted automatically.
+.br
+On \fBNixOS\fR this is a no-op: it prints guidance to edit \fImodules/jarvis.nix\fR and run \fCsudo nixos-rebuild switch\fR.
+.br
+Equivalent Makefile targets: \fCmake install-services\fR, \fCmake install-services-enable\fR, \fCmake uninstall-services\fR.
+.SH AI MODEL COMMANDS
+.TP
+.B models list
+List all registered local (Ollama) and cloud models with their current routing assignments.
+.TP
+.B models active
+Show the currently effective model for each role (default, coding, research, fast). Session overrides are highlighted.
+.TP
+.B models select [\-\-session] \fIROLE\fR \fIMODEL\fR
+Set the active model for a role. Roles: \fBdefault\fR, \fBcoding\fR, \fBresearch\fR, \fBfast\fR.
+Without \fB\-\-session\fR the change is written to \fIuser_prefs.toml\fR (persistent). With \fB\-\-session\fR the override lasts only until the next shell.
+.SH KNOWLEDGE & RAG COMMANDS
+.TP
+.B index [\-\-category \fINAME\fR] [\-\-privacy \fI0\-3\fR] [\fIDIR\fR]
+Index the current (or given) codebase for the coding agent. Privacy levels: 0=local-only, 1=internal, 2=standard, 3=cloud-allowed.
+.TP
+.B ingest \fIURL/FILE\fR [\-\-layer \fI1\-3\fR] [\-\-category \fINAME\fR]
+Immediately index a document into the RAG knowledge base.
+.TP
+.B learn \fI[TOPIC | URL/FILE]\fR [\-\-layer \fI1\-3\fR] [\-\-category \fINAME\fR]
+Assisted learning (no URL: interactive mode) or direct ingestion with metadata.
+.TP
+.B query "\fIQUESTION\fR" [\-\-category \fINAME\fR]
+Perform a RAG search against Vault databases. Associations from the current directory are applied automatically.
+.TP
+.B associate [\fICATEGORY\fR | list | remove \fICATEGORY\fR]
+Link the current working directory to a knowledge category. Enables context-aware RAG when running \fBquery\fR or \fBingest\fR from a codebase.
+.TP
+.B inbox [list | process \fIID\fR]
+Manage the document inbox queue. \fBlist\fR shows pending items; \fBprocess \fIID\fR\fR ingests the document into an isolated category.
+.TP
+.B knowledge
+Query or inspect the knowledge graph.
+.TP
+.B codebases
+List all registered codebase entries.
+.TP
+.B forget \fIID\fR
+Remove an item from the knowledge base by ID.
+.SH CONFIGURATION COMMANDS
+.TP
+.B config set \fIKEY\fR \fIVAL\fR [\-\-session]
+Set a preference. Without \fB\-\-session\fR writes to \fI~/.config/jarvis/user_prefs.toml\fR (permanent). With \fB\-\-session\fR the change overrides only in \fI~/.config/jarvis/context/session_prefs.json\fR and is not persisted.
+.TP
+.B config get \fIKEY\fR
+Read a preference value.
+.TP
+.B config list
+Print all persistent preferences and, if present, all current session overrides.
+.TP
+.B config reset
+Restore all persistent preferences to factory defaults. Session overrides are left untouched.
+.TP
+.B config nvim
+Open the Neovim configuration in the editor.
+.TP
+.B config nixos
+Open \fIconfiguration.nix\fR in the editor.
+.TP
+.B set-key \fIPROVIDER\fR \fIKEY\fR
+Encrypt and store an API key in the Vault. Supported providers: \fBanthropic\fR, \fBopenai\fR, \fBgoogle\fR, \fBdeepseek\fR, \fBgroq\fR, \fBopenrouter\fR, \fBcerebras\fR.
+.TP
+.B keys
+List all configured API keys and verify they are non-empty.
+.SH SECURITY & CAPABILITY COMMANDS
+.TP
+.B cap list
+List all capability grants for the current context.
+.TP
+.B cap grant \fICAP\fR
+Grant a capability (e.g., \fCfile_read\fR, \fCshell_exec\fR).
+.TP
+.B cap revoke \fICAP\fR
+Revoke a previously granted capability.
+.TP
+.B approve \fIID\fR
+Approve a pending OOB capability request.
+.TP
+.B deny \fIID\fR
+Reject a pending OOB capability request.
+.TP
+.B pending
+List all active out-of-band (OOB) capability requests.
+.SH MISC COMMANDS
+.TP
+.B sessions [\fIID\fR]
+List recent interaction sessions or dump a specific session.
+.TP
+.B training
+Run Jarvis learning and training pipelines.
+.TP
+.B backup
+Create a backup of the Jarvis codebase to the Vault.
+.TP
+.B archive
+Create a compressed archive of the codebase for long-term storage.
+.TP
+.B thumbs-up / thumbs-down
+Rate the last AI response. Rating is appended to \fIlogs/feedback.jsonl\fR.
+.TP
+.B toggle voice
+Enable or disable the voice gateway at runtime.
+.TP
+.B man
+Open this man page.
+.TP
+.B help
+Show the command overview.
+.TP
+.B \-\-budget-status
+Show the current API usage budget and remaining tokens.
+.SH ERS NATURAL LANGUAGE INTENTS
+Jarvis routes plain English input to specific ERS chains:
 .TP
 .I 'research ...'
-Triggers \fCresearch_deep.yaml\fR for extensive web and local analysis.
+\fCresearch_deep.yaml\fR \(em extensive web and local analysis.
 .TP
 .I 'summarize git ...'
-Triggers \fCgit_summarize.yaml\fR to generate human-readable changelogs.
+\fCgit_summarize.yaml\fR \(em generate a human-readable changelog.
 .TP
 .I 'validate nixos ...'
-Triggers \fCnixos_verify.yaml\fR to check configuration sanity using local models.
+\fCnixos_verify.yaml\fR \(em check NixOS configuration sanity with local models.
 .SH ENVIRONMENT
 .IP "\fBJARVIS_ROOT\fR"
-Override the default project directory.
+Override the default project directory (default: \fI~/NixOSenv/Jarvis\fR).
 .IP "\fBVAULT_ROOT\fR"
-Override the secure data storage root (Default: /THE_VAULT/jarvis).
+Override the secure data storage root (default: \fI/THE_VAULT/jarvis\fR).
 .SH FILES
+.TP
+.I ~/.config/jarvis/user_prefs.toml
+Persistent user preferences (models, services, etc.).
+.TP
+.I ~/.config/jarvis/context/session_prefs.json
+Session-scoped preference overrides (cleared on new session).
 .TP
 .I /THE_VAULT/jarvis/databases/security_audit.db
 Central audit trail and pending grant storage.
@@ -99,10 +224,27 @@ Central audit trail and pending grant storage.
 .I /THE_VAULT/jarvis/databases/knowledge.db
 RAG knowledge base and embeddings.
 .TP
-.I /THE_VAULT/jarvis/context/active_session_token
-The source of truth for session authentication.
+.I ~/NixOSenv/modules/jarvis.nix
+Declarative NixOS service definitions (NixOS only). Edit here to add/change services, then run \fCsudo nixos-rebuild switch\fR.
+.TP
+.I ~/.config/systemd/user/
+Systemd user unit files (non-NixOS). Installed by \fCmake install-services\fR; drop-in overrides placed by \fBjarvis service config\fR.
+.TP
+.I <JARVIS_ROOT>/services/templates/
+Portable systemd service/timer templates. Contain \fC__PLACEHOLDER__\fR variables substituted at install time.
+.SH PLATFORM DIFFERENCES (NixOS vs Traditional Linux)
+.TS
+tab(|) allbox;
+l l l.
+Operation|NixOS|Traditional Linux
+Install services|Edit modules/jarvis.nix|make install-services
+Enable auto-start|Declared in jarvis.nix|make install-services-enable
+Modify unit files|Edit jarvis.nix + nixos-rebuild|Drop-in in ~/.config/systemd/user/
+Apply changes|sudo nixos-rebuild switch|systemctl --user daemon-reload
+Runtime control|jarvis start/stop/restart|jarvis start/stop/restart
+.TE
 .SH SECURITY PROTOCOL
-Capabilities (e.g., \fCfile_read\fR, \fCshell_exec\fR) are requested dynamically. If not auto-granted by a trust level:
+Capabilities (e.g., \fCfile_read\fR, \fCshell_exec\fR) are requested dynamically. If not auto-granted:
 .IP 1.
 The process raises \fCCapabilityPending\fR.
 .IP 2.
@@ -111,6 +253,7 @@ The user is notified via CLI (Interactive) or long-polling (OOB).
 The task pauses until \fBjarvis approve\fR is executed.
 .SH SEE ALSO
 .BR ollama (1),
-.BR nix (1)
+.BR nix (1),
+.BR systemctl (1)
 .SH AUTHOR
 Created by Antigravity AI for the Jarvis Project.
