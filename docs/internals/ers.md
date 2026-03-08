@@ -47,3 +47,30 @@ class MySchema(BaseModel):
 chain = ReasoningChain(schema=MySchema)
 result = await chain.execute(prompt="Do something...")
 ```
+
+### 🔌 MCP Tool Integration
+
+Reasoning steps can now invoke MCP tools directly instead of generating LLM prompts. This is configured via the `mcp_tool` field in a `ReasoningStep`.
+
+**Schema (`MCPToolRef`):**
+- **`server`**: The `id` of the server defined in `config/mcp_servers.toml`.
+- **`tool`**: The name of the tool on that server.
+- **`arguments`**: A dictionary of arguments. Values can be **Jinja2 templates** rendered against the current execution context.
+
+**Example ERS Step (YAML/Pydantic):**
+```python
+from lib.ers.schema import ReasoningStep, MCPToolRef
+
+step = ReasoningStep(
+    id="lookup_docs",
+    mcp_tool=MCPToolRef(
+        server="jarvis-internal",
+        tool="search_rag",
+        arguments={
+            "query": "documentation for {{ user_topic }}"
+        }
+    )
+)
+```
+
+When `mcp_tool` is present, the ERS `ChainAugmentor` bypasses the LLM and calls the `MCPHub` to execute the tool, injecting the result back into the reasoning context for subsequent steps.

@@ -40,13 +40,49 @@ args = ["@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
 
 ---
 
-## 3. Jarvis as an MCP Server (Exposing Tools)
+## 3. MCP Tool Hub & Discovery
+
+Jarvis V3.5 introduces a centralized **Tool Hub** that manages multiple MCP servers and enables dynamic tool discovery. This allows Jarvis to orchestrate tools across different protocols (SSE and Stdio) within the same reasoning session.
+
+### Centralized Configuration (`config/mcp_servers.toml`)
+External servers are managed in `config/mcp_servers.toml`:
+
+```toml
+[[servers]]
+id      = "jarvis-internal"
+name    = "Jarvis Internal MCP Server"
+type    = "sse"
+url     = "http://127.0.0.1:8000/sse"
+enabled = true
+
+[[servers]]
+id      = "file-manager"
+name    = "Local File Manager"
+type    = "stdio"
+command = "python3 /path/to/server.py"
+enabled = false
+```
+
+### Discovery Mechanism
+The `MCPHub` (`lib/mcp_client.py`) automatically:
+1.  Loads all `enabled` servers from the TOML config.
+2.  Performs concurrent discovery of tools across all servers.
+3.  Exposes a unified `call(server_id, tool_name, arguments)` interface used by ERS chains.
+
+---
+
+## 4. Jarvis as an MCP Server (Exposed Capability)
 
 Jarvis runs a dedicated MCP server (`services/mcp_server.py`) that exposes its core intelligence to other MCP-compatible clients (like Claude Desktop or other agents).
 
 ### Exposed Tools
--   **`search_rag`**: Performs a semantic search across Jarvis's internal knowledge base.
--   **`web_search`**: Uses Jarvis's search tools to find information on the live web.
+-   **`search_rag`**: Semantic search across Jarvis's vector store.
+-   **`search_episodic_memory`**: Search the event log for recent activities.
+-   **`web_search`**: Live web search results.
+
+### Exposed Resources
+Jarvis exposes internal state as read-only resources:
+-   **`memory://episodic/recent`**: Provides the current session context and recent events as a continuous text stream.
 
 ### Connecting to Jarvis MCP
 Point your MCP client to the Jarvis MCP entrypoint:
@@ -65,9 +101,10 @@ python3 services/mcp_server.py sse
 
 ## 4. Technical Architecture
 
--   **`lib/mcp_client.py`**: A robust Python implementation of an MCP client using `AsyncExitStack` for reliable resource management.
--   **`services/mcp_server.py`**: Built on `FastMCP` for high-performance tool exposure.
--   **`lua/jarvis/mcp.lua`**: Telescope integration for a native Neovim experience.
+-   **`lib/mcp_client.py`**: Implementation of `MCPHub`, `MCPClient`, and discovery logic.
+-   **`services/mcp_server.py`**: Built on `FastMCP`, exposing tools and memory resources.
+-   **`config/mcp_servers.toml`**: The registry of trusted tool providers.
+-   **`lua/jarvis/mcp.lua`**: Telescope integration for Neovim.
 
 ---
 
