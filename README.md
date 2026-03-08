@@ -1,53 +1,40 @@
-# Jarvis: Personal AI Orchestrator (V3)
+# Jarvis: Personal AI Orchestrator (V3.5)
 
 Jarvis is a heavy-duty, local-first AI orchestration layer designed for developers on NixOS. It provides a principled, capability-based security model and an External Reasoning System (ERS) for complex, multi-step tasks.
 
 ## 🧠 Agentic Intel (v3.5)
 The **Agentic Intel** upgrade introduces three core pillars of intelligence:
 - **External Reasoning System (ERS)**: Multi-step async chains with dynamic rerouting and LLM-driven self-correction.
-- **Hybrid RAG Pipeline**: FAISS-powered semantic search across a **3-Layer Knowledge Architecture** (Core, Documentation, Theory).
-- **Hybrid Model Router**: Intelligent routing between local (Ollama) and cloud (OpenRouter/Anthropic) models with cost-aware fallback and security gating.
+- **Hybrid RAG Pipeline**: FAISS-powered semantic search across localized codebases.
+- **Hybrid Model Router**: Intelligent routing between local (Ollama) and cloud models with cost-aware fallback.
 
-## 🚀 Quick Links
+## 🚀 Documentation (Phase 1: Subsystems)
+- **[ERS Internals](docs/internals/ers.md)**: Chain of thought & validation logic.
+- **[RAG & Indexing](docs/internals/rag.md)**: FAISS, Embeddings, and background indexing.
+- **[Model Router](docs/internals/router.md)**: Alias system and prefetching.
+
+## ⌨️ Documentation (Phase 2: Usage)
+- **[Neovim Plugin Master Guide](docs/usage/neovim.md)**: Every command and IDE feature.
+- **[CLI Reference](docs/usage/cli.md)**: Service management and knowledge queries.
+- **[NixOS Deployment](docs/deployment/nixos.md)**: Systemd units and flake integration.
+
+## 🚀 Legacy Quick Links
 - **[Installation](docs/INSTALL.md)**: Setup, models, and vault configuration.
-- **[Usage Guide](docs/USAGE.md)**: Master the CLI, Neovim actions, and Dashboard TUI.
 - **[Interaction Interfaces](docs/INTERFACES.md)**: Every way to talk to Jarvis (CLI, IDE, TUI, Voice).
-- **[Advanced Neovim Guide](docs/ADVANCED_NEOVIM.md)**: Master the AI-powered IDE experience.
-- **[Advanced Usage](docs/ADVANCED_USAGE.md)**: Concurrency, Monitoring, and Performance.
-- **[Service Management](docs/SERVICE_MANAGEMENT.md)**: Granular control and smart watchdog features.
 - **[Architecture](docs/ARCHITECTURE.md)**: Deep dive into the security and reasoning engines.
-- **[Component Reference](docs/COMPONENTS.md)**: File-by-file technical audit.
-- **[API Key Guide](docs/API_KEYS.md)**: Obtaining and securing external model keys.
-- **[Developer Guide](docs/DEVELOPER_GUIDE.md)**: Contribution and AI engineering resources.
-- **[AI Terminology](docs/AI_TERMINOLOGY.md)**: Foundational concepts for non-AI devs.
-- **[Creative Uses](docs/CREATIVE_USES.md)**: System automation & coding excellence.
-- **[Deep Dive](docs/DEEP_DIVE.md)**: Technical internals (Security, ERS, RAG, LSP).
-- **[Documentation Guide](docs/READING_GUIDE.md)**: How to navigate these resources.
-- **[Knowledge Base & RAG](docs/KNOWLEDGE_BASE.md)**: Deep technicals on indexing and retrieval.
-- **[Model Comparison](docs/MODELS_OVERVIEW.md)**: Local vs. Cloud (Technical deep-dive).
-- **[Porting & Decoupling](docs/PORTING_GUIDE.md)**: Windows, other distros, and IDE agnosticism.
-- **[Man Page](docs/MANPAGE.md)**: Technical reference for all CLI commands.
-- **[System Tweaks](docs/SYSTEM_TWEAKS.md)**: Performance for non-NixOS Linux.
 
 ## 🏛️ Core Principles
 
 1. **Local-First**: 100% functional without an internet connection using Ollama-hosted models.
 2. **Strict Security**: Capability-based access control (CBAC). Every file read, shell execution, or network call is gated and audited.
 3. **Low-Latency IDE Bridge**: Dedicated LSP server for Neovim with non-blocking async intelligence.
-4. **Persistent Reasoning**: Multi-step ERS chains for tasks like deep research, git summarization, and NixOS verification.
-5. **Knowledge Synergy**: Continuous background indexing (via `jarvis-indexer`) keeps your local RAG engine synchronized with your codebases.
+4. **Knowledge Synergy**: Continuous background indexing (via `jarvis-indexer`) keeps your local RAG engine synchronized with your codebases.
 
 ## 🛠️ Tech Stack
-- **Backend**: Python 3.12 (Asynchronous, Pydantic, Jinja2).
-- **IDE**: Neovim + Lua (Custom LSP client).
-- **Dashboard**: Rust + Ratatui (Terminal UI).
-- **Models**: Ollama (Qwen3-14B primary, Qwen3-8B chat, Qwen2.5-Coder primary).
-- **Storage**: SQLite + `/THE_VAULT/` (HDD optimized).
-
-## 📊 Maintenance
-- Run `make test-all` to verify security and model health.
-- Run `make backup` or `make archive` to protect your vault data.
-- See **[docs/BACKUP.md](docs/BACKUP.md)** for details.
+- **Backend**: Python 3.12 (Asynchronous, Pydantic).
+- **IDE**: Neovim + Lua (Custom LSP client via Plenary).
+- **Search**: FAISS + nomic-embed-text.
+- **Deployment**: NixOS Flakes + Systemd user services.
 
 ---
 *Powered by the m-amir-gomaa/Jarvis V3 stack.*
