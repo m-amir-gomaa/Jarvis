@@ -1,6 +1,6 @@
 # Jarvis Knowledge Base & Indexing (Deep Dive)
 
-Jarvis V3 implements a sophisticated Retrieval-Augmented Generation (RAG) system designed for low-latency, high-precision context injection. This document details the technical implementation of the indexing pipeline and the 3-Layer knowledge architecture.
+Jarvis V3 implements a sophisticated Retrieval-Augmented Generation (RAG) system designed for low-latency, high-precision context injection. If you're new to these concepts, read the **[AI Terminology Guide](AI_TERMINOLOGY.md)** first. This document details the technical implementation of the indexing pipeline and the 3-Layer knowledge architecture.
 
 ## 1. The 3-Layer Architecture
 

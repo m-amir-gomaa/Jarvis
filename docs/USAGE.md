@@ -4,13 +4,13 @@ Jarvis is designed for a multi-interface workflow: CLI for management, Neovim fo
 
 ## 1. CLI Usage (`jarvis.py`)
 
-The CLI is the primary orchestration point.
+The CLI is the primary orchestration point. Before using it, ensure you have followed the **[Installation Guide](INSTALL.md)** and configured your **[API Keys](API_KEYS.md)**. For inspiration on what you can achieve, check out **[Creative Uses](CREATIVE_USES.md)**.
 
 ### Management Commands
 - `jarvis start`: Initialize all systemd services.
 - `jarvis stop`: Terminate all services gracefully.
-- `jarvis status`: Health check (Ollama, services, budget, RAG status).
-- `jarvis pause / resume`: Suspend/continue Ollama CPU inference (SIGSTOP/SIGCONT).
+- `jarvis status`: Health check (**[Ollama](SYSTEM_TWEAKS.md)**, services, budget, RAG status).
+- `jarvis man`: View the technical **[Man Page](jarvis.1)**.
 
 ### Intelligence Commands
 - `jarvis 'research [topic]'`: Triggers the ERS `research_deep` chain.

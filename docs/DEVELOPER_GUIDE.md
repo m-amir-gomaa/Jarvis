@@ -1,6 +1,6 @@
 # Jarvis Developer Guide (V3)
 
-Welcome to the Jarvis development community. This guide will help you understand the codebase, contribute new features, and master AI engineering.
+Welcome to the Jarvis development community. This guide will help you understand the codebase, contribute new features, and master AI engineering. For a high-level overview of how systems interact, see the **[Architecture Guide](ARCHITECTURE.md)**.
 
 ## 1. Contribution Rules
 
@@ -39,7 +39,7 @@ Example Step:
 
 ## 3. AI Engineering Resources
 
-To master AI engineering and contribute effectively to Jarvis, we recommend the following resources:
+To master AI engineering and contribute effectively to Jarvis, we recommend the following resources. You can also see **[Creative Uses](CREATIVE_USES.md)** for real-world examples of Jarvis in action.
 
 ### 🎓 Foundational Learning
 - **Andrej Karpathy's "Zero to Hero"**: The gold standard for understanding LLMs from first principles. [YouTube](https://www.youtube.com/@AndrejKarpathy)
