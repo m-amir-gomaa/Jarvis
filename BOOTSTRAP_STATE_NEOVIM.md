@@ -4,5 +4,5 @@
    - [x] B1. SSE Streaming
    - [x] B2. Floating Window UX
    - [x] B3. Tree-sitter Context
-   - [ ] B4. DAP Enhancements
+   - [x] B4. DAP Enhancements
 - **Current Blockers/Failing Tests**: 
