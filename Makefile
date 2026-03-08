@@ -1,6 +1,6 @@
 # /THE_VAULT/jarvis/Makefile
 
-.PHONY: setup test test-all status lint clean
+.PHONY: setup test test-all status lint clean system-analysis benchmark benchmark-full benchmark-offline benchmark-online
 
 JARVIS_ROOT ?= $(shell pwd)
 export PYTHONPATH = $(JARVIS_ROOT)
@@ -36,6 +36,32 @@ rust-build:
 	@echo "Rust build complete. Restart Ollama if needed: ollama run qwen3:14b-q4_K_M"
 
 .PHONY: rust-build
+
+# ─── System Analysis Bootstrap ───────────────────────────────────────────────
+system-analysis:
+	@echo "Running Jarvis System Analysis..."
+	$(PY) benchmarks/system_analysis/run_all.py
+
+# ─── Benchmark Suite (Anthropic Standards) ───────────────────────────────────
+benchmark:
+	@echo "Running benchmark (default local model, all categories)..."
+	$(PY) benchmarks/eval/runner.py --offline
+	$(PY) benchmarks/eval/report.py
+
+benchmark-full:
+	@echo "Running full benchmark matrix (local + cloud if keys available)..."
+	$(PY) benchmarks/eval/runner.py
+	$(PY) benchmarks/eval/report.py
+
+benchmark-offline:
+	@echo "Running offline-only benchmark (no API keys needed)..."
+	$(PY) benchmarks/eval/runner.py --offline
+	$(PY) benchmarks/eval/report.py
+
+benchmark-online:
+	@echo "Running cloud-only benchmark (API keys required)..."
+	$(PY) benchmarks/eval/runner.py --online
+	$(PY) benchmarks/eval/report.py
 
 test-mvp1:
 	$(PY) lib/ollama_client.py
