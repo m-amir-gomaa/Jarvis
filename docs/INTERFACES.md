@@ -32,6 +32,7 @@ Jarvis lives inside Neovim as a custom LSP server, providing deep context-aware 
 - `<leader>ji`: **Initialize** connection and authenticate.
 - `<leader>je`: **Explain** the current selection or function.
 - `<leader>jr`: **Refactor** the selected code with least-privilege security.
+- `<leader>jm`: **Manage Models** — switch AI backends dynamically.
 - `<leader>jf`: **Fix** the error at the cursor (LSP diagnostic integration).
 - `<leader>jc`: **Chat** with Jarvis in a dedicated sidebar.
 
@@ -39,6 +40,8 @@ Jarvis lives inside Neovim as a custom LSP server, providing deep context-aware 
 Jarvis provides ghost-text completions (like GitHub Copilot) powered by your local `qwen2.5-coder` model.
 - `Tab`: Accept the completion.
 - `Ctrl-]`: Manually trigger a completion request.
+
+*For expert workflows, see the [Advanced Neovim Guide](ADVANCED_NEOVIM.md).*
 
 ---
 

@@ -45,6 +45,15 @@ class ModelRouter:
             }
         return dict(raw)
 
+    def get_aliases(self) -> dict[str, str]:
+        """Return the current alias-to-model mapping."""
+        return dict(self._aliases)
+
+    def update_alias(self, alias: str, spec: str) -> None:
+        """Dynamically update a model alias at runtime."""
+        self._aliases[alias] = spec
+        log.info(f"Updated alias '{alias}' to '{spec}'")
+
     async def generate(self, model_alias: str, prompt: str, stop: list[str] | None = None, max_tokens: int = 1024, ctx: SecurityContext = None, **kwargs) -> tuple[str, dict[str, int]]:
         """
         Resolves model_alias and executes call via appropriate adapter.

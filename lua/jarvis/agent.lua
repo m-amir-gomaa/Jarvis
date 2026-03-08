@@ -328,4 +328,77 @@ function M.index()
   })
 end
 
+-- Manage model aliases dynamically
+function M.switch_model()
+  curl.get(server .. "/models/list", {
+    callback = function(res)
+      if not res or res.status ~= 200 then
+        vim.schedule(function() vim.notify("Jarvis: failed to fetch models", vim.log.levels.ERROR) end)
+        return
+      end
+      
+      local data = vim.fn.json_decode(res.body)
+      local aliases = {}
+      for k, _ in pairs(data.aliases) do table.insert(aliases, k) end
+      table.sort(aliases)
+      
+      vim.schedule(function()
+        vim.ui.select(aliases, { prompt = "Select alias to update:" }, function(alias)
+          if not alias then return end
+          
+          local current = data.aliases[alias]
+          local options = { "local/qwen3:14b-q4_K_M", "local/qwen3:8b", "local/qwen3:1.7b", "local/qwen2.5-coder:7b-instruct" }
+          
+          -- Add discovered ollama models
+          for _, m in ipairs(data.available_ollama) do
+            local spec = "local/" .. m
+            local found = false
+            for _, o in ipairs(options) do if o == spec then found = true break end end
+            if not found then table.insert(options, spec) end
+          end
+          
+          -- Add cloud options if providers exist
+          for _, p in ipairs(data.available_providers) do
+            if p ~= "ollama" then
+              table.insert(options, "external/" .. p .. "/[enter-name]")
+            end
+          end
+          
+          vim.ui.select(options, { prompt = string.format("Update %s (current: %s):", alias, current) }, function(choice)
+            if not choice then return end
+            
+            local final_spec = choice
+            if choice:find("%[enter%-name%]") then
+              vim.ui.input({ prompt = "Enter model name for " .. choice:match("external/([^/]+)") .. ":" }, function(input)
+                if input and input ~= "" then
+                  final_spec = choice:gsub("%[enter%-name%]", input)
+                  M._update_alias_request(alias, final_spec)
+                end
+              end)
+            else
+              M._update_alias_request(alias, final_spec)
+            end
+          end)
+        end)
+      end)
+    end
+  })
+end
+
+function M._update_alias_request(alias, spec)
+  curl.post(server .. "/models/set_alias", {
+    headers = { ["Content-Type"] = "application/json" },
+    body = vim.fn.json_encode({ alias = alias, spec = spec }),
+    callback = function(res)
+      vim.schedule(function()
+        if res and res.status == 200 then
+          vim.notify(string.format("Jarvis: %s updated to %s ✓", alias, spec), vim.log.levels.INFO)
+        else
+          vim.notify("Jarvis: failed to update alias", vim.log.levels.ERROR)
+        end
+      end)
+    end
+  })
+end
+
 return M

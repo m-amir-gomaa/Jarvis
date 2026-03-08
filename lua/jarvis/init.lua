@@ -27,6 +27,7 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("JarvisCommit",      function() agent.generate_commit() end, {})
   vim.api.nvim_create_user_command("JarvisSearch",      function(opts) agent.search(opts.args) end, { nargs = "?" })
   vim.api.nvim_create_user_command("JarvisPrefetch",    function() agent.prefetch_for_buffer() end, {})
+  vim.api.nvim_create_user_command("JarvisModel",       function() agent.switch_model() end, {})
 
   -- Autocommands for Performance (Prefetching)
   local group = vim.api.nvim_create_augroup("JarvisPerformance", { clear = true })

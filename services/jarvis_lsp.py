@@ -153,6 +153,10 @@ class IDECommitRequest(BaseModel):
 class IDESearchRequest(BaseModel):
     query: str
 
+class ModelAliasUpdate(BaseModel):
+    alias: str
+    spec:  str
+
 async def _ide_model_call(
     capability: str,
     reason: str,
@@ -313,6 +317,43 @@ def code_actions(params: CodeActionParams):
 @http_app.get("/health")
 async def health():
     return {"status": "ok"}
+
+@http_app.get("/models/list")
+async def list_models():
+    """List current model aliases and available models."""
+    if _router is None:
+        raise HTTPException(status_code=500, detail="ModelRouter not initialized")
+    
+    # Get current mapping
+    aliases = _router.get_aliases()
+    
+    # Get available models from Ollama (best effort)
+    available_ollama = []
+    try:
+        from lib.models.adapters.ollama import OllamaAdapter
+        adapter = _router.adapters.get("ollama")
+        if isinstance(adapter, OllamaAdapter):
+            available_ollama = [m["name"] for m in adapter.list_models()]
+    except Exception as e:
+        log.warning(f"Failed to list Ollama models: {e}")
+    
+    return {
+        "aliases": aliases,
+        "available_ollama": available_ollama,
+        "available_providers": list(_router.adapters.keys())
+    }
+
+@http_app.post("/models/set_alias")
+async def set_model_alias(req: ModelAliasUpdate):
+    """Update a model alias at runtime."""
+    if _router is None:
+        raise HTTPException(status_code=500, detail="ModelRouter not initialized")
+    
+    try:
+        _router.update_alias(req.alias, req.spec)
+        return {"status": "ok", "alias": req.alias, "spec": req.spec}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @http_app.get("/auth/conn_id")
 async def get_conn_id():
