@@ -21,6 +21,8 @@ For explicit control, use standard subcommands:
 - `jarvis start / stop`: Manage background daemons.
 - `jarvis pending`: View and approve capability requests.
 - `jarvis associate [cat]`: Link the current directory to a knowledge category.
+- `jarvis log show [--lines N]`: Display recent structured system logs.
+- `jarvis snapshot [list|create|restore]`: Manage point-in-time vault backups.
 
 > [!TIP]
 > **Cascading Configuration**: Jarvis CLI automatically resolves settings from global, workspace, and local `.jarvis/config.toml` files. Use `jarvis status` to see the currently active configuration.

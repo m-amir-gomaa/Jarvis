@@ -50,3 +50,8 @@ This document provides a technical audit of the core Jarvis implementation files
 - `config/models.toml`: Defines model aliases and fallback behaviors.
 - `config/security.toml`: Configures trust floors and auto-grant policies.
 - `/THE_VAULT/jarvis/databases/`: Persistent SQLite storage for events, knowledge, and security audits.
+
+## 7. System & Utilities
+
+- [lib/logger.py](file:///home/qwerty/NixOSenv/Jarvis/lib/logger.py): Structured JSONL logging utility. Writes to `logs/system.jsonl`.
+- [lib/snapshot_manager.py](file:///home/qwerty/NixOSenv/Jarvis/lib/snapshot_manager.py): Vault backup and restoration logic using compressed tarballs.

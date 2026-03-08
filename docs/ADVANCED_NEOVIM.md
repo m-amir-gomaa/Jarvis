@@ -36,11 +36,22 @@ You can query your entire knowledge base (books, docs, other codebases) directly
 
 ### Commands:
 - `:JarvisChat`: Opens a prompt for a high-level question. Uses **SSE Streaming** for real-time token delivery without blocking the editor.
-- `:JarvisSearch [query]`: Performs a technical search via SearXNG and can even open the most relevant local documentation file.
+- `:JarvisSearch [query]`: Performs a technical search and can even open the most relevant local documentation file for you.
 
 ---
 
-## 🏗️ 4. Tree-sitter Context Awareness
+## 🛠️ 4. Extending with MCP Tools
+
+Jarvis supports the **Model Context Protocol (MCP)**, allowing you to use specialized tools from external servers (e.g., Google Drive, SQL databases, or custom Python scripts) directly within Neovim.
+
+### Workflow:
+1.  **Configure**: Add your MCP servers to `.jarvis/mcp.toml`.
+2.  **Discover**: Press `<leader>jt` to open the MCP tool picker.
+3.  **Execute**: Select a tool to run it within the current Jarvis session. Jarvis handles the security handshake and result injection.
+
+---
+
+## 🏗️ 5. Tree-sitter Context Awareness
 
 Jarvis is no longer "blind" to your code structure. When you run `/fix` or `/explain`, Jarvis uses Tree-sitter to:
 1.  Identify the enclosing function or class.
@@ -94,6 +105,33 @@ When you run `:JarvisRefactor`, look at your **Jarvis Dashboard (`jarvis dashboa
 - You will see the agent request `ide:edit` and `fs:read` capabilities.
 - Jarvis defaults to **Shadow Mode** (logging only) unless you've enabled strict enforcement.
 - This "Glass Box" approach ensures you always know *why* the AI is suggesting a specific code change.
+
+---
+
+---
+
+## 🔍 6. Environment Observability
+
+When troubleshooting an agent's reasoning or connection issues, you can inspect the live system logs directly from the terminal.
+
+### CLI Command: `jarvis log show`
+- **What it shows**: Structured JSON logs from the central `system.jsonl` file.
+- **Filtering**: Use `--lines 50` to see a larger history.
+- **Relevance**: Every MCP tool execution, ERS step, and LLM request is logged here with high fidelity.
+
+---
+
+## 📂 7. Project-Specific Isolation
+
+Jarvis V3 supports hierarchical configuration, allowing you to define different behavior for different codebases.
+
+### Workspace Configuration: `.jarvis/workspace.toml`
+- **Purpose**: Define shared settings for multiple projects within a single directory tree.
+- **Overrides**: Global `~/.config/jarvis/config.toml` is merged with the workspace file, with the latter taking precedence.
+
+### Project Configuration: `.jarvis/config.toml`
+- **Purpose**: Per-project fine-tuning.
+- **Hierarchy**: This is the highest priority configuration file.
 
 ---
 

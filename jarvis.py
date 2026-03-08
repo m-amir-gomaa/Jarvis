@@ -38,6 +38,7 @@ import secrets as _secrets
 REPO_DIR = BASE_DIR
 HISTORY_PATH = BASE_DIR / "logs" / "history.jsonl"
 FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
+LOGS_DIR = BASE_DIR / "logs"
 VERSION = "0.1.0"
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
 _VAULT_ROOT = Path(os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
@@ -639,7 +640,15 @@ def cmd_resume():
 # ── Logging & Snapshots ───────────────────────────────────────────────────────
 
 def cmd_log(args: list[str]):
-    """Handle 'jarvis log' commands."""
+    """
+    Handle 'jarvis log' commands for displaying system logs.
+    
+    Supported subcommands:
+        show: Displays recent log entries from system.jsonl.
+        
+    Args:
+        args: CLI arguments after 'log'. Supports '--lines N' to show more/fewer lines.
+    """
     if not args or args[0] == "show":
         lines = 20
         if "--lines" in args:
@@ -667,7 +676,17 @@ def cmd_log(args: list[str]):
         print("Usage: jarvis log show [--lines N]")
 
 def cmd_snapshot(args: list[str]):
-    """Handle 'jarvis snapshot' commands."""
+    """
+    Handle 'jarvis snapshot' commands for vault backup and recovery.
+    
+    Supported subcommands:
+        list: Shows all available snapshots.
+        create <label>: Creates a new snapshot with an optional label.
+        restore <name>: Restores the vault from the specified snapshot.
+        
+    Args:
+        args: CLI arguments after 'snapshot'.
+    """
     sm = SnapshotManager(_VAULT_ROOT)
     if not args or args[0] == "list":
         snapshots = sm.list_snapshots()

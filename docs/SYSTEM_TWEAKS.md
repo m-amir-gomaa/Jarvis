@@ -92,6 +92,22 @@ Environment=VAULT_ROOT=/THE_VAULT/jarvis
 WantedBy=default.target
 ```
 
+### `jarvis-mcp-server.service`
+```ini
+[Unit]
+Description=Jarvis MCP Server (Exposing Tools)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/NixOSenv/Jarvis/services/mcp_server.py
+Restart=always
+Environment=PYTHONPATH=%h/NixOSenv/Jarvis
+Environment=VAULT_ROOT=/THE_VAULT/jarvis
+
+[Install]
+WantedBy=default.target
+```
+
 ---
 
 ## 4. Security: Ulimit & Permissions

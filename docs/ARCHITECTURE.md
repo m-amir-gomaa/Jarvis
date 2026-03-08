@@ -71,8 +71,12 @@ Enables Jarvis to act as both an MCP Host and an MCP Server.
 ### F. Configuration Management (`lib/config_resolver.py`)
 The hierarchical configuration layer that provides unified settings across all Jarvis components.
 - **Cascading Resolution**: Merges Global, Workspace, and Local configurations with a deep-merge strategy.
-- **Project Context**: Automatically detects project and workspace roots to load relevant `.jarvis/` settings.
 - **Dynamic Overrides**: Enables per-project model aliases and MCP configurations without modifying global state.
+
+### G. System Logging & Snapshots (`lib/logger.py`, `lib/snapshot_manager.py`)
+Provides observability and data durability for the Jarvis environment.
+- **Structured Logging**: Every Jarvis component (CLI, LSP, Services) logs to a central `system.jsonl` file using a standardized JSON schema. This enables easy parsing by the terminal dashboard and external monitoring tools.
+- **Vault Snapshots**: The `SnapshotManager` allows for point-in-time backups of the entire Vault. Snapshots are stored as compressed Gzip tarballs, excluding the `snapshots/` directory itself to prevent recursion.
 
 ## 3. Data Flow & Isolation
 
