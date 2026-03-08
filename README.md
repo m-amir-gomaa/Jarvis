@@ -9,6 +9,7 @@ Jarvis is a heavy-duty, local-first AI orchestration layer designed for develope
 - **[Component Reference](docs/COMPONENTS.md)**: File-by-file technical audit.
 - **[API Key Guide](docs/API_KEYS.md)**: Obtaining and securing external model keys.
 - **[Developer Guide](docs/DEVELOPER_GUIDE.md)**: Contribution and AI engineering resources.
+- **[AI Terminology](docs/AI_TERMINOLOGY.md)**: Foundational concepts for non-AI devs.
 - **[Knowledge Base & RAG](docs/KNOWLEDGE_BASE.md)**: Deep technicals on indexing and retrieval.
 - **[Model Comparison](docs/MODELS_OVERVIEW.md)**: Local vs. Cloud (Technical deep-dive).
 - **[Porting & Decoupling](docs/PORTING_GUIDE.md)**: Windows, other distros, and IDE agnosticism.
