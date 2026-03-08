@@ -5,6 +5,9 @@
 
 local M = {}
 
+--- Setup DAP (Debug Adapter Protocol) configurations
+--- Configures adapters and configurations for Rust and Python.
+--- Sets up key mappings (F5, F10, F11, b) and UI listeners.
 function M.setup()
   local ok_dap, dap = pcall(require, "dap")
   if not ok_dap then
@@ -70,6 +73,8 @@ function M.setup()
   vim.api.nvim_create_user_command("JarvisDebugAnalyze", M.analyze_exception, {})
 end
 
+--- Analyze the current exception or stack trace using Jarvis
+--- Fetches the stack trace from the DAP session and sends it to the `/explain` endpoint.
 function M.analyze_exception()
   local dap = require("dap")
   local session = dap.session()

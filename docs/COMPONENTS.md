@@ -29,12 +29,17 @@ This document provides a technical audit of the core Jarvis implementation files
 
 ## 4. Services & Entrypoints
 
-- `jarvis.py`: The main CLI entrypoint. Orchestrates intent classification, service management, and high-level routing.
-- `services/jarvis_lsp.py`: The Jarvis LSP and HTTP bridge server.
-- `services/health_monitor.py`: Periodic background check for service and model availability.
+- `services/coding_agent.py`: The core coding assistant service. Provides endpoints for FIM completion, RAG chat, SSE streaming, error analysis, and model prefetching.
 - `bin/jarvis-monitor`: (Compiled Rust) The terminal dashboard.
 
-## 5. Configuration & Data
+## 5. Neovim Integration (`lua/jarvis/`)
+
+- `agent.lua`: Core interface for Jarvis commands (`/fix`, `/explain`, `/index`, etc.). Implements floating window UX and Tree-sitter context extraction.
+- `chat.lua`: Streaming chat implementation using Server-Sent Events (SSE).
+- `dap.lua`: Debug Adapter Protocol configuration for Rust and Python, featuring automated exception analysis.
+- `init.lua`: Plugin entrypoint and configuration defaults.
+
+## 6. Configuration & Data
 
 - `config/models.toml`: Defines model aliases and fallback behaviors.
 - `config/security.toml`: Configures trust floors and auto-grant policies.

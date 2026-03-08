@@ -5,6 +5,8 @@ local server = "http://127.0.0.1:7002"
 
 local last_request_id = nil
 
+--- RAG-augmented chat with SSE streaming
+--- Opens a floating window and streams tokens from the server.
 function M.chat()
   vim.ui.input({ prompt = "Jarvis chat: " }, function(query)
     if not query or query == "" then return end

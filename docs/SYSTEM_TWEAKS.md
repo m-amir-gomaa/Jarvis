@@ -59,7 +59,20 @@ echo mq-deadline | sudo tee /sys/block/sdX/queue/scheduler
 
 ---
 
-## 3. Persistent Systemd Services
+## 3. Model Prefetching (Latency Control)
+
+To reduce the 3-90s "first token" latency common with local LLMs, Jarvis implements proactive prefetching.
+
+### How it Works:
+1.  **Context Detection**: When you open a code-heavy file (Python, Rust, Lua), the Neovim plugin sends a `/prefetch` request.
+2.  **RAM Gating**: The coding agent loads the target model (e.g., `chat` or `coder`) into memory in the background.
+3.  **Ready State**: By the time you trigger a `/chat` or `/fix`, the model is already warm, resulting in near-instant response.
+
+### Manual Trigger:
+You can manually prefetch a model via:
+```vim
+:lua require('jarvis.agent').prefetch('chat')
+```
 
 On NixOS, these are declarative. On other distros, you must create them manually in `~/.config/systemd/user/`.
 

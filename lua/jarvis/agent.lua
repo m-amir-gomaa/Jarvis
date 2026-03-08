@@ -7,7 +7,9 @@ local M = {}
 local curl = require("plenary.curl")
 local server = "http://127.0.0.1:7002"
 
--- Helper: show spinner while waiting, update buffer when done
+--- Helper: show spinner while waiting, update buffer when done
+--- @param label string The message to display in the notification
+--- @param fn function The function to execute while the spinner is shown
 local function with_spinner(label, fn)
   vim.notify("Jarvis: " .. label .. "...", vim.log.levels.INFO)
   fn()
@@ -16,6 +18,9 @@ end
 -- Helper: write response to a new scratch buffer
 local last_request_id = nil
 
+--- Helper: write response to a new scratch buffer (floating window)
+--- @param title string The title of the floating window
+--- @param content string The markdown content to display
 local function open_response_buf(title, content)
   vim.schedule(function()
     -- Check if buffer already exists by name
@@ -99,7 +104,8 @@ local function get_selection()
   return text:sub(1, 3000)
 end
 
--- Helper to get enclosing function/class via tree-sitter
+--- Helper to get enclosing function/class via tree-sitter
+--- @return string Context string describing the current scope or empty if not found
 local function get_treesitter_context()
   local ok, node = pcall(vim.treesitter.get_node)
   if not ok or not node then return "" end
@@ -166,7 +172,8 @@ function M.fix()
 end
 
 -- /explain — explain current selection or buffer
--- Explain the diagnostic error under the cursor
+--- Explain the diagnostic error under the cursor
+--- Uses virtual text for the analysis.
 function M.explain_error()
   local line = vim.api.nvim_win_get_cursor(0)[1] - 1
   local diagnostics = vim.diagnostic.get(0, { lnum = line })
@@ -209,7 +216,8 @@ function M.explain_error()
   end)
 end
 
--- Generate a semantic commit message for staged changes
+--- Generate a semantic commit message for staged changes
+--- Uses the `/summarize_git` endpoint on the server.
 function M.generate_commit()
   local diff = vim.fn.system("git diff --staged")
   if diff == "" then
@@ -235,7 +243,8 @@ function M.generate_commit()
   end)
 end
 
--- Global Web Research via SearXNG
+--- Global Web Research via SearXNG
+--- @param query string|nil The search query. If nil, prompts the user for input.
 function M.search(query)
   if not query or query == "" then
     vim.ui.input({ prompt = "Jarvis Search: " }, function(input)
@@ -269,6 +278,8 @@ end
 
 -- Prefetch models to RAM based on context
 local prefetch_lock = {}
+--- Prefetch models to RAM based on context
+--- @param alias string The model alias to prefetch (e.g., "chat", "complete")
 function M.prefetch(alias)
   if prefetch_lock[alias] then return end
   prefetch_lock[alias] = true
@@ -342,7 +353,8 @@ function M.index()
   })
 end
 
--- Manage model aliases dynamically
+--- Manage model aliases dynamically
+--- Fetches available models from the server and allows the user to switch aliases.
 function M.switch_model()
   curl.get(server .. "/models/list", {
     callback = function(res)

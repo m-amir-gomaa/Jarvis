@@ -41,6 +41,8 @@ FEEDBACK_PATH = BASE_DIR / "logs" / "feedback.jsonl"
 VERSION = "0.1.0"
 VENV_PY = str(BASE_DIR / ".venv" / "bin" / "python")
 _VAULT_ROOT = Path(os.environ.get("VAULT_ROOT", "/THE_VAULT/jarvis"))
+from lib.logger import system_logger
+from lib.snapshot_manager import SnapshotManager
 
 # ── CLI V2 Security Context (Phase A) ─────────────────────────────────────────
 # Creates an ADMIN-trust SecurityContext for CLI-triggered operations.
@@ -634,6 +636,62 @@ def cmd_resume():
         pass
 
 
+# ── Logging & Snapshots ───────────────────────────────────────────────────────
+
+def cmd_log(args: list[str]):
+    """Handle 'jarvis log' commands."""
+    if not args or args[0] == "show":
+        lines = 20
+        if "--lines" in args:
+            try:
+                idx = args.index("--lines")
+                lines = int(args[idx + 1])
+            except (ValueError, IndexError):
+                pass
+        
+        log_file = LOGS_DIR / "system.jsonl"
+        if not log_file.exists():
+            print("No system logs found.")
+            return
+            
+        with open(log_file, "r") as f:
+            all_lines = f.readlines()
+            for line in all_lines[-lines:]:
+                try:
+                    data = json.loads(line)
+                    ts = data.get("timestamp", "").split(".")[0].replace("T", " ")
+                    print(f"[{ts}] {data.get('level', 'INFO'):<7} {data.get('component', 'sys'):<12} {data.get('message')}")
+                except Exception:
+                    print(line.strip())
+    else:
+        print("Usage: jarvis log show [--lines N]")
+
+def cmd_snapshot(args: list[str]):
+    """Handle 'jarvis snapshot' commands."""
+    sm = SnapshotManager(_VAULT_ROOT)
+    if not args or args[0] == "list":
+        snapshots = sm.list_snapshots()
+        if not snapshots:
+            print("No snapshots found.")
+            return
+        print(f"{'Name':<40} {'Size (MB)':<10} {'Created'}")
+        print("-" * 75)
+        for s in snapshots:
+            print(f"{s['name']:<40} {s['size_mb']:<10} {s['created_at'].split('.')[0]}")
+    elif args[0] == "create":
+        label = args[1] if len(args) > 1 else "manual"
+        path = sm.create_snapshot(label)
+        print(f"Snapshot created: {path.name}")
+    elif args[0] == "restore" and len(args) > 1:
+        name = args[1]
+        if sm.restore_snapshot(name):
+            print(f"Restore complete from {name}")
+        else:
+            print(f"Failed to restore snapshot: {name}")
+    else:
+        print("Usage: jarvis snapshot [list|create <label>|restore <name>]")
+
+
 # ── Feedback ──────────────────────────────────────────────────────────────────
 
 def cmd_feedback(rating: str):
@@ -1218,6 +1276,8 @@ def cmd_help():
     
     print("\nCore Service Management:")
     print("  status [--short]         Show health of all 9+ Jarvis daemons and LLM backends")
+    print("  log show [--lines N]    Display recent system logs from system.jsonl")
+    print("  snapshot [list|create]  Manage vault snapshots (backup/restore)")
     print("  start [svc]             Start all or a specific service (systemctl --user)")
     print("  stop [svc]              Stop all or a specific service")
     print("  restart [svc]           Restart all or a specific service")
@@ -1485,6 +1545,12 @@ def main():
             return
         if command == "thumbs-down":
             cmd_feedback("negative")
+            return
+        if command == "log":
+            cmd_log(sys.argv[2:])
+            return
+        if command == "snapshot":
+            cmd_snapshot(sys.argv[2:])
             return
         if command == "dashboard":
             monitor_bin = BASE_DIR / "bin" / "jarvis-monitor"
@@ -1945,6 +2011,8 @@ def main():
             if ctype == "commands":
             # List all top-level subcommands with descriptions for Zsh
                 commands = {
+                    "log": "Display recent system logs from system.jsonl",
+                    "snapshot": "Manage vault snapshots (backup/restore)",
                     "start": "Start all or a specific background service",
                     "stop": "Stop all or a specific background service",
                     "restart": "Restart all or a specific background service",
