@@ -52,7 +52,7 @@ A single LLM call is like a **single assembly instruction**. It's fast, but it c
 - **Security Contexts**: Each ERS step runs in its own **Isolated Sandbox**. If `Step 1` needs to read a file, it gets a temporary "Capability" that is automatically revoked before `Step 2` starts.
 - **Workflow Control**: ERS supports `if/else` logic, `retries` on failure, and `parallel execution` (running multiple AI thoughts at once and merging them later).
 
-**Why it matters**: Without ERS, an AI will often "hallucinate" (make stuff up) when faced with a large codebase. ERS forces the AI to **slow down**, verify its own steps, and only proceed when it has the correct data.
+**Why it matters**: Without ERS, a model will often enter a **divergent probabilistic stream** (making stuff up) when faced with a large codebase. ERS forces the system to **slow down**, verify its own steps, and only proceed when it has the correct data.
 
 ### Quantization
 Large models are huge (hundreds of GBs). Quantization "compresses" them (e.g., from 16-bit to 4-bit) so they fit on your RAM.
