@@ -109,8 +109,26 @@ WantedBy=default.target
 ```
 
 ---
-
-## 4. Security: Ulimit & Permissions
+ 
+ ## 4. Privacy & Performance Optimizations (v2)
+ 
+ Jarvis v2 introduces advanced scaling features to balance high performance with strict data privacy.
+ 
+ ### Quantized Vector Storage (IVF-PQ)
+ Large codebases can result in vector databases (FAISS) that consume several gigabytes of RAM. To mitigate this:
+ - **Optimization**: Jarvis uses Inverted File Index with Product Quantization (IVF-PQ).
+ - **Benefit**: Reduces memory footprint by up to 80% with minimal impact on retrieval precision.
+ - **Activation**: Set `vector_storage = "quantized"` in your `config.toml`.
+ 
+ ### Sub-100ms Draft Completions
+ For real-time Fill-in-the-Middle (FIM) or "ghost text" in IDEs, latency is critical.
+ - **Distilled Model Routing**: Jarvis automatically routes high-frequency draft requests to a small, distilled local model (e.g., `qwen-0.5B` or `deepseek-coder-1.3B`).
+ - **Latency Target**: Designed to return completions in < 100ms on consumer hardware.
+ - **Activation**: Set `fim_model = "local/distilled"` in your `config.toml`.
+ 
+ ---
+ 
+ ## 5. Security: Ulimit & Permissions
 
 Jarvis needs to open many file descriptors during indexing. 
 
