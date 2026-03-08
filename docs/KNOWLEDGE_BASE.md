@@ -12,41 +12,44 @@ Jarvis categorizes all ingested knowledge into three distinct layers to manage r
 
 ## 2. Technical Stack
 
-*   **Database**: SQLite 3.44+ with the `sqlite-vec` extension for native vector search.
-*   **Vector Engine**: `vec0` virtual tables for high-performance K-Nearest Neighbors (KNN) search.
-*   **Embeddings**: 768-dimensional vectors generated via Ollama (typically using `nomic-embed-text`).
-*   **Knowledge Graph**: An `entities` table storing triples (Subject-Relation-Object) extracted via LLM analysis during ingestion.
+*   **Vector Engine**: FAISS (Facebook AI Similarity Search) for high-performance Approximate Nearest Neighbor (ANN) search.
+*   **Metadata Storage**: `aiosqlite` for asynchronous persistent metadata mapping.
+*   **Index Types**: 
+    - `flat_ip`: Inner Product (IP) index for exact search on smaller datasets.
+    - `ivf_pq`: Inverted File Index with Product Quantization for memory-efficient projection on large datasets.
+*   **Embeddings**: 768-dimensional vectors generated via local projection engines (typically using `nomic-embed-text`).
 
 ## 3. The Indexing Pipeline
 
 When a document is ingested (via `jarvis learn` or `jarvis index`), it undergoes the following stages:
 
-### A. Pre-Processing & Chunking
-Jarvis uses a hybrid chunking strategy implemented in `lib/semantic_memory.py`:
-- **Recursive Character Splitting**: Splitting by double newlines, single newlines, or sentences to maintain semantic coherence.
-- **Strategy-Based Splitting**: (`tools/chunker.py`) Supports `heading` (markdown headers), `tokens` (fixed-size with overlap), and `page` (horizontal rules) modes.
+### A. Intelligence-Based Chunking
+Jarvis uses a language-aware chunking strategy implemented in `lib/indexing/ingestor.py` to maintain "Multi-dimensional Vector Projection" (not "Semantic Understanding"):
+- **Python**: AST-based extraction of functions, classes, and async definitions.
+- **Rust/Lua**: RegEx-based boundary detection for function-level scoping.
+- **Markdown**: Sliding window paragraph grouping to maintain narrative context.
 
-### B. Vector Embedding
-Each chunk is sent to the local Ollama instance. The resulting 768-float vector is packed into a binary BLOB using standard Little-Endian padding (`struct.pack("<768f")`) and stored in the `vec_chunks` table.
+### B. Index Sharding & Training
+For `ivf_pq` indices, the system accumulates a representative training set (2x `nlist`) before executing the quantization transformation. This ensures stable clusters within the vector space.
 
-### C. Entity Extraction (Semantic Graph)
-Concurrent with embedding, a subset of chunks is processed by a fast LLM (e.g., `qwen3:1.7b`) to extract factual relationships. 
-- **Example**: `[["NixOS", "utilizes", "systemd"], ["Jarvis", "runs_on", "NixOS"]]`
-- These triples are stored in the `entities` table, allowing for future graph-based traversal alongside vector search.
+### C. Episodic State Serialization
+Metadata (line numbers, source paths, node names) is serialized into the companion SQLite database, linking the content-addressable vector IDs to their physical source locations.
 
-## 4. Retrieval & RAG Logic
+## 4. Hybrid Retrieval & RRF Logic
 
-When you run `jarvis query`, the following happens:
+When a query is processed, the system executes a "Hybrid Retrieval" flow to ensure high recall and precision:
 
-1.  **Dense Retrieval**: The query is embedded, and a KNN search is performed against `vec_chunks` using cosine distance. 
-2.  **Hybrid Filtering**: Results are filtered by `category` or `layer` if specified. If filtering is active, the initial search space (`k`) is dynamically expanded to ensure high recall.
-3.  **Context Synthesis**: Top results (typically Top-5) are combined with **Episodic Memory** (the current chat session context).
-4.  **Reality Injection**: The context is injected into the LLM via a system prompt that instructs Jarvis to "internalize" this data as its own personal identity and knowledge, rather than treating it as external snippets.
+1.  **Dense Vector Search**: The query is projected into the vector space, and the Top-K candidates are retrieved from the FAISS index.
+2.  **Metadata Filtering**: Sub-millisecond filtering is applied based on `category`, `source_path`, or `layer` using the `aiosqlite` index.
+3.  **BM25 Re-Ranking**: A dependency-free BM25 implementation re-scores the candidates based on keyword frequency to capture exact terminology that vector projections might blur.
+4.  **Score Normalization**: Multi-modal scores are normalized and combined using a weighted sum (Alpha-blending) to produce the final `hybrid_score`.
+5.  **Context Construction**: The highest-scoring fragments are retrieved and formatted for injection into the prompt context.
 
 ## 5. Performance Optimizations
 
-- **FTS5 Fallback**: While primary search is vector-based, the system includes logic for keyword-based fallback if high-confidence vectors are not found.
-- **Local-First**: Complete privacy is maintained by performing all embedding and search operations on the local machine (NixOS system) without external API calls.
+- **Quantized Storage**: IVF-PQ reduces memory footprint by ~10-20x compared to flat float32 vectors.
+- **Lazy Load**: The vector store and embedding engines are lazily initialized only when a search operation is triggered.
+- **Content-Addressable**: Duplicate content is naturally deduplicated via chunk ID hashing, preventing redundant index entries.
 
 ---
-*For implementation details, see [lib/knowledge_manager.py](../lib/knowledge_manager.py) and [lib/semantic_memory.py](../lib/semantic_memory.py).*
+*For implementation details, see [lib/indexing/faiss_index.py](../lib/indexing/faiss_index.py), [lib/indexing/semantic_search.py](../lib/indexing/semantic_search.py), and [lib/indexing/ingestor.py](../lib/indexing/ingestor.py).*
