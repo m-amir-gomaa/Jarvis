@@ -21,17 +21,29 @@ class KnowledgeManager:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
         
-        # New Agentic Intel components
-        from lib.indexing.embedding_engine import EmbeddingEngine
-        from lib.indexing.faiss_index import FAISSIndexManager
-        from lib.indexing.semantic_search import SemanticSearch
-        
-        self.embeddings = EmbeddingEngine()
-        self.faiss = FAISSIndexManager(
-            index_path=str(BASE_DIR / "index" / "faiss.bin"),
-            meta_db_path=str(db_path) # Shares the same DB for metadata
-        )
-        self.semantic_search_engine = SemanticSearch(self.embeddings, self.faiss)
+        # New Agentic Intel components — lazy-initialized on first search() call
+        # so that SQLite-only commands (knowledge list, training, inbox, etc.)
+        # don't fail when faiss/numpy are unavailable (e.g. broken libstdc++).
+        self._embeddings = None
+        self._faiss = None
+        self._semantic_search_engine = None
+
+    def _init_vector_store(self):
+        """Lazy-init the vector store — only called when semantic search is needed."""
+        if self._semantic_search_engine is not None:
+            return
+        try:
+            from lib.indexing.embedding_engine import EmbeddingEngine
+            from lib.indexing.faiss_index import FAISSIndexManager
+            from lib.indexing.semantic_search import SemanticSearch
+            self._embeddings = EmbeddingEngine()
+            self._faiss = FAISSIndexManager(
+                index_path=str(BASE_DIR / "index" / "faiss.bin"),
+                meta_db_path=str(self.db_path)
+            )
+            self._semantic_search_engine = SemanticSearch(self._embeddings, self._faiss)
+        except Exception as e:
+            print(f"[Jarvis] Warning: Vector store unavailable ({e}). Semantic search disabled.", file=__import__('sys').stderr)
 
     def _init_db(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -100,25 +112,24 @@ class KnowledgeManager:
         """
         Unified search using the new hybrid SemanticSearch engine.
         """
+        self._init_vector_store()
+        if self._semantic_search_engine is None:
+            print("[Jarvis] Semantic search unavailable (vector store not initialized).")
+            return []
+
         filters = {}
         if category:
             filters["category"] = category
             
-        # Note: Hybrid search currently doesn't support multiple categories natively in the loop,
-        # but we can filter the result set later.
-        
-        result_set = await self.semantic_search_engine.search(query_text, top_k=10, filters=filters if filters else None)
+        result_set = await self._semantic_search_engine.search(query_text, top_k=10, filters=filters if filters else None)
         
         legacy_results = []
         for r in result_set.results:
-            # Filter by layer if requested
             chunk_layer = r.extra_meta.get('layer')
             if layer and chunk_layer != layer:
                 continue
-            # Filter by multiple categories if requested
             if categories and r.chunk_type not in categories and r.extra_meta.get('category') not in categories:
                 continue
-
             legacy_results.append({
                 'content': r.content,
                 'source_url': r.source_path,
@@ -169,3 +180,23 @@ class KnowledgeManager:
                 current_path = current_path.parent
                 
         return list(associations)
+
+    def get_inbox(self, status: str = 'pending') -> List[Dict]:
+        """Return inbox items with the given status (default: 'pending')."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT * FROM inbox WHERE status = ? ORDER BY created_at DESC",
+                (status,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def add_inbox(self, title: str, url: Optional[str] = None, item_type: Optional[str] = None,
+                  reason: Optional[str] = None) -> int:
+        """Add a new item to the inbox queue. Returns the inserted row id."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "INSERT INTO inbox (type, title, url, recommendation_reason) VALUES (?, ?, ?, ?)",
+                (item_type, title, url, reason)
+            )
+            return cursor.lastrowid

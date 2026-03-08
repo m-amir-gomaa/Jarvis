@@ -1261,10 +1261,6 @@ def cmd_help():
     print("  jarvis 'fix the syntax error in my lua config'")
     
     print("\nHint: Most commands support autocomplete! Type 'jarvis <TAB>' in Zsh to see options.")
-    print("\nNatural Language Examples:")
-    print("  jarvis 'clean this pdf for notebooklm'")
-    print("  jarvis 'research transformer attention mechanisms'")
-    print("  jarvis 'write a nix module for postgresql'")
 
 
 def sync_assets():
@@ -1362,6 +1358,11 @@ def main():
             print(f"[Jarvis] Hello! Processing your request: '{user_input}'")
 
         command = sys.argv[1]
+
+        # Intercept --help and -h early, before NLU classification
+        if command in ("--help", "-h"):
+            cmd_help()
+            return
 
         if command == "--version":
             print(f"Jarvis version {VERSION}")

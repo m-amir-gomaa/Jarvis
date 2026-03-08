@@ -194,3 +194,6 @@ class FaissIndexManager:
                 self.faiss_path.unlink()
                 
         await self.initialize()
+
+# Alias for backwards-compatibility with imports that use the uppercase name
+FAISSIndexManager = FaissIndexManager
