@@ -1,5 +1,5 @@
 #compdef jarvis
-# Jarvis CLI Zsh Completion Script
+# Jarvis CLI Zsh Completion Script v3
 # Dynamically powered by 'jarvis completion'
 
 _jarvis() {
@@ -12,76 +12,100 @@ _jarvis() {
     if [[ ! -x "$jarvis_bin" ]]; then
         jarvis_bin="jarvis" # Fallback to PATH
     fi
-
-    # Helper for fzf selection
-    _jarvis_fzf_choice() {
-        local type=$1
-        local python_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/.venv/bin/python"
-        [[ ! -x "$python_bin" ]] && python_bin="python3"
-        
-        if command -v fzf >/dev/null; then
-            local choice=$($python_bin "$jarvis_bin" completion "$type" | fzf --height 40% --reverse --header "Select $type:")
-            if [[ -n "$choice" ]]; then
-                LBUFFER="${LBUFFER}${choice}"
-            fi
-        else
-            _message "fzf not found, falling back to standard completion"
-            local -a items
-            items=("${(@f)$($python_bin "$jarvis_bin" completion "$type")}")
-            _describe -t items "$type" items
-        fi
-    }
-
-    local -a subcmds
+    
     local python_bin="${JARVIS_ROOT:-$HOME/NixOSenv/Jarvis}/.venv/bin/python"
     [[ ! -x "$python_bin" ]] && python_bin="python3"
-    subcmds=("${(@f)$($python_bin "$jarvis_bin" completion commands)}")
 
     _arguments -C \
         '(-v --version)'{-v,--version}'[Show version information]' \
         '(-h --help)'{-h,--help}'[Show help]' \
-        '--short[Short one-line status for Waybar integration]' \
+        '--short[Short one-line status for status command]' \
         '1: :->cmds' \
-        '2: :->args' \
-        '*::arg:->rest' && ret=0
+        '*:: :->args' && ret=0
 
     case $state in
         cmds)
+            local -a subcmds
+            subcmds=("${(@f)$($python_bin "$jarvis_bin" completion commands)}")
             _describe -t commands 'jarvis commands' subcmds && ret=0
             ;;
         args)
             case $line[1] in
-                learn)
+                learn|ingest)
                     _arguments \
                         '--layer[Target knowledge layer]:layer:(1 2 3)' \
                         '--category[Knowledge category]:category:->categories' \
                         '*:URL or file:_files' && ret=0
-                    if [[ $state == "categories" ]]; then
-                        _jarvis_fzf_choice "categories" && ret=0
-                    fi
                     ;;
                 query)
-                    _jarvis_fzf_choice "categories" && ret=0
+                    _arguments \
+                        '--category[Filter by category]:category:->categories' \
+                        '*:Question:' && ret=0
                     ;;
-                models)
-                    _jarvis_fzf_choice "models" && ret=0
+                index)
+                    _arguments \
+                        '--category[Index category name]:category:' \
+                        '*:Directory:_files -/' && ret=0
+                    ;;
+                approve)
+                    _arguments \
+                        '1:ID:->pending_ids' && ret=0
+                    ;;
+                pending)
+                    # No extra args
+                    ;;
+                set-key)
+                    _arguments \
+                        '1:Provider:(anthropic openai deepseek groq)' \
+                        '2:API Key:' && ret=0
                     ;;
                 config)
-                    local -a targets=( 'nvim:Neovim' 'nixos:NixOS' )
-                    _describe -t targets 'targets' targets && ret=0
+                    _arguments \
+                        '1:Target:(nvim nixos)' \
+                        '2:Task:' && ret=0
                     ;;
                 inbox)
-                    local -a inbox_cmds=( 'process:Process item' )
-                    _describe -t commands 'inbox commands' inbox_cmds && ret=0
+                    _arguments \
+                        '1:Action:(process list)' \
+                        '*:: :->inbox_args' && ret=0
+                    ;;
+                toggle)
+                    _arguments \
+                        '1:Setting:(voice)' && ret=0
                     ;;
                 sessions)
-                    _jarvis_fzf_choice "sessions" && ret=0
+                    _arguments \
+                        '1:Session ID:->sessions' && ret=0
+                    ;;
+                models|keys|status|dashboard|backup|archive|uptime|pause|resume|man|training|forget|help)
+                    # Simple or no args
                     ;;
             esac
-            ;;
-        rest)
+            
+            # Handle dynamic categories/ids/sessions
+            case $state in
+                categories)
+                    local -a categories
+                    categories=("${(@f)$($python_bin "$jarvis_bin" completion categories)}")
+                    _describe -t categories 'categories' categories && ret=0
+                    ;;
+                pending_ids)
+                    local -a ids
+                    ids=("${(@f)$($python_bin "$jarvis_bin" completion pending_ids)}")
+                    _describe -t ids 'pending IDs' ids && ret=0
+                    ;;
+                sessions)
+                    local -a sessions
+                    sessions=("${(@f)$($python_bin "$jarvis_bin" completion sessions)}")
+                    _describe -t sessions 'sessions' sessions && ret=0
+                    ;;
+            esac
+            
+            # Handle nested inbox process
             if [[ $line[1] == "inbox" && $line[2] == "process" ]]; then
-                _jarvis_fzf_choice "inbox" && ret=0
+                local -a inbox_ids
+                inbox_ids=("${(@f)$($python_bin "$jarvis_bin" completion inbox)}")
+                _describe -t ids 'inbox IDs' inbox_ids && ret=0
             fi
             ;;
     esac

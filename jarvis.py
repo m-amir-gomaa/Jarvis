@@ -1431,6 +1431,18 @@ def main():
             print(f"\n  Run: jarvis approve <id>")
             return
 
+        if command == "set-key":
+            if len(sys.argv) < 4:
+                print("Usage: jarvis set-key <provider> <key>")
+                return
+            provider, key = sys.argv[2], sys.argv[3]
+            from lib.security.secrets import SecretsManager
+            sm = SecretsManager()
+            sm.set(provider, key)
+            print(f"[Jarvis] API key for '{provider}' securely stored.")
+            log_history(user_input, "set_key", "ok")
+            return
+
         if command == "query":
             query = " ".join(sys.argv[2:])
             if not query:
@@ -1498,6 +1510,7 @@ def main():
                     "codebases": "List indexed codebases",
                     "approve": "Approve a pending OOB capability grant",
                     "pending": "List pending capability approval requests",
+                    "set-key": "Securely store an API key for a provider",
                     "help": "Show usage help"
                 }
                 for cmd, desc in sorted(commands.items()):
@@ -1529,6 +1542,11 @@ def main():
                 km = KnowledgeManager()
                 for item in km.get_inbox():
                     print(item['id'])
+            elif ctype == "pending_ids":
+                from lib.security.audit import AuditLogger
+                audit = AuditLogger()
+                for r in audit.list_pending():
+                    print(r['id'])
             return
 
         # Natural language routing
