@@ -1,3 +1,46 @@
+# ⚠️ DEPRECATED — Jarvis: Personal AI Orchestrator (V3.5)
+
+> **This project is no longer maintained.**
+> Development has moved to [NeoVex](https://github.com/m-amir-gomaa/NeoVex), which supersedes Jarvis entirely.
+
+---
+
+## Why Jarvis is Deprecated
+
+Jarvis solved a real problem — agentic AI orchestration inside Neovim on NixOS — but it hit the limits of its own foundations. It was built in Python, local-first by design, and grew organically over several iterations into something that worked but was increasingly hard to extend.
+
+The core issues that led here:
+
+**Python and the GIL.** Concurrent agent workstreams in Python mean fighting the Global Interpreter Lock. Async helps, but it doesn't solve the problem — it just moves it. A system designed around multi-agent parallelism needs a better substrate.
+
+**Local-first was the wrong default.** Jarvis routed to local Ollama models first and treated cloud APIs as a fallback. That hierarchy is backwards for anyone who wants the best possible results. The best models are in the cloud. Local should be the fallback of last resort, not the default.
+
+**Architecture grew ahead of design.** Jarvis was built iteratively, feature by feature, without a locked vision document. The result is a system that works but whose subsystems are loosely coupled in ways that weren't planned. NeoVex starts with the vision locked first.
+
+Jarvis's ideas — the ERS, the RAG pipeline, the model router, the Neovim bridge, the MCP integration — all carry forward into NeoVex. The code does not.
+
+---
+
+## What Replaces It
+
+**[NeoVex](https://github.com/m-amir-gomaa/NeoVex)** — a cloud-native AI orchestration layer for Neovim, built in Rust, optimized for NixOS.
+
+| | Jarvis | NeoVex |
+|---|---|---|
+| Language | Python 3.12 | Rust |
+| Model priority | Local-first (Ollama) | Cloud-first (Gemini, Claude, GPT-4) |
+| Local fallback | Default path | Last resort only |
+| Concurrency | asyncio + GIL | tokio + Rust ownership |
+| Architecture | Grew organically | Vision-locked before code |
+| Status | **Deprecated** | Active development |
+| License | Apache 2.0 | GPL v3 |
+
+If you are using Jarvis today, NeoVex is not yet ready to replace it — it is in early architecture phase. Watch the NeoVex repository for progress.
+
+This repository is archived for reference. No further commits will be made to Jarvis.
+
+---
+
 # Jarvis: Personal AI Orchestrator (V3.5)
 
 Jarvis is a heavy-duty, local-first AI orchestration layer designed for developers on NixOS. It provides a principled, capability-based security model and an External Reasoning System (ERS) for complex, multi-step tasks.
